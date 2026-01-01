@@ -37,6 +37,10 @@ function App() {
   const isLoading = useTaskStore((state) => state.isLoading);
   const error = useTaskStore((state) => state.error);
   
+  // Fix: Map guestMode from store to isGuest variable used in component
+  const isGuest = useTaskStore((state) => state.guestMode);
+  const setGuestMode = useTaskStore((state) => state.setGuestMode);
+  
   // Sidebar selection state
   const menuItems = ['active', 'today', 'completed', 'all'] as const;
   const [sidebarIndex, setSidebarIndex] = useState(0);
@@ -71,7 +75,7 @@ function App() {
 
   // Global Hotkeys
   useEffect(() => {
-    if (!session) return; 
+    if (!session && !isGuest) return; 
 
     const handleKeyDown = (e: KeyboardEvent) => {
       // 1. Inputs Check
@@ -170,7 +174,7 @@ function App() {
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [session, isCmdOpen, isQuickAddOpen, undo, redo, toggleCmd, setQuickAddOpen, focusMode, sidebarIndex, menuItems, setFilter, setFocusMode, gPressed, isShortcutsOpen, setShortcutsOpen, batchAddTasks, tasks, focusedId]);
+  }, [session, isGuest, isCmdOpen, isQuickAddOpen, undo, redo, toggleCmd, setQuickAddOpen, focusMode, sidebarIndex, menuItems, setFilter, setFocusMode, gPressed, isShortcutsOpen, setShortcutsOpen, batchAddTasks, tasks, focusedId]);
 
   if (authLoading) {
     return (
@@ -180,12 +184,13 @@ function App() {
     )
   }
 
-  if (!session) {
+  // Allow render if Session OR Guest Mode
+  if (!session && !isGuest) {
       return <Login />;
   }
 
-  // Error State for DB connection issues
-  if (error) {
+  // Error State for DB connection issues (Only show if NOT guest)
+  if (error && !isGuest) {
       return (
         <div className="min-h-screen flex flex-col items-center justify-center bg-slate-50 dark:bg-slate-950 p-4 text-center">
             <div className="bg-white dark:bg-slate-900 border border-red-200 dark:border-red-900/50 p-6 rounded-xl shadow-xl max-w-lg w-full">
@@ -195,7 +200,6 @@ function App() {
                 <h3 className="text-lg font-bold text-slate-900 dark:text-slate-100 mb-2">Database Connection Error</h3>
                 <p className="text-sm text-slate-600 dark:text-slate-400 mb-6">{error}</p>
                 
-                {/* Heuristic check for missing table error (code 42P01 in postgres) */}
                 {(error.includes('relation "tasks" does not exist') || error.includes('42P01')) && (
                     <div className="text-left bg-slate-50 dark:bg-slate-950 rounded border border-slate-200 dark:border-slate-800 p-4 mb-4">
                         <p className="text-xs font-semibold uppercase tracking-wider text-slate-500 mb-2">Action Required</p>
@@ -206,15 +210,23 @@ function App() {
                     </div>
                 )}
                 
-                <button 
-                    onClick={() => { fetchTasks(); window.location.reload(); }} 
-                    className="w-full py-2.5 rounded-lg bg-primary-600 hover:bg-primary-500 text-white font-medium transition-colors"
-                >
-                    Retry Connection
-                </button>
+                <div className="flex flex-col gap-3">
+                    <button 
+                        onClick={() => { fetchTasks(); window.location.reload(); }} 
+                        className="w-full py-2.5 rounded-lg bg-primary-600 hover:bg-primary-500 text-white font-medium transition-colors"
+                    >
+                        Retry Connection
+                    </button>
+                    <button 
+                        onClick={() => { setGuestMode(true); fetchTasks(); }}
+                        className="text-xs text-slate-500 hover:text-slate-400"
+                    >
+                        Ignore and use Guest Mode
+                    </button>
+                </div>
             </div>
             <div className="mt-8 text-xs text-slate-400">
-                Logged in as {session.user.email} • <button onClick={() => supabase.auth.signOut()} className="underline hover:text-slate-300">Sign Out</button>
+                Logged in as {session?.user?.email} • <button onClick={() => supabase.auth.signOut()} className="underline hover:text-slate-300">Sign Out</button>
             </div>
         </div>
       );
@@ -269,8 +281,16 @@ function App() {
 
         <div className="px-6 mt-auto flex flex-col gap-2">
              <div className="text-xs text-slate-400 flex items-center justify-between">
-                <span>{session.user.email}</span>
-                <button onClick={() => supabase.auth.signOut()} className="hover:text-red-400">Sign Out</button>
+                <span>{isGuest ? 'Guest Mode' : session?.user?.email}</span>
+                <button 
+                    onClick={() => {
+                        if (isGuest) setGuestMode(false);
+                        else supabase.auth.signOut();
+                    }} 
+                    className="hover:text-red-400"
+                >
+                    {isGuest ? 'Exit' : 'Sign Out'}
+                </button>
              </div>
              <button onClick={() => setShortcutsOpen(true)} className="flex items-center gap-1 text-xs text-slate-400 hover:text-slate-200">
                 <Keyboard className="w-3 h-3" /> Shortcuts (?)

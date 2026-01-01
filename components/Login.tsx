@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { supabase } from '../utils/supabase';
 import { useTaskStore } from '../store/useTaskStore';
-import { Layers, Loader2, AlertCircle, UserOff } from 'lucide-react';
+import { Layers, Loader2, AlertCircle, UserX } from 'lucide-react';
 
 export const Login = () => {
   const [loading, setLoading] = useState(false);
@@ -93,7 +93,7 @@ export const Login = () => {
                 onClick={handleGuestLogin}
                 className="w-full py-3 px-4 rounded-lg bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-300 border border-slate-200 dark:border-slate-700 font-medium transition-all flex items-center justify-center gap-3"
             >
-                <UserOff className="w-5 h-5 text-slate-500" />
+                <UserX className="w-5 h-5 text-slate-500" />
                 <span>Continue as Guest</span>
             </button>
         </div>
