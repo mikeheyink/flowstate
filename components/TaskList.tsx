@@ -128,7 +128,7 @@ const TaskItem = ({
     <div
       {...attributes}
       {...listeners}
-      className="relative mb-1 group"
+      className={`relative mb-1 group ${isMobile ? 'touch-none cursor-grab active:cursor-grabbing' : ''}`}
     >
       {/* Swipe Completion Background Layer - Desktop only */}
       {!isMobile && (
@@ -517,15 +517,20 @@ export const TaskList: React.FC<TaskListProps> = ({ filter }) => {
   const [activeTaskId, setActiveTaskId] = useState<string | null>(null);
 
   const sensors = useSensors(
-    useSensor(PointerSensor, {
+    useSensor(MouseSensor, {
       activationConstraint: {
-        distance: 8,
+        distance: 5,
       }
     }),
     useSensor(TouchSensor, {
       activationConstraint: {
-        delay: 200,
-        tolerance: 5,
+        delay: 150,
+        tolerance: 8,
+      }
+    }),
+    useSensor(PointerSensor, {
+      activationConstraint: {
+        distance: 5,
       }
     })
   );
