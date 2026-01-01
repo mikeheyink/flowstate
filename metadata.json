@@ -1,0 +1,5 @@
+{
+  "name": "FlowState To-Do",
+  "description": "A high-performance, keyboard-first task manager inspired by Linear and Raycast. Features Vim-style navigation, NLP entry, and zero-latency interactions.",
+  "requestFramePermissions": []
+}
