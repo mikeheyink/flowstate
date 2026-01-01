@@ -11,26 +11,27 @@ interface TaskState {
   isLoading: boolean;
   error: string | null;
   guestMode: boolean;
-  
+
   // Actions
   fetchTasks: () => Promise<void>;
   addTask: (rawInput: string, parentId?: string | null, afterTaskId?: string | null) => void;
   batchAddTasks: (rawInputs: string[]) => void;
   updateTask: (id: string, updates: Partial<Task>) => void;
   moveTask: (id: string, direction: 'up' | 'down') => void;
-  
+
   toggleTask: (id: string) => void;
   deleteTask: (id: string) => void;
   archiveTask: (id: string) => void;
   setPriority: (id: string, priority: Priority) => void;
   setFocusedId: (id: string | null) => void;
   setGuestMode: (isGuest: boolean) => void;
-  
+
   // Hierarchy Actions
   toggleExpand: (id: string) => void;
   setExpandedAll: (expanded: boolean) => void;
   changeParent: (id: string, newParentId: string | null) => void;
-  
+  moveTaskTo: (id: string, newParentId: string | null, newOrder: number) => void;
+
   undo: () => void;
   redo: () => void;
   setTasks: (tasks: Task[]) => void;
@@ -70,304 +71,318 @@ const mapToDb = (task: Partial<Task>) => {
 };
 
 export const useTaskStore = create<TaskState>((set, get) => ({
-      tasks: [],
-      focusedId: null,
-      isLoading: false,
-      error: null,
-      guestMode: false,
+  tasks: [],
+  focusedId: null,
+  isLoading: false,
+  error: null,
+  guestMode: false,
 
-      setTasks: (tasks) => set({ tasks }),
-      setGuestMode: (guestMode) => set({ guestMode }),
+  setTasks: (tasks) => set({ tasks }),
+  setGuestMode: (guestMode) => set({ guestMode }),
 
-      fetchTasks: async () => {
-        set({ isLoading: true, error: null });
-        const { guestMode } = get();
+  fetchTasks: async () => {
+    set({ isLoading: true, error: null });
+    const { guestMode } = get();
 
-        // If in guest mode, we don't fetch from Supabase
-        if (guestMode) {
-          // Simple local mock for guest mode (empty for now as logic wasn't fully provided)
-          // or ideally retrieve from localStorage if we implemented that.
-          // For now, just stop loading.
-          set({ isLoading: false });
-          return;
-        }
+    // If in guest mode, we don't fetch from Supabase
+    if (guestMode) {
+      // Simple local mock for guest mode (empty for now as logic wasn't fully provided)
+      // or ideally retrieve from localStorage if we implemented that.
+      // For now, just stop loading.
+      set({ isLoading: false });
+      return;
+    }
 
-        const { data, error } = await supabase
-            .from('tasks')
-            .select('*')
-            .order('order', { ascending: true });
-            
-        if (data) {
-            set({ tasks: data.map(mapFromDb), isLoading: false });
-        } else {
-            set({ isLoading: false, error: error?.message || 'Unknown error' });
-            if (error) console.error("Error fetching tasks:", error);
-        }
-      },
+    const { data, error } = await supabase
+      .from('tasks')
+      .select('*')
+      .order('order', { ascending: true });
 
-      addTask: async (rawInput, parentId = null, afterTaskId = null) => {
-        const { title, priority, tags, dueDate } = parseTaskInput(rawInput);
-        if (!title) return;
+    if (data) {
+      set({ tasks: data.map(mapFromDb), isLoading: false });
+    } else {
+      set({ isLoading: false, error: error?.message || 'Unknown error' });
+      if (error) console.error("Error fetching tasks:", error);
+    }
+  },
 
-        // 1. Calculate state
-        const state = get();
-        const newTask: Task = {
-            id: generateId(),
-            parentId: parentId,
-            expanded: true,
-            title,
-            priority,
-            tags,
-            dueDate,
-            completed: false,
-            archived: false,
-            createdAt: Date.now(),
-            order: 0,
-        };
+  addTask: async (rawInput, parentId = null, afterTaskId = null) => {
+    const { title, priority, tags, dueDate } = parseTaskInput(rawInput);
+    if (!title) return;
 
-        const activeSiblings = state.tasks.filter(t => 
-            t.parentId === parentId && !t.archived && !t.completed
-        );
+    // 1. Calculate state
+    const state = get();
+    const newTask: Task = {
+      id: generateId(),
+      parentId: parentId,
+      expanded: true,
+      title,
+      priority,
+      tags,
+      dueDate,
+      completed: false,
+      archived: false,
+      createdAt: Date.now(),
+      order: 0,
+    };
 
-        activeSiblings.sort((a, b) => {
-            const orderA = a.order ?? -a.createdAt;
-            const orderB = b.order ?? -b.createdAt;
-            return orderA - orderB;
-        });
+    const activeSiblings = state.tasks.filter(t =>
+      t.parentId === parentId && !t.archived && !t.completed
+    );
 
-        let insertIndex = 0;
-        if (afterTaskId) {
-            const idx = activeSiblings.findIndex(t => t.id === afterTaskId);
-            if (idx !== -1) insertIndex = idx + 1;
-        }
+    activeSiblings.sort((a, b) => {
+      const orderA = a.order ?? -a.createdAt;
+      const orderB = b.order ?? -b.createdAt;
+      return orderA - orderB;
+    });
 
-        const newOrderList = [...activeSiblings];
-        newOrderList.splice(insertIndex, 0, newTask);
+    let insertIndex = 0;
+    if (afterTaskId) {
+      const idx = activeSiblings.findIndex(t => t.id === afterTaskId);
+      if (idx !== -1) insertIndex = idx + 1;
+    }
 
-        // Normalize orders
-        const updates: Record<string, number> = {};
-        newOrderList.forEach((t, i) => {
-            updates[t.id] = i * 1000;
-        });
+    const newOrderList = [...activeSiblings];
+    newOrderList.splice(insertIndex, 0, newTask);
 
-        // 2. Optimistic Update
-        const updatedTasks = state.tasks.map(t => 
-            updates[t.id] !== undefined ? { ...t, order: updates[t.id] } : t
-        );
-        const finalTasks = parentId 
-            ? updatedTasks.map(t => t.id === parentId ? { ...t, expanded: true } : t)
-            : updatedTasks;
-        
-        const finalNewTask = { ...newTask, order: updates[newTask.id] };
+    // Normalize orders
+    const updates: Record<string, number> = {};
+    newOrderList.forEach((t, i) => {
+      updates[t.id] = i * 1000;
+    });
 
-        set({
-            tasks: [...finalTasks, finalNewTask],
-            focusedId: newTask.id,
-        });
+    // 2. Optimistic Update
+    const updatedTasks = state.tasks.map(t =>
+      updates[t.id] !== undefined ? { ...t, order: updates[t.id] } : t
+    );
+    const finalTasks = parentId
+      ? updatedTasks.map(t => t.id === parentId ? { ...t, expanded: true } : t)
+      : updatedTasks;
 
-        // 3. DB Sync
-        if (state.guestMode) return; // No sync in guest mode
+    const finalNewTask = { ...newTask, order: updates[newTask.id] };
 
-        const { data: userData } = await supabase.auth.getUser();
-        if (!userData.user) return; // Should handle error
+    set({
+      tasks: [...finalTasks, finalNewTask],
+      focusedId: newTask.id,
+    });
 
-        // Insert new task
-        await supabase.from('tasks').insert({
-            ...mapToDb(finalNewTask),
-            user_id: userData.user.id
-        });
+    // 3. DB Sync
+    if (state.guestMode) return; // No sync in guest mode
 
-        // Update siblings order
-        // In a real app we'd batch this or make it smarter, but for MVP loop is okay
-        // Or simply only update the ones that changed.
-        for (const t of activeSiblings) {
-             if (updates[t.id] !== undefined && updates[t.id] !== t.order) {
-                 await supabase.from('tasks').update({ order: updates[t.id] }).eq('id', t.id);
-             }
-        }
-      },
+    const { data: userData } = await supabase.auth.getUser();
+    if (!userData.user) return; // Should handle error
 
-      batchAddTasks: async (rawInputs) => {
-        const state = get();
-        const now = Date.now();
-        
-        const newTasks = rawInputs.map((input, idx) => {
-             const { title, priority, tags, dueDate } = parseTaskInput(input);
-             return {
-                id: generateId(),
-                parentId: null,
-                expanded: true,
-                title, priority, tags, dueDate,
-                completed: false,
-                archived: false,
-                createdAt: now,
-                order: -(now + idx),
-             } as Task;
-        }).filter(t => t.title);
+    // Insert new task
+    await supabase.from('tasks').insert({
+      ...mapToDb(finalNewTask),
+      user_id: userData.user.id
+    });
 
-        set({ tasks: [...newTasks, ...state.tasks] });
+    // Update siblings order
+    // In a real app we'd batch this or make it smarter, but for MVP loop is okay
+    // Or simply only update the ones that changed.
+    for (const t of activeSiblings) {
+      if (updates[t.id] !== undefined && updates[t.id] !== t.order) {
+        await supabase.from('tasks').update({ order: updates[t.id] }).eq('id', t.id);
+      }
+    }
+  },
 
-        if (state.guestMode) return;
+  batchAddTasks: async (rawInputs) => {
+    const state = get();
+    const now = Date.now();
 
-        const { data: userData } = await supabase.auth.getUser();
-        if (!userData.user) return;
+    const newTasks = rawInputs.map((input, idx) => {
+      const { title, priority, tags, dueDate } = parseTaskInput(input);
+      return {
+        id: generateId(),
+        parentId: null,
+        expanded: true,
+        title, priority, tags, dueDate,
+        completed: false,
+        archived: false,
+        createdAt: now,
+        order: -(now + idx),
+      } as Task;
+    }).filter(t => t.title);
 
-        const dbTasks = newTasks.map(t => ({
-            ...mapToDb(t),
-            user_id: userData.user!.id
-        }));
+    set({ tasks: [...newTasks, ...state.tasks] });
 
-        await supabase.from('tasks').insert(dbTasks);
-      },
+    if (state.guestMode) return;
 
-      updateTask: async (id, updates) => {
-        set((state) => ({
-          tasks: state.tasks.map(t => t.id === id ? { ...t, ...updates } : t),
-        }));
-        
-        const state = get();
-        if (state.guestMode) return;
+    const { data: userData } = await supabase.auth.getUser();
+    if (!userData.user) return;
 
-        await supabase.from('tasks').update(mapToDb(updates)).eq('id', id);
-      },
+    const dbTasks = newTasks.map(t => ({
+      ...mapToDb(t),
+      user_id: userData.user!.id
+    }));
 
-      moveTask: async (id: string, direction: 'up' | 'down') => {
-        const state = get();
-        const task = state.tasks.find(t => t.id === id);
-        if (!task) return;
+    await supabase.from('tasks').insert(dbTasks);
+  },
 
-        const siblings = state.tasks.filter(t => 
-            t.parentId === (task.parentId || null) && 
-            t.completed === task.completed && 
-            !t.archived
-        );
+  updateTask: async (id, updates) => {
+    set((state) => ({
+      tasks: state.tasks.map(t => t.id === id ? { ...t, ...updates } : t),
+    }));
 
-        siblings.sort((a, b) => {
-            const orderA = a.order ?? -a.createdAt;
-            const orderB = b.order ?? -b.createdAt;
-            return orderA - orderB;
-        });
+    const state = get();
+    if (state.guestMode) return;
 
-        const currentIndex = siblings.findIndex(t => t.id === id);
-        if (currentIndex === -1) return;
+    await supabase.from('tasks').update(mapToDb(updates)).eq('id', id);
+  },
 
-        const targetIndex = direction === 'up' ? currentIndex - 1 : currentIndex + 1;
-        if (targetIndex < 0 || targetIndex >= siblings.length) return;
+  moveTask: async (id: string, direction: 'up' | 'down') => {
+    const state = get();
+    const task = state.tasks.find(t => t.id === id);
+    if (!task) return;
 
-        const updates: Record<string, number> = {};
-        siblings.forEach((t, i) => { updates[t.id] = i * 1000; });
+    const siblings = state.tasks.filter(t =>
+      t.parentId === (task.parentId || null) &&
+      t.completed === task.completed &&
+      !t.archived
+    );
 
-        const id1 = siblings[currentIndex].id;
-        const id2 = siblings[targetIndex].id;
-        
-        // Swap
-        const temp = updates[id1];
-        updates[id1] = updates[id2];
-        updates[id2] = temp;
+    siblings.sort((a, b) => {
+      const orderA = a.order ?? -a.createdAt;
+      const orderB = b.order ?? -b.createdAt;
+      return orderA - orderB;
+    });
 
-        set((state) => ({
-            tasks: state.tasks.map(t => updates[t.id] !== undefined ? { ...t, order: updates[t.id] } : t)
-        }));
+    const currentIndex = siblings.findIndex(t => t.id === id);
+    if (currentIndex === -1) return;
 
-        if (state.guestMode) return;
+    const targetIndex = direction === 'up' ? currentIndex - 1 : currentIndex + 1;
+    if (targetIndex < 0 || targetIndex >= siblings.length) return;
 
-        await supabase.from('tasks').update({ order: updates[id1] }).eq('id', id1);
-        await supabase.from('tasks').update({ order: updates[id2] }).eq('id', id2);
-      },
+    const updates: Record<string, number> = {};
+    siblings.forEach((t, i) => { updates[t.id] = i * 1000; });
 
-      changeParent: async (id, newParentId) => {
-        set((state) => ({
-            tasks: state.tasks.map(t => t.id === id ? { ...t, parentId: newParentId } : t)
-        }));
-        
-        const state = get();
-        if (state.guestMode) return;
+    const id1 = siblings[currentIndex].id;
+    const id2 = siblings[targetIndex].id;
 
-        await supabase.from('tasks').update({ parent_id: newParentId }).eq('id', id);
-      },
+    // Swap
+    const temp = updates[id1];
+    updates[id1] = updates[id2];
+    updates[id2] = temp;
 
-      toggleTask: async (id) => {
-        const state = get();
-        const task = state.tasks.find(t => t.id === id);
-        if (!task) return;
-        const newVal = !task.completed;
+    set((state) => ({
+      tasks: state.tasks.map(t => updates[t.id] !== undefined ? { ...t, order: updates[t.id] } : t)
+    }));
 
-        set((state) => {
-          return {
-            tasks: state.tasks.map((t) => t.id === id ? { ...t, completed: newVal } : t),
-          };
-        });
+    if (state.guestMode) return;
 
-        if (state.guestMode) return;
-        await supabase.from('tasks').update({ completed: newVal }).eq('id', id);
-      },
+    await supabase.from('tasks').update({ order: updates[id1] }).eq('id', id1);
+    await supabase.from('tasks').update({ order: updates[id2] }).eq('id', id2);
+  },
 
-      deleteTask: async (id) => {
-        // Simple optimistic delete
-        set((state) => ({
-          tasks: state.tasks.filter((t) => t.id !== id && t.parentId !== id),
-        }));
+  changeParent: async (id, newParentId) => {
+    set((state) => ({
+      tasks: state.tasks.map(t => t.id === id ? { ...t, parentId: newParentId } : t)
+    }));
 
-        const state = get();
-        if (state.guestMode) return;
+    const state = get();
+    if (state.guestMode) return;
 
-        await supabase.from('tasks').delete().eq('id', id);
-        // Supabase cascade delete handles children if configured, but here we do simple
-      },
+    await supabase.from('tasks').update({ parent_id: newParentId }).eq('id', id);
+  },
 
-      archiveTask: async (id) => {
-        set((state) => ({
-            tasks: state.tasks.map((t) => t.id === id ? { ...t, archived: true } : t),
-        }));
+  moveTaskTo: async (id: string, newParentId: string | null, newOrder: number) => {
+    set((state) => ({
+      tasks: state.tasks.map(t => t.id === id ? { ...t, parentId: newParentId, order: newOrder } : t)
+    }));
 
-        const state = get();
-        if (state.guestMode) return;
-        
-        await supabase.from('tasks').update({ archived: true }).eq('id', id);
-      },
+    const state = get();
+    if (state.guestMode) return;
 
-      setPriority: async (id, priority) => {
-        set((state) => ({
-            tasks: state.tasks.map((t) => t.id === id ? { ...t, priority } : t),
-        }));
+    await supabase.from('tasks').update({
+      parent_id: newParentId,
+      order: newOrder
+    }).eq('id', id);
+  },
 
-        const state = get();
-        if (state.guestMode) return;
+  toggleTask: async (id) => {
+    const state = get();
+    const task = state.tasks.find(t => t.id === id);
+    if (!task) return;
+    const newVal = !task.completed;
 
-        await supabase.from('tasks').update({ priority }).eq('id', id);
-      },
+    set((state) => {
+      return {
+        tasks: state.tasks.map((t) => t.id === id ? { ...t, completed: newVal } : t),
+      };
+    });
 
-      setFocusedId: (id) => set({ focusedId: id }),
+    if (state.guestMode) return;
+    await supabase.from('tasks').update({ completed: newVal }).eq('id', id);
+  },
 
-      toggleExpand: async (id) => {
-        const state = get();
-        const task = state.tasks.find(t => t.id === id);
-        if (!task) return;
-        
-        set((state) => ({
-          tasks: state.tasks.map(t => t.id === id ? { ...t, expanded: !t.expanded } : t)
-        }));
-        
-        if (state.guestMode) return;
+  deleteTask: async (id) => {
+    // Simple optimistic delete
+    set((state) => ({
+      tasks: state.tasks.filter((t) => t.id !== id && t.parentId !== id),
+    }));
 
-        await supabase.from('tasks').update({ expanded: !task.expanded }).eq('id', id);
-      },
+    const state = get();
+    if (state.guestMode) return;
 
-      setExpandedAll: (expanded) => {
-        set((state) => ({
-            tasks: state.tasks.map(t => ({ ...t, expanded }))
-        }));
-        // We don't sync this "view state" to DB to avoid mass updates for a UI toggle
-      },
+    await supabase.from('tasks').delete().eq('id', id);
+    // Supabase cascade delete handles children if configured, but here we do simple
+  },
 
-      undo: () => {
-         // Undo with Database is complex. For MVP, we'll rely on simple Revert logic 
-         // or disable it until a robust Command pattern is implemented.
-         // Disabling strictly for now as it conflicts with Async nature.
-         console.warn("Undo not fully supported in Async/DB mode yet.");
-      },
+  archiveTask: async (id) => {
+    set((state) => ({
+      tasks: state.tasks.map((t) => t.id === id ? { ...t, archived: true } : t),
+    }));
 
-      redo: () => {
-         console.warn("Redo not fully supported in Async/DB mode yet.");
-      },
+    const state = get();
+    if (state.guestMode) return;
+
+    await supabase.from('tasks').update({ archived: true }).eq('id', id);
+  },
+
+  setPriority: async (id, priority) => {
+    set((state) => ({
+      tasks: state.tasks.map((t) => t.id === id ? { ...t, priority } : t),
+    }));
+
+    const state = get();
+    if (state.guestMode) return;
+
+    await supabase.from('tasks').update({ priority }).eq('id', id);
+  },
+
+  setFocusedId: (id) => set({ focusedId: id }),
+
+  toggleExpand: async (id) => {
+    const state = get();
+    const task = state.tasks.find(t => t.id === id);
+    if (!task) return;
+
+    set((state) => ({
+      tasks: state.tasks.map(t => t.id === id ? { ...t, expanded: !t.expanded } : t)
+    }));
+
+    if (state.guestMode) return;
+
+    await supabase.from('tasks').update({ expanded: !task.expanded }).eq('id', id);
+  },
+
+  setExpandedAll: (expanded) => {
+    set((state) => ({
+      tasks: state.tasks.map(t => ({ ...t, expanded }))
+    }));
+    // We don't sync this "view state" to DB to avoid mass updates for a UI toggle
+  },
+
+  undo: () => {
+    // Undo with Database is complex. For MVP, we'll rely on simple Revert logic 
+    // or disable it until a robust Command pattern is implemented.
+    // Disabling strictly for now as it conflicts with Async nature.
+    console.warn("Undo not fully supported in Async/DB mode yet.");
+  },
+
+  redo: () => {
+    console.warn("Redo not fully supported in Async/DB mode yet.");
+  },
 }));

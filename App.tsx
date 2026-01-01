@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useRef } from 'react';
-import { Command, Layers, Inbox, CheckSquare, Archive, Calendar as CalendarIcon, Keyboard, Loader2, AlertCircle } from 'lucide-react';
+import { Command, Layers, Inbox, CheckSquare, Archive, Calendar as CalendarIcon, Keyboard, Loader2, AlertCircle, UserX } from 'lucide-react';
 import { TaskList } from './components/TaskList';
 import { CommandPalette } from './components/CommandPalette';
 import { QuickAdd } from './components/QuickAdd';
@@ -258,27 +258,32 @@ function App() {
 
     return (
         <div className="min-h-screen bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-200 flex flex-col md:flex-row font-sans selection:bg-primary-500/30">
-            {/* Sidebar */}
+            {/* Sidebar / Mobile Header */}
             <aside
                 className={`
-            w-full md:w-64 bg-white dark:bg-slate-900/50 border-r flex flex-col pt-6 pb-4 transition-colors duration-200
+            w-full md:w-64 bg-white dark:bg-slate-900/50 
+            border-b md:border-b-0 md:border-r 
+            flex flex-row md:flex-col 
+            items-center md:items-stretch
+            px-4 py-3 md:pt-6 md:pb-4 
+            transition-colors duration-200 shrink-0
             ${focusMode === 'sidebar' ? 'border-primary-500/50 ring-1 ring-inset ring-primary-500/20' : 'border-slate-200 dark:border-slate-800/50'}
         `}
             >
-                <div className="px-6 mb-8 flex items-center gap-2">
-                    <Layers className="w-6 h-6 text-primary-600 dark:text-primary-500" />
-                    <h1 className="text-xl font-bold tracking-tight text-slate-900 dark:text-slate-100">FlowState</h1>
+                <div className="flex items-center gap-2 mr-4 md:mr-0 md:px-6 md:mb-8">
+                    <Layers className="w-5 h-5 md:w-6 md:h-6 text-primary-600 dark:text-primary-500" />
+                    <h1 className="text-lg md:text-xl font-bold tracking-tight text-slate-900 dark:text-slate-100 hidden sm:block">FlowState</h1>
                 </div>
 
-                <nav className="flex-1 px-3 space-y-1">
+                <nav className="flex-1 flex flex-row md:flex-col gap-1 md:gap-0 md:space-y-1 overflow-x-auto md:overflow-visible no-scrollbar mask-linear-fade md:mask-none px-2 md:px-3">
                     {menuItems.map((item, index) => {
                         const isActive = filter === item;
                         const isFocused = focusMode === 'sidebar' && sidebarIndex === index;
 
                         let Icon = Inbox;
                         let Label = 'Inbox';
-                        if (item === 'completed') { Icon = CheckSquare; Label = 'Completed'; }
-                        if (item === 'all') { Icon = Archive; Label = 'All Tasks'; }
+                        if (item === 'completed') { Icon = CheckSquare; Label = 'Done'; }
+                        if (item === 'all') { Icon = Archive; Label = 'All'; }
                         if (item === 'today') { Icon = CalendarIcon; Label = 'Today'; }
 
                         return (
@@ -290,22 +295,23 @@ function App() {
                                     setSidebarIndex(index);
                                 }}
                                 className={`
-                            w-full flex items-center gap-3 px-3 py-2 rounded-md text-sm font-medium transition-all relative
+                            flex items-center gap-2 px-3 py-1.5 md:py-2 rounded-md text-xs md:text-sm font-medium transition-all relative shrink-0
                             ${isActive ? 'bg-slate-100 dark:bg-slate-800 text-primary-600 dark:text-primary-400' : 'text-slate-600 dark:text-slate-400 hover:bg-slate-100/50 dark:hover:bg-slate-800/50 hover:text-slate-900 dark:hover:text-slate-200'}
                             ${isFocused ? 'ring-1 ring-primary-500 bg-slate-100 dark:bg-slate-800/80 text-primary-600 dark:text-primary-300' : ''}
                         `}
                             >
-                                {isFocused && <div className="absolute left-0 top-1/2 -translate-y-1/2 w-1 h-5 bg-primary-500 rounded-r-full" />}
+                                {isFocused && <div className="absolute left-0 top-1/2 -translate-y-1/2 w-1 h-4 md:h-5 bg-primary-500 rounded-r-full hidden md:block" />}
                                 <Icon className="w-4 h-4" />
-                                {Label}
+                                <span className={item === 'active' ? '' : 'hidden sm:inline'}>{Label}</span>
                             </button>
                         );
                     })}
                 </nav>
 
-                <div className="px-6 mt-auto flex flex-col gap-2">
-                    <div className="text-xs text-slate-400 flex items-center justify-between">
-                        <span>{isGuest ? 'Guest Mode' : session?.user?.email}</span>
+                <div className="ml-2 md:ml-0 md:px-6 md:mt-auto flex flex-col gap-2 shrink-0 border-l md:border-l-0 pl-3 md:pl-0 border-slate-200 dark:border-slate-800">
+                    <div className="text-xs text-slate-400 flex items-center gap-2 md:justify-between">
+                        <span className="w-2 h-2 rounded-full bg-green-500 block md:hidden" title={isGuest ? 'Guest' : session?.user?.email} />
+                        <span className="hidden md:block truncate max-w-[100px]">{isGuest ? 'Guest' : session?.user?.email}</span>
                         <button
                             onClick={() => {
                                 if (isGuest) setGuestMode(false);
@@ -313,10 +319,11 @@ function App() {
                             }}
                             className="hover:text-red-400"
                         >
-                            {isGuest ? 'Exit' : 'Sign Out'}
+                            <span className="hidden md:inline">{isGuest ? 'Exit' : 'Sign Out'}</span>
+                            <UserX className="w-4 h-4 md:hidden" />
                         </button>
                     </div>
-                    <button onClick={() => setShortcutsOpen(true)} className="flex items-center gap-1 text-xs text-slate-400 hover:text-slate-200">
+                    <button onClick={() => setShortcutsOpen(true)} className="hidden md:flex items-center gap-1 text-xs text-slate-400 hover:text-slate-200">
                         <Keyboard className="w-3 h-3" /> Shortcuts (?)
                     </button>
                 </div>
@@ -342,8 +349,12 @@ function App() {
                 </header>
 
                 <div
-                    onClick={() => setFocusMode('main')}
-                    className={`flex-1 overflow-y-auto px-4 py-6 md:px-8 scroll-smooth transition-opacity duration-200 ${focusMode === 'sidebar' ? 'opacity-50' : 'opacity-100'}`}
+                    onClick={() => {
+                        setFocusMode('main');
+                        // Deselect if clicking whitespace
+                        useTaskStore.getState().setFocusedId(null);
+                    }}
+                    className={`flex-1 overflow-y-auto px-4 py-6 md:px-8 scroll-smooth transition-opacity duration-200 ${focusMode === 'sidebar' ? 'md:opacity-50' : 'opacity-100'}`}
                 >
                     <div className="max-w-3xl mx-auto">
                         <TaskList filter={filter} />
@@ -352,6 +363,25 @@ function App() {
 
                 {/* Floating Quick Add Input */}
                 <QuickAdd isOpen={isQuickAddOpen} onClose={() => setQuickAddOpen(false)} />
+
+                {/* Mobile FAB */}
+                <button
+                    onClick={() => {
+                        const focusedId = useTaskStore.getState().focusedId;
+                        if (focusedId) {
+                            setQuickAddOpen(true, focusedId);
+                        } else {
+                            setQuickAddOpen(true);
+                        }
+                    }}
+                    className="md:hidden fixed bottom-6 right-6 w-14 h-14 bg-primary-600 text-white rounded-full shadow-lg flex items-center justify-center hover:bg-primary-500 active:scale-95 transition-all z-40"
+                    aria-label="Add Task"
+                >
+                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                        <line x1="12" y1="5" x2="12" y2="19"></line>
+                        <line x1="5" y1="12" x2="19" y2="12"></line>
+                    </svg>
+                </button>
             </main>
 
             {/* Modals & Overlays */}

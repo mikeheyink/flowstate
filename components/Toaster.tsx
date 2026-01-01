@@ -4,27 +4,24 @@ import { useTaskStore } from '../store/useTaskStore';
 interface Toast {
   id: number;
   message: string;
+  action?: {
+    label: string;
+    onClick: () => void;
+  };
 }
 
 export const Toaster: React.FC = () => {
   const [toasts, setToasts] = useState<Toast[]>([]);
   const { undo } = useTaskStore();
 
-  // We'll listen to history changes to trigger a generic "Undo available" toast
-  // In a real app, we'd dispatch events, but watching history length is a quick heuristic
-  // for this contained MVP.
-
-  // Actually, a better way for the "Action" feedback is to expose a 'lastAction' in store, 
-  // but let's simulate it with a simple event listener for now to keep store clean.
-
-  // Removed history effect as history is not yet implemented
-
-  const pushToast = (message: string) => {
+  const pushToast = (detail: string | { message: string, action?: { label: string, onClick: () => void } }) => {
     const id = Date.now();
-    setToasts(prev => [...prev, { id, message }]);
+    const content = typeof detail === 'string' ? { message: detail } : detail;
+
+    setToasts(prev => [...prev, { id, ...content }]);
     setTimeout(() => {
       setToasts(prev => prev.filter(t => t.id !== id));
-    }, 3000);
+    }, 4000); // Increased duration for undo chance
   };
 
   // Global event listener for custom toast events
@@ -36,13 +33,20 @@ export const Toaster: React.FC = () => {
 
   return (
     <div className="fixed bottom-6 right-6 z-50 flex flex-col gap-2 pointer-events-none">
-      {/* 
-          Undo toast temporarily disabled as history is not fully implemented in store yet.
-          To re-enable, add history state to useTaskStore.
-       */}
       {toasts.map(t => (
-        <div key={t.id} className="pointer-events-auto bg-slate-900 border border-slate-700 text-slate-200 px-4 py-3 rounded-lg shadow-xl animate-toast-in">
+        <div key={t.id} className="pointer-events-auto flex items-center gap-3 bg-slate-900 border border-slate-700 text-slate-200 px-4 py-3 rounded-lg shadow-xl animate-toast-in">
           <span className="text-sm font-medium">{t.message}</span>
+          {t.action && (
+            <button
+              onClick={() => {
+                t.action?.onClick();
+                setToasts(prev => prev.filter(toast => toast.id !== t.id));
+              }}
+              className="text-xs font-bold text-primary-400 hover:text-primary-300 uppercase tracking-wide px-2 py-1 rounded hover:bg-slate-800 transition-colors"
+            >
+              {t.action.label}
+            </button>
+          )}
         </div>
       ))}
     </div>
@@ -50,7 +54,7 @@ export const Toaster: React.FC = () => {
 };
 
 // Utility to dispatch toast
-export const toast = (message: string) => {
-  const event = new CustomEvent('toast', { detail: message });
+export const toast = (message: string, action?: { label: string, onClick: () => void }) => {
+  const event = new CustomEvent('toast', { detail: action ? { message, action } : message });
   window.dispatchEvent(event);
 };
