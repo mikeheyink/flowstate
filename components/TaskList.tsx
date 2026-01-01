@@ -32,9 +32,15 @@ export const TaskList: React.FC<TaskListProps> = ({ filter }) => {
   const moveTask = useTaskStore((state) => state.moveTask);
   const toggleExpand = useTaskStore((state) => state.toggleExpand);
   const setExpandedAll = useTaskStore((state) => state.setExpandedAll);
+
+  // Debug Logging
+  useEffect(() => {
+    console.log('[TaskList] Tasks:', tasks);
+  }, [tasks]);
+
   const changeParent = useTaskStore((state) => state.changeParent);
   const updateTask = useTaskStore((state) => state.updateTask);
-  
+
   const setQuickAddOpen = useUIStore((state) => state.setQuickAddOpen);
   const focusMode = useUIStore((state) => state.focusMode);
   const setFocusMode = useUIStore((state) => state.setFocusMode);
@@ -53,25 +59,30 @@ export const TaskList: React.FC<TaskListProps> = ({ filter }) => {
     if (filter === 'active') filtered = filtered.filter(t => !t.completed);
     if (filter === 'completed') filtered = filtered.filter(t => t.completed);
     if (filter === 'today') {
-        filtered = filtered.filter(t => {
-            if (t.completed) return false;
-            if (!t.dueDate) return false;
-            const d = new Date(t.dueDate);
-            return d >= startOfToday && d < endOfToday;
-        });
+      filtered = filtered.filter(t => {
+        if (t.completed) return false;
+        if (!t.dueDate) return false;
+        const d = new Date(t.dueDate);
+        return d >= startOfToday && d < endOfToday;
+      });
     }
 
     // Sort order
     filtered.sort((a, b) => {
       // 1. Completed at bottom
       if (a.completed !== b.completed) return a.completed ? 1 : -1;
-      
+
       // 2. Explicit Order (or fallback to createdAt)
       const orderA = a.order ?? -a.createdAt;
       const orderB = b.order ?? -b.createdAt;
-      
+
       return orderA - orderB;
     });
+
+    // For 'completed' or 'today' filter, we want a flat list, ignoring hierarchy
+    if (filter === 'completed' || filter === 'today') {
+      return filtered.map(t => ({ ...t, depth: 0, hasChildren: false }));
+    }
 
     const result: VisibleTask[] = [];
     const childrenMap = new Map<string | null, Task[]>();
@@ -88,7 +99,7 @@ export const TaskList: React.FC<TaskListProps> = ({ filter }) => {
 
       for (const child of children) {
         const hasChildren = childrenMap.has(child.id) && (childrenMap.get(child.id)?.length || 0) > 0;
-        
+
         result.push({
           ...child,
           depth,
@@ -108,7 +119,7 @@ export const TaskList: React.FC<TaskListProps> = ({ filter }) => {
   const visibleTasksRef = useRef(visibleTasks);
   const focusedIdRef = useRef(focusedId);
   const editingTaskIdRef = useRef(editingTaskId);
-  
+
   useEffect(() => { visibleTasksRef.current = visibleTasks; }, [visibleTasks]);
   useEffect(() => { focusedIdRef.current = focusedId; }, [focusedId]);
   useEffect(() => { editingTaskIdRef.current = editingTaskId; }, [editingTaskId]);
@@ -136,7 +147,7 @@ export const TaskList: React.FC<TaskListProps> = ({ filter }) => {
         setFocusedId(currentTasks[0].id);
       }
     } else if (currentFocus === null) {
-       setFocusedId(currentTasks[0].id);
+      setFocusedId(currentTasks[0].id);
     }
     prevVisibleTasksRef.current = currentTasks;
   }, [visibleTasks, focusedId, setFocusedId]);
@@ -156,10 +167,10 @@ export const TaskList: React.FC<TaskListProps> = ({ filter }) => {
       const currentId = focusedIdRef.current;
       const currentIndex = currentTasks.findIndex(t => t.id === currentId);
       const currentTask = currentTasks[currentIndex];
-      
+
       const navigate = (newIndex: number) => {
         if (newIndex >= 0 && newIndex < currentTasks.length) {
-            setFocusedId(currentTasks[newIndex].id);
+          setFocusedId(currentTasks[newIndex].id);
         }
       };
 
@@ -178,62 +189,60 @@ export const TaskList: React.FC<TaskListProps> = ({ filter }) => {
         return;
       }
 
-      switch(key) {
-        case 'j':
+      switch (key) {
         case 'arrowdown':
           e.preventDefault();
           if (isCmd && currentId) {
-             moveTask(currentId, 'down');
-             return;
+            moveTask(currentId, 'down');
+            return;
           }
           if (currentIndex === -1 && currentTasks.length > 0) navigate(0);
           else navigate(currentIndex + 1);
           break;
-        case 'k':
         case 'arrowup':
           e.preventDefault();
           if (isCmd && currentId) {
-             moveTask(currentId, 'up');
-             return;
+            moveTask(currentId, 'up');
+            return;
           }
           if (currentIndex === -1 && currentTasks.length > 0) navigate(currentTasks.length - 1);
           else navigate(currentIndex - 1);
           break;
-        
+
         case 'l':
           // Label mode
           if (currentId && !isCmd) {
-             e.preventDefault();
-             setQuickAddOpen(true, null, 'tag', currentId);
+            e.preventDefault();
+            setQuickAddOpen(true, null, 'tag', currentId);
           }
           break;
 
         case 'arrowright':
-            e.preventDefault();
-            if (currentTask) {
-                if (currentTask.hasChildren && !currentTask.expanded) {
-                    toggleExpand(currentTask.id);
-                }
+          e.preventDefault();
+          if (currentTask) {
+            if (currentTask.hasChildren && !currentTask.expanded) {
+              toggleExpand(currentTask.id);
             }
-            break;
-        
+          }
+          break;
+
         case 'h':
         case 'arrowleft':
-            e.preventDefault();
-            if (currentTask) {
-                if (currentTask.hasChildren && currentTask.expanded) {
-                    toggleExpand(currentTask.id);
-                } else if (currentTask.depth > 0) {
-                     // Move to parent visually
-                     const parent = currentTasks.find(t => t.id === currentTask.parentId);
-                     if (parent) setFocusedId(parent.id);
-                } else {
-                    setFocusMode('sidebar');
-                }
+          e.preventDefault();
+          if (currentTask) {
+            if (currentTask.hasChildren && currentTask.expanded) {
+              toggleExpand(currentTask.id);
+            } else if (currentTask.depth > 0) {
+              // Move to parent visually
+              const parent = currentTasks.find(t => t.id === currentTask.parentId);
+              if (parent) setFocusedId(parent.id);
             } else {
-                 setFocusMode('sidebar');
+              setFocusMode('sidebar');
             }
-            break;
+          } else {
+            setFocusMode('sidebar');
+          }
+          break;
 
         case 'space': // Complete Task
           e.preventDefault();
@@ -242,80 +251,80 @@ export const TaskList: React.FC<TaskListProps> = ({ filter }) => {
 
         case 'e': // Edit Title
           if (currentId && !isCmd) {
-              e.preventDefault();
-              setEditingTaskId(currentId);
+            e.preventDefault();
+            setEditingTaskId(currentId);
           }
           break;
-        
-        case 'n': // Edit Note
-            if (currentId) {
-                e.preventDefault();
-                const note = prompt("Edit Note", currentTask?.notes || "");
-                if (note !== null) updateTask(currentId, { notes: note });
-            }
-            break;
 
-        case 'enter': 
+        case 'n': // Edit Note
+          if (currentId) {
+            e.preventDefault();
+            const note = prompt("Edit Note", currentTask?.notes || "");
+            if (note !== null) updateTask(currentId, { notes: note });
+          }
+          break;
+
+        case 'enter':
           // New Task
           if (isCmd) {
-              // Ctrl/Cmd + Enter = New Subtask
-              if (currentId) setQuickAddOpen(true, currentId);
+            // Ctrl/Cmd + Enter = New Subtask
+            if (currentId) setQuickAddOpen(true, currentId);
           } else {
-              if (currentId) {
-                 // Create sibling after current task
-                 setQuickAddOpen(true, currentTask.parentId || null, 'create', currentId);
-              } else {
-                 setQuickAddOpen(true);
-              }
+            if (currentId) {
+              // Create sibling after current task
+              setQuickAddOpen(true, currentTask.parentId || null, 'create', currentId);
+            } else {
+              setQuickAddOpen(true);
+            }
           }
           break;
 
         case 'tab': // Indent/Outdent
-            e.preventDefault();
-            if (!currentId) return;
-            if (isShift) {
-                // Outdent
-                if (currentTask.parentId) {
-                    const parent = tasks.find(t => t.id === currentTask.parentId);
-                    changeParent(currentId, parent?.parentId || null);
-                }
-            } else {
-                // Indent
-                if (currentIndex > 0) {
-                    const prevTask = currentTasks[currentIndex - 1];
-                    if (prevTask.depth === currentTask.depth) {
-                        changeParent(currentId, prevTask.id);
-                        if (!prevTask.expanded) toggleExpand(prevTask.id);
-                    } else if (prevTask.depth > currentTask.depth) {
-                         changeParent(currentId, prevTask.id);
-                         if (!prevTask.expanded) toggleExpand(prevTask.id);
-                    }
-                }
+          e.preventDefault();
+          if (!currentId) return;
+          if (isShift) {
+            // Outdent
+            if (currentTask.parentId) {
+              const parent = tasks.find(t => t.id === currentTask.parentId);
+              changeParent(currentId, parent?.parentId || null);
             }
-            break;
-
-        case 'x': // Delete Task (New binding)
-          if (currentId) deleteTask(currentId);
-          break;
-        
-        case 'd': // Set Date (New binding)
-          if (currentId) {
-             e.preventDefault();
-             setQuickAddOpen(true, null, 'date', currentId);
+          } else {
+            // Indent
+            if (currentIndex > 0) {
+              const prevTask = currentTasks[currentIndex - 1];
+              if (prevTask.depth === currentTask.depth) {
+                changeParent(currentId, prevTask.id);
+                if (!prevTask.expanded) toggleExpand(prevTask.id);
+              } else if (prevTask.depth > currentTask.depth) {
+                changeParent(currentId, prevTask.id);
+                if (!prevTask.expanded) toggleExpand(prevTask.id);
+              }
+            }
           }
           break;
-          
+
+        case 'x': // Complete Task (User preference)
+          if (currentId) toggleTask(currentId);
+          break;
+
+        case 'd': // Set Date (New binding)
+          if (currentId) {
+            e.preventDefault();
+            setQuickAddOpen(true, null, 'date', currentId);
+          }
+          break;
+
         case 'o': // Open Links
-           if (isCmd && currentId) {
-               e.preventDefault();
-               const text = (currentTask.title + " " + (currentTask.notes || ""));
-               const urlRegex = /(https?:\/\/[^\s]+)/g;
-               const match = text.match(urlRegex);
-               if (match && match[0]) {
-                   window.open(match[0], '_blank');
-               }
-           }
-           break;
+          if (isCmd && currentId) {
+            e.preventDefault();
+            const text = (currentTask.title + " " + (currentTask.notes || ""));
+            const urlRegex = /(https?:\/\/[^\s]+)/g;
+            const match = text.match(urlRegex);
+            if (match && match[0]) {
+              window.open(match[0], '_blank');
+            }
+          }
+          break;
       }
     };
 
@@ -334,30 +343,30 @@ export const TaskList: React.FC<TaskListProps> = ({ filter }) => {
 
   // Inline Edit Component
   const InlineEdit = ({ task }: { task: Task }) => {
-      const [val, setVal] = useState(task.title);
-      const ref = useRef<HTMLInputElement>(null);
-      
-      useEffect(() => { ref.current?.focus(); }, []);
-      
-      const save = () => {
-          if (val.trim()) updateTask(task.id, { title: val });
-          setEditingTaskId(null);
-      };
+    const [val, setVal] = useState(task.title);
+    const ref = useRef<HTMLInputElement>(null);
 
-      return (
-          <input 
-            ref={ref}
-            value={val}
-            onChange={e => setVal(e.target.value)}
-            onBlur={save}
-            onKeyDown={e => {
-                if (e.key === 'Enter') save();
-                if (e.key === 'Escape') setEditingTaskId(null);
-                e.stopPropagation(); // Prevent global listeners
-            }}
-            className="flex-1 bg-transparent text-sm font-medium outline-none text-slate-900 dark:text-slate-100 placeholder-slate-400"
-          />
-      )
+    useEffect(() => { ref.current?.focus(); }, []);
+
+    const save = () => {
+      if (val.trim()) updateTask(task.id, { title: val });
+      setEditingTaskId(null);
+    };
+
+    return (
+      <input
+        ref={ref}
+        value={val}
+        onChange={e => setVal(e.target.value)}
+        onBlur={save}
+        onKeyDown={e => {
+          if (e.key === 'Enter') save();
+          if (e.key === 'Escape') setEditingTaskId(null);
+          e.stopPropagation(); // Prevent global listeners
+        }}
+        className="flex-1 bg-transparent text-sm font-medium outline-none text-slate-900 dark:text-slate-100 placeholder-slate-400"
+      />
+    )
   };
 
   if (visibleTasks.length === 0) {
@@ -365,7 +374,7 @@ export const TaskList: React.FC<TaskListProps> = ({ filter }) => {
       <div className="flex flex-col items-center justify-center h-64 text-slate-500">
         <p className="mb-2 text-lg">No tasks found</p>
         <div className="flex gap-4 text-xs font-mono">
-            <span>Hit <kbd className="bg-slate-200 dark:bg-slate-800 px-1 rounded">Enter</kbd> to add</span>
+          <span>Hit <kbd className="bg-slate-200 dark:bg-slate-800 px-1 rounded">Enter</kbd> to add</span>
         </div>
       </div>
     );
@@ -376,15 +385,15 @@ export const TaskList: React.FC<TaskListProps> = ({ filter }) => {
       {visibleTasks.map((task) => {
         const isFocused = task.id === focusedId;
         const isEditing = task.id === editingTaskId;
-        const paddingLeft = `${task.depth * 1.5 + 0.75}rem`; 
+        const paddingLeft = `${task.depth * 1.5 + 0.75}rem`;
 
         return (
           <div
             id={`task-${task.id}`}
             key={task.id}
             onClick={() => {
-                setFocusedId(task.id);
-                setFocusMode('main');
+              setFocusedId(task.id);
+              setFocusMode('main');
             }}
             className={`
               group flex flex-col py-2.5 pr-3 mb-1 rounded-r-lg transition-all duration-75 cursor-pointer relative scroll-my-20
@@ -401,68 +410,96 @@ export const TaskList: React.FC<TaskListProps> = ({ filter }) => {
             )}
 
             <div className="flex items-center gap-2">
-                {/* Expansion Toggle */}
-                <div 
-                    className="w-5 h-5 flex items-center justify-center text-slate-400 dark:text-slate-500 shrink-0"
-                    onClick={(e) => {
-                        e.stopPropagation();
-                        if (task.hasChildren) toggleExpand(task.id);
-                    }}
-                >
-                    {task.hasChildren ? (
-                        task.expanded ? <ChevronDown className="w-3.5 h-3.5" /> : <ChevronRight className="w-3.5 h-3.5" />
-                    ) : (
-                        task.depth > 0 && <CornerDownRight className="w-3 h-3 text-slate-400 dark:text-slate-700" />
-                    )}
-                </div>
+              {/* Expansion Toggle */}
+              <div
+                className="w-5 h-5 flex items-center justify-center text-slate-400 dark:text-slate-500 shrink-0"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  if (task.hasChildren) toggleExpand(task.id);
+                }}
+              >
+                {task.hasChildren ? (
+                  task.expanded ? <ChevronDown className="w-3.5 h-3.5" /> : <ChevronRight className="w-3.5 h-3.5" />
+                ) : (
+                  task.depth > 0 && <CornerDownRight className="w-3 h-3 text-slate-400 dark:text-slate-700" />
+                )}
+              </div>
 
-                {/* Checkbox */}
-                <button 
+              {/* Checkbox */}
+              <button
                 onClick={(e) => { e.stopPropagation(); toggleTask(task.id); }}
                 className="text-slate-400 hover:text-primary-500 dark:hover:text-primary-400 transition-colors shrink-0"
-                >
+              >
                 {task.completed ? <CheckCircle2 className="w-5 h-5 text-primary-600 dark:text-primary-500" /> : <Circle className="w-5 h-5" />}
-                </button>
+              </button>
 
-                {/* Content */}
-                <div className="flex-1 min-w-0 flex flex-col justify-center">
-                    {isEditing ? (
-                        <InlineEdit task={task} />
-                    ) : (
-                        <h3 className={`text-sm font-medium truncate ${task.completed ? 'line-through text-slate-400 dark:text-slate-500' : 'text-slate-700 dark:text-slate-200'}`}>
-                            {task.title}
-                        </h3>
-                    )}
-                </div>
+              {/* Content */}
+              <div className="flex-1 min-w-0 flex flex-col justify-center">
+                {/* Context Eyebrow (Only for flat views or if explicitly helpful) */}
+                {((filter !== 'all' && filter !== 'active') || task.depth === 0) && task.parentId && (
+                  (() => {
+                    const getParents = (currentTask: Task): string[] => {
+                      const parents: string[] = [];
+                      let curr = currentTask;
+                      while (curr.parentId) {
+                        const parent = tasks.find(t => t.id === curr.parentId);
+                        if (parent) {
+                          parents.unshift(parent.title);
+                          curr = parent;
+                        } else {
+                          break;
+                        }
+                      }
+                      return parents;
+                    };
+                    const path = getParents(task);
+                    if (path.length === 0) return null;
 
-                {/* Metadata & Actions */}
-                <div className="flex items-center gap-3 pr-2 shrink-0">
-                    {(task.dueDate || task.tags.length > 0) && (
-                        <div className="flex items-center gap-3 text-[10px] text-slate-500">
-                            {task.dueDate && (
-                            <span className={`flex items-center gap-1 ${new Date(task.dueDate) < new Date() && !task.completed ? 'text-red-500 dark:text-red-400' : ''}`}>
-                                <Calendar className="w-2.5 h-2.5" />
-                                {formatDate(task.dueDate)}
-                            </span>
-                            )}
-                            {task.tags.map(tag => (
-                            <span key={tag} className="flex items-center gap-0.5 px-1 py-px rounded bg-slate-200 dark:bg-slate-800/50 text-slate-600 dark:text-slate-400">
-                                <Hash className="w-2.5 h-2.5" />
-                                {tag}
-                            </span>
-                            ))}
-                        </div>
+                    return (
+                      <div className="flex items-center gap-1 text-[10px] text-slate-400 dark:text-slate-500 font-medium mb-0.5">
+                        {path.join(' / ')}
+                      </div>
+                    );
+                  })()
+                )}
+
+                {isEditing ? (
+                  <InlineEdit task={task} />
+                ) : (
+                  <h3 className={`text-sm font-medium truncate ${task.completed ? 'line-through text-slate-400 dark:text-slate-500' : 'text-slate-700 dark:text-slate-200'}`}>
+                    {task.title}
+                  </h3>
+                )}
+              </div>
+
+              {/* Metadata & Actions */}
+              <div className="flex items-center gap-3 pr-2 shrink-0">
+                {(task.dueDate || (task.tags && task.tags.length > 0)) && (
+                  <div className="flex items-center gap-3 text-[10px] text-slate-500">
+                    {task.dueDate && (
+                      <span className={`flex items-center gap-1 ${new Date(task.dueDate) < new Date() && !task.completed ? 'text-red-500 dark:text-red-400' : ''}`}>
+                        <Calendar className="w-2.5 h-2.5" />
+                        {formatDate(task.dueDate)}
+                      </span>
                     )}
-                    <PriorityIcon priority={task.priority} />
-                </div>
+                    {(task.tags || []).map(tag => (
+                      <span key={tag} className="flex items-center gap-0.5 px-1 py-px rounded bg-slate-200 dark:bg-slate-800/50 text-slate-600 dark:text-slate-400">
+                        <Hash className="w-2.5 h-2.5" />
+                        {tag}
+                      </span>
+                    ))}
+                  </div>
+                )}
+                <PriorityIcon priority={task.priority} />
+              </div>
             </div>
-            
+
             {/* Notes Display */}
             {task.notes && (
-                <div className="mt-1 ml-7 flex items-start gap-1.5 text-xs text-slate-500 dark:text-slate-400">
-                    <AlignLeft className="w-3 h-3 mt-0.5 opacity-50" />
-                    <p className="line-clamp-2">{task.notes}</p>
-                </div>
+              <div className="mt-1 ml-7 flex items-start gap-1.5 text-xs text-slate-500 dark:text-slate-400">
+                <AlignLeft className="w-3 h-3 mt-0.5 opacity-50" />
+                <p className="line-clamp-2">{task.notes}</p>
+              </div>
             )}
           </div>
         );

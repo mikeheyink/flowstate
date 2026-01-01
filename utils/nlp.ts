@@ -38,19 +38,19 @@ export const parseTaskInput = (input: string): ParsedTask => {
 
   // 3. Parse Dates using Chrono (Best Practice NLP)
   // We parse the current text state.
-  const parsedResults = chrono.parse(text);
-  
+  const parsedResults = chrono.parse(text, new Date(), { forwardDate: true });
+
   if (parsedResults.length > 0) {
     // We take the first valid date found
     const result = parsedResults[0];
     dueDate = result.start.date();
-    
+
     // Remove the date text from the title
     // Iterate in reverse order if we supported multiple dates to avoid index shift,
     // but here we just take the first.
     // However, to be clean, let's remove the specific matched text.
     // Note: This replaces the first occurrence of the matched text.
-    text = text.replace(result.text, ''); 
+    text = text.replace(result.text, '');
   }
 
   // Cleanup whitespace
@@ -70,14 +70,14 @@ export const formatDate = (date: Date | null | undefined): string => {
   const now = new Date();
   const dStr = d.toDateString();
   const nowStr = now.toDateString();
-  
+
   const tomorrow = new Date(now);
   tomorrow.setDate(now.getDate() + 1);
   const tomorrowStr = tomorrow.toDateString();
 
   if (dStr === nowStr) return 'Today';
   if (dStr === tomorrowStr) return 'Tomorrow';
-  
+
   // Format: "Mon, Oct 5" or "Oct 5, 2025"
   const options: Intl.DateTimeFormatOptions = { month: 'short', day: 'numeric' };
   if (d.getFullYear() !== now.getFullYear()) {
@@ -85,6 +85,6 @@ export const formatDate = (date: Date | null | undefined): string => {
   } else {
     options.weekday = 'short';
   }
-  
+
   return d.toLocaleDateString(undefined, options);
 };
