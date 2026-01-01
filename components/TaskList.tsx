@@ -126,28 +126,25 @@ const TaskItem = ({
 
   return (
     <div
-      {...attributes}
-      {...listeners}
-      className={`relative mb-1 group ${isMobile ? 'touch-none cursor-grab active:cursor-grabbing' : ''}`}
+      {...(!isMobile ? { ...attributes, ...listeners } : {})}
+      className="relative mb-1 group"
     >
-      {/* Swipe Completion Background Layer - Desktop only */}
-      {!isMobile && (
-        <motion.div
-          style={{ opacity, background }}
-          className="absolute inset-0 rounded-lg flex items-center justify-start pl-4 pointer-events-none"
-        >
-          <CheckCircle2 className="w-6 h-6 text-green-600 dark:text-green-500" />
-        </motion.div>
-      )}
-
-      {/* Task Card - Framer Motion drag only on desktop */}
+      {/* Swipe Completion Background Layer */}
       <motion.div
-        drag={isMobile ? false : "x"}
+        style={{ opacity, background }}
+        className="absolute inset-0 rounded-lg flex items-center justify-start pl-4 pointer-events-none"
+      >
+        <CheckCircle2 className="w-6 h-6 text-green-600 dark:text-green-500" />
+      </motion.div>
+
+      {/* Task Card - Swipeable for completion */}
+      <motion.div
+        drag="x"
         dragConstraints={{ left: 0, right: 0 }}
         dragElastic={{ right: 0.5 }}
-        onDragEnd={isMobile ? undefined : handleDragEnd}
-        whileDrag={isMobile ? undefined : { scale: 1.02, zIndex: 10 }}
-        style={isMobile ? undefined : { x, touchAction: "pan-y" }} // pan-y ensures vertical scrolling still works
+        onDragEnd={handleDragEnd}
+        whileDrag={{ scale: 1.02, zIndex: 10 }}
+        style={{ x, touchAction: "pan-y" }}
         className={`
               relative flex flex-col py-2.5 pr-3 rounded-r-lg transition-all duration-200 cursor-pointer 
               bg-slate-50 dark:bg-slate-950
@@ -185,13 +182,15 @@ const TaskItem = ({
               )}
             </div>
 
-            {/* Checkbox (Still clickable, but swipe is primary on mobile) */}
-            <button
-              onClick={(e) => { e.stopPropagation(); handleToggle(task.id, task.completed); }}
-              className="p-1.5 -m-1.5 text-slate-400 hover:text-primary-500 dark:hover:text-primary-400 transition-colors shrink-0 md:block" // Hidden on mobile if we want swipe only, but generally keep both
-            >
-              {task.completed ? <CheckCircle2 className="w-5 h-5 text-primary-600 dark:text-primary-500" /> : <Circle className="w-5 h-5" />}
-            </button>
+            {/* Checkbox - Desktop only, mobile uses swipe */}
+            {!isMobile && (
+              <button
+                onClick={(e) => { e.stopPropagation(); handleToggle(task.id, task.completed); }}
+                className="p-1.5 -m-1.5 text-slate-400 hover:text-primary-500 dark:hover:text-primary-400 transition-colors shrink-0"
+              >
+                {task.completed ? <CheckCircle2 className="w-5 h-5 text-primary-600 dark:text-primary-500" /> : <Circle className="w-5 h-5" />}
+              </button>
+            )}
 
             {/* Content */}
             <div className="flex-1 min-w-0 flex flex-col justify-center">
@@ -233,9 +232,10 @@ const TaskItem = ({
                 </div>
               )}
             </div>
-            {/* Grip Handle - Desktop only, mobile can drag from anywhere */}
+            {/* Grip Handle - Mobile: drag handle for reorder. Desktop: visual only */}
             <div
-              className="hidden md:block text-slate-300 dark:text-slate-600 cursor-grab active:cursor-grabbing hover:text-slate-500 p-2 -m-2"
+              {...(isMobile ? { ...attributes, ...listeners } : {})}
+              className={`text-slate-300 dark:text-slate-600 cursor-grab active:cursor-grabbing hover:text-slate-500 p-2 -m-2 ${isMobile ? 'touch-none' : ''}`}
             >
               <GripVertical className="w-4 h-4" />
             </div>
