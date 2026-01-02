@@ -24,7 +24,7 @@ export const CommandPalette: React.FC<{ isOpen: boolean; onClose: () => void }> 
       title: 'Create New Task',
       icon: <Plus className="w-4 h-4" />,
       shortcut: 'N',
-      perform: () => { 
+      perform: () => {
         setQuickAddOpen(true);
       },
       section: 'Actions'
@@ -46,7 +46,7 @@ export const CommandPalette: React.FC<{ isOpen: boolean; onClose: () => void }> 
         id: 'toggle-task',
         title: task.completed ? 'Mark as Incomplete' : 'Mark as Complete',
         icon: <CheckCircle className="w-4 h-4" />,
-        shortcut: 'Space',
+        shortcut: 'X',
         perform: () => toggleTask(focusedId),
         section: 'Selected Task'
       });
@@ -54,7 +54,7 @@ export const CommandPalette: React.FC<{ isOpen: boolean; onClose: () => void }> 
         id: 'archive-task',
         title: 'Archive Task',
         icon: <Archive className="w-4 h-4" />,
-        shortcut: 'E',
+        // shortcut: 'E', // Conflict with Edit Title
         perform: () => archiveTask(focusedId),
         section: 'Selected Task'
       });
@@ -62,14 +62,14 @@ export const CommandPalette: React.FC<{ isOpen: boolean; onClose: () => void }> 
         id: 'delete-task',
         title: 'Delete Task',
         icon: <Trash2 className="w-4 h-4" />,
-        shortcut: 'X',
+        shortcut: 'Delete',
         perform: () => deleteTask(focusedId),
         section: 'Selected Task'
       });
     }
   }
 
-  const filteredActions = actions.filter(action => 
+  const filteredActions = actions.filter(action =>
     action.title.toLowerCase().includes(query.toLowerCase())
   );
 
@@ -117,7 +117,7 @@ export const CommandPalette: React.FC<{ isOpen: boolean; onClose: () => void }> 
           />
           <kbd className="hidden sm:inline-block px-2 py-1 text-xs text-slate-500 bg-slate-100 dark:bg-slate-800 rounded border border-slate-200 dark:border-slate-700">Esc</kbd>
         </div>
-        
+
         <div className="overflow-y-auto py-2">
           {filteredActions.length === 0 ? (
             <div className="px-4 py-8 text-center text-slate-500">No results found</div>
@@ -127,9 +127,8 @@ export const CommandPalette: React.FC<{ isOpen: boolean; onClose: () => void }> 
                 key={action.id}
                 onClick={() => { action.perform(); onClose(); }}
                 onMouseEnter={() => setSelectedIndex(index)}
-                className={`px-4 py-2.5 mx-2 flex items-center gap-3 rounded-lg cursor-pointer transition-colors ${
-                  index === selectedIndex ? 'bg-slate-100 dark:bg-primary-600/10 text-primary-600 dark:text-primary-100' : 'text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800'
-                }`}
+                className={`px-4 py-2.5 mx-2 flex items-center gap-3 rounded-lg cursor-pointer transition-colors ${index === selectedIndex ? 'bg-slate-100 dark:bg-primary-600/10 text-primary-600 dark:text-primary-100' : 'text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800'
+                  }`}
               >
                 <div className={`${index === selectedIndex ? 'text-primary-500 dark:text-primary-400' : 'text-slate-400 dark:text-slate-500'}`}>
                   {action.icon}

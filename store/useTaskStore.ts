@@ -26,6 +26,11 @@ interface TaskState {
   pendingOperations: PendingOperation[];
   lastSyncedAt: number | null;
 
+  // Selection state
+  selectedIds: string[];
+
+  // Actions
+
   // Actions
   fetchTasks: () => Promise<void>;
   addTask: (rawInput: string, parentId?: string | null, afterTaskId?: string | null) => void;
@@ -40,6 +45,19 @@ interface TaskState {
   setFocusedId: (id: string | null) => void;
   setGuestMode: (isGuest: boolean) => void;
   setError: (error: string | null) => void;
+
+  // Selection Actions
+  selectTask: (id: string, multi: boolean) => void;
+  toggleSelection: (id: string) => void;
+  clearSelection: () => void;
+
+  // Batch Actions
+  batchDelete: () => void;
+  batchComplete: () => void;
+  batchSetDueDate: (date: Date | null) => void;
+  batchMove: (direction: 'up' | 'down') => void;
+  batchIndent: () => void;
+  batchOutdent: () => void;
 
   // Hierarchy Actions
   toggleExpand: (id: string) => void;
@@ -127,6 +145,7 @@ export const useTaskStore = create<TaskState>()(
       guestMode: false,
       pendingOperations: [],
       lastSyncedAt: null,
+      selectedIds: [],
 
       setTasks: (tasks) => set({ tasks }),
       setGuestMode: (guestMode) => set({ guestMode }),
@@ -434,6 +453,93 @@ export const useTaskStore = create<TaskState>()(
       },
 
       setFocusedId: (id) => set({ focusedId: id }),
+
+      // --- Selection Actions ---
+      selectTask: (id, multi) => set((state) => {
+        if (multi) {
+          if (state.selectedIds.includes(id)) return state;
+          return { selectedIds: [...state.selectedIds, id] };
+        }
+        return { selectedIds: [id] };
+      }),
+
+      toggleSelection: (id) => set((state) => {
+        if (state.selectedIds.includes(id)) {
+          return { selectedIds: state.selectedIds.filter(sid => sid !== id) };
+        }
+        return { selectedIds: [...state.selectedIds, id] };
+      }),
+
+      clearSelection: () => set({ selectedIds: [] }),
+
+      // --- Batch Actions ---
+      batchDelete: () => {
+        const state = get();
+        if (state.selectedIds.length === 0 && state.focusedId) {
+          state.deleteTask(state.focusedId);
+          return;
+        }
+        state.selectedIds.forEach(id => state.deleteTask(id));
+        set({ selectedIds: [] });
+      },
+
+      batchComplete: () => {
+        const state = get();
+        if (state.selectedIds.length === 0 && state.focusedId) {
+          state.toggleTask(state.focusedId);
+          return;
+        }
+        // Determine target state: if any are incomplete, mark all complete. Else mark all incomplete.
+        const allSelected = state.tasks.filter(t => state.selectedIds.includes(t.id));
+        const anyIncomplete = allSelected.some(t => !t.completed);
+        const targetCompleted = anyIncomplete; // If mixed or all incomplete -> Complete all
+
+        allSelected.forEach(t => {
+          if (t.completed !== targetCompleted) {
+            state.updateTask(t.id, { completed: targetCompleted });
+          }
+        });
+        // Keep selection? Usually yes for visibility.
+      },
+
+      batchSetDueDate: (date) => {
+        const state = get();
+        if (state.selectedIds.length === 0 && state.focusedId) {
+          state.updateTask(state.focusedId, { dueDate: date });
+          return;
+        }
+        state.selectedIds.forEach(id => state.updateTask(id, { dueDate: date }));
+      },
+
+      batchMove: (direction) => {
+        const state = get();
+        if (state.selectedIds.length === 0 && state.focusedId) {
+          state.moveTask(state.focusedId, direction);
+          return;
+        }
+
+        const tasks = state.tasks;
+        const selected = tasks.filter(t => state.selectedIds.includes(t.id));
+
+        // Sort to prevent collision/skipping
+        // Up: Top (low index) first
+        // Down: Bottom (high index) first
+        const sorted = [...selected].sort((a, b) => {
+          const idxA = tasks.indexOf(a);
+          const idxB = tasks.indexOf(b);
+          return direction === 'up' ? idxA - idxB : idxB - idxA;
+        });
+
+        sorted.forEach(t => state.moveTask(t.id, direction));
+      },
+
+      batchIndent: () => {
+        // Logic deferred to TaskList due to view dependencies
+      },
+
+      batchOutdent: () => {
+        // Logic deferred to TaskList due to view dependencies
+      },
 
       toggleExpand: async (id) => {
         const state = get();

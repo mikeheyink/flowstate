@@ -31,8 +31,8 @@ export const ShortcutsModal: React.FC<Props> = ({ isOpen, onClose }) => {
     {
       title: "Organization",
       items: [
-        { k: "Space", d: "Complete Task" },
-        { k: "x", d: "Delete Task" },
+        { k: "x", d: "Complete Task" },
+        { k: "Delete", d: "Delete Task" },
         { k: "Tab", d: "Indent (Make Subtask)" },
         { k: "Shift+Tab", d: "Outdent" },
         { k: "d", d: "Set Due Date" },

@@ -16,6 +16,8 @@ export const QuickAdd: React.FC<QuickAddProps> = ({ isOpen, onClose }) => {
   const addTask = useTaskStore((state) => state.addTask);
   const updateTask = useTaskStore((state) => state.updateTask);
   const tasks = useTaskStore((state) => state.tasks);
+  const selectedIds = useTaskStore((state) => state.selectedIds);
+  const batchSetDueDate = useTaskStore((state) => state.batchSetDueDate);
 
   const quickAddParentId = useUIStore((state) => state.quickAddParentId);
   const quickAddMode = useUIStore((state) => state.quickAddMode);
@@ -40,11 +42,16 @@ export const QuickAdd: React.FC<QuickAddProps> = ({ isOpen, onClose }) => {
     if (quickAddMode === 'create') {
       // If quickAddTaskId is present in 'create' mode, it is the 'insertAfter' task ID.
       addTask(value, quickAddParentId, quickAddTaskId);
-    } else if (quickAddMode === 'date' && targetTask) {
+    } else if (quickAddMode === 'date') {
       // Parse only date/time from input
       const { dueDate } = parseTaskInput(value);
       if (dueDate) {
-        updateTask(targetTask.id, { dueDate });
+        // If multiple tasks are selected, apply to all; otherwise apply to single target
+        if (selectedIds.length > 1) {
+          batchSetDueDate(dueDate);
+        } else if (targetTask) {
+          updateTask(targetTask.id, { dueDate });
+        }
       }
     } else if (quickAddMode === 'tag' && targetTask) {
       // Parse only tags

@@ -71,6 +71,7 @@ const InlineEdit = ({
 const TaskItem = ({
   task,
   isFocused,
+  isSelected,
   isEditing,
   focusMode,
   paddingLeft,
@@ -89,6 +90,7 @@ const TaskItem = ({
 }: {
   task: VisibleTask;
   isFocused: boolean;
+  isSelected?: boolean;
   isEditing: boolean;
   focusMode: FocusMode;
   paddingLeft: string;
@@ -149,9 +151,10 @@ const TaskItem = ({
         className={`
               relative flex flex-col py-2.5 pr-3 rounded-r-lg transition-all duration-200 cursor-pointer 
               bg-slate-50 dark:bg-slate-950
-              ${isFocused && focusMode === 'main' ? 'bg-slate-200 dark:bg-slate-800/60 ring-1 ring-slate-300 dark:ring-slate-700 shadow-lg' : ''}
+              ${isFocused && focusMode === 'main' && !isSelected ? 'bg-slate-200 dark:bg-slate-800/60 ring-1 ring-slate-300 dark:ring-slate-700 shadow-lg' : ''}
               ${isFocused && focusMode === 'sidebar' ? 'bg-slate-100 dark:bg-slate-800/20' : ''}
-              ${!isFocused ? 'group-hover:bg-slate-100 dark:group-hover:bg-slate-900' : ''}
+              ${isSelected ? 'bg-primary-100 dark:bg-primary-900/40 ring-2 ring-primary-500 dark:ring-primary-400' : ''}
+              ${!isFocused && !isSelected ? 'group-hover:bg-slate-100 dark:group-hover:bg-slate-900' : ''}
               ${task.completed ? 'opacity-50' : 'opacity-100'}
               ${isOver && !isDragging ? 'ring-2 ring-primary-500 bg-primary-50 dark:bg-primary-900/10 scale-[1.02] z-10' : ''}
             `}
@@ -272,7 +275,7 @@ const TaskItem = ({
           )}
         </div>
       </motion.div>
-    </div>
+    </div >
   );
 }
 
@@ -286,6 +289,14 @@ export const TaskList: React.FC<TaskListProps> = ({ filter }) => {
   const toggleExpand = useTaskStore((state) => state.toggleExpand);
   const setExpandedAll = useTaskStore((state) => state.setExpandedAll);
   const moveTaskTo = useTaskStore((state) => state.moveTaskTo);
+
+  // Selection & Batch Actions
+  const selectedIds = useTaskStore((state) => state.selectedIds);
+  const selectTask = useTaskStore((state) => state.selectTask);
+  const clearSelection = useTaskStore((state) => state.clearSelection);
+  const batchMove = useTaskStore((state) => state.batchMove);
+  const batchDelete = useTaskStore((state) => state.batchDelete);
+  const batchComplete = useTaskStore((state) => state.batchComplete);
 
   // Debug Logging
   useEffect(() => {
@@ -378,10 +389,12 @@ export const TaskList: React.FC<TaskListProps> = ({ filter }) => {
   const visibleTasksRef = useRef(visibleTasks);
   const focusedIdRef = useRef(focusedId);
   const editingTaskIdRef = useRef(editingTaskId);
+  const selectedIdsRef = useRef(selectedIds);
 
   useEffect(() => { visibleTasksRef.current = visibleTasks; }, [visibleTasks]);
   useEffect(() => { focusedIdRef.current = focusedId; }, [focusedId]);
   useEffect(() => { editingTaskIdRef.current = editingTaskId; }, [editingTaskId]);
+  useEffect(() => { selectedIdsRef.current = selectedIds; }, [selectedIds]);
 
   // --- Auto-Focus Logic ---
   const prevVisibleTasksRef = useRef<VisibleTask[]>(visibleTasks);
@@ -420,6 +433,8 @@ export const TaskList: React.FC<TaskListProps> = ({ filter }) => {
 
       const currentTasks = visibleTasksRef.current;
       const currentId = focusedIdRef.current;
+      const currentSelectedIds = selectedIdsRef.current;
+
       const currentIndex = currentTasks.findIndex(t => t.id === currentId);
       const currentTask = currentTasks[currentIndex];
 
@@ -439,12 +454,13 @@ export const TaskList: React.FC<TaskListProps> = ({ filter }) => {
       const isShift = e.shiftKey;
       const isCmd = e.metaKey || e.ctrlKey;
 
-      if (isShift && (key === 'l' || key === 'arrowright')) {
+      // Conflict Resolution: "Expand All" moved to Alt+Shift
+      if (e.altKey && isShift && (key === 'l' || key === 'arrowright')) {
         e.preventDefault();
         setExpandedAll(true);
         return;
       }
-      if (isShift && (key === 'h' || key === 'arrowleft')) {
+      if (e.altKey && isShift && (key === 'h' || key === 'arrowleft')) {
         e.preventDefault();
         setExpandedAll(false);
         return;
@@ -453,19 +469,52 @@ export const TaskList: React.FC<TaskListProps> = ({ filter }) => {
       switch (key) {
         case 'arrowdown':
           e.preventDefault();
-          if (isCmd && currentId) {
-            moveTask(currentId, 'down');
+          if (isCmd) {
+            if (currentSelectedIds.length > 1) batchMove('down');
+            else if (currentId) moveTask(currentId, 'down');
             return;
           }
+          if (isShift) {
+            // Selection Mode
+            if (currentId && !currentSelectedIds.includes(currentId)) selectTask(currentId, true);
+            if (currentIndex === -1 && currentTasks.length > 0) {
+              navigate(0);
+              selectTask(currentTasks[0].id, true);
+            } else {
+              navigate(currentIndex + 1);
+              if (currentIndex + 1 < currentTasks.length) selectTask(currentTasks[currentIndex + 1].id, true);
+            }
+            return;
+          }
+          // Normal Nav - Clear selection if exists
+          if (currentSelectedIds.length > 0) clearSelection();
+
           if (currentIndex === -1 && currentTasks.length > 0) navigate(0);
           else navigate(currentIndex + 1);
           break;
         case 'arrowup':
           e.preventDefault();
-          if (isCmd && currentId) {
-            moveTask(currentId, 'up');
+          if (isCmd) {
+            if (currentSelectedIds.length > 1) batchMove('up');
+            else if (currentId) moveTask(currentId, 'up');
             return;
           }
+          if (isShift) {
+            // Selection Mode
+            if (currentId && !currentSelectedIds.includes(currentId)) selectTask(currentId, true);
+            if (currentIndex === -1 && currentTasks.length > 0) {
+              navigate(currentTasks.length - 1);
+              selectTask(currentTasks[currentTasks.length - 1].id, true);
+            } else {
+              navigate(currentIndex - 1);
+              // Check bounds
+              if (currentIndex - 1 >= 0) selectTask(currentTasks[currentIndex - 1].id, true);
+            }
+            return;
+          }
+          // Normal Nav - Clear selection if exists
+          if (currentSelectedIds.length > 0) clearSelection();
+
           if (currentIndex === -1 && currentTasks.length > 0) navigate(currentTasks.length - 1);
           else navigate(currentIndex - 1);
           break;
@@ -478,14 +527,45 @@ export const TaskList: React.FC<TaskListProps> = ({ filter }) => {
             else setFocusMode('sidebar');
           } else setFocusMode('sidebar');
           break;
-        case 'space': e.preventDefault(); if (currentId) toggleTask(currentId); break;
+        case 'space': e.preventDefault(); /* Space reserved for other uses or no-op */ break;
         case 'e': if (currentId && !isCmd) { e.preventDefault(); setEditingTaskId(currentId); } break;
         case 'n': if (currentId) { e.preventDefault(); const note = prompt("Edit Note", currentTask?.notes || ""); if (note !== null) updateTask(currentId, { notes: note }); } break;
         case 'enter':
           if (isCmd) { if (currentId) setQuickAddOpen(true, currentId); }
           else { if (currentId) setQuickAddOpen(true, currentTask.parentId || null, 'create', currentId); else setQuickAddOpen(true); }
           break;
-        case 'tab': e.preventDefault(); if (!currentId) return;
+        case 'tab':
+          e.preventDefault();
+          if (currentSelectedIds.length > 1) {
+            // Batch Indent/Outdent
+            const tasksToIndent = currentTasks.filter(t => currentSelectedIds.includes(t.id));
+            // Sort Top-to-Bottom
+            tasksToIndent.sort((a, b) => currentTasks.indexOf(a) - currentTasks.indexOf(b));
+
+            if (isShift) { // Outdent
+              tasksToIndent.forEach(t => {
+                if (t.parentId) {
+                  const parent = tasks.find(pt => pt.id === t.parentId);
+                  // Move to parent's parent
+                  changeParent(t.id, parent?.parentId || null);
+                }
+              });
+            } else { // Indent
+              tasksToIndent.forEach(t => {
+                const idx = currentTasks.findIndex(ct => ct.id === t.id);
+                if (idx > 0) {
+                  const prev = currentTasks[idx - 1];
+                  if (prev.depth === t.depth || prev.depth > t.depth) { // standard constraint
+                    changeParent(t.id, prev.id);
+                    if (!prev.expanded) toggleExpand(prev.id);
+                  }
+                }
+              });
+            }
+            return;
+          }
+          // Single Task Logic
+          if (!currentId) return;
           if (isShift) { if (currentTask.parentId) { const parent = tasks.find(t => t.id === currentTask.parentId); changeParent(currentId, parent?.parentId || null); } }
           else {
             if (currentIndex > 0) {
@@ -494,7 +574,15 @@ export const TaskList: React.FC<TaskListProps> = ({ filter }) => {
             }
           }
           break;
-        case 'x': if (currentId) toggleTask(currentId); break;
+        case 'x':
+          if (currentSelectedIds.length > 1) { batchComplete(); }
+          else if (currentId) toggleTask(currentId);
+          break;
+        case 'delete':
+        case 'backspace':
+          if (currentSelectedIds.length > 1) { e.preventDefault(); batchDelete(); }
+          else if (currentId && !editingTaskId) { e.preventDefault(); deleteTask(currentId); }
+          break;
         case 'd': if (currentId) { e.preventDefault(); setQuickAddOpen(true, null, 'date', currentId); } break;
         case 'o':
           if (isCmd && currentId) { e.preventDefault(); const text = (currentTask.title + " " + (currentTask.notes || "")); const match = text.match(/(https?:\/\/[^\s]+)/g); if (match && match[0]) window.open(match[0], '_blank'); }
@@ -504,7 +592,23 @@ export const TaskList: React.FC<TaskListProps> = ({ filter }) => {
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [setFocusedId, toggleTask, deleteTask, moveTask, toggleExpand, setExpandedAll, setQuickAddOpen, focusMode, setFocusMode, changeParent, editingTaskId, updateTask, tasks]);
+  }, [
+    // Stable dependencies provided by Zustand or standard hooks
+    setFocusedId, toggleTask, deleteTask, moveTask, toggleExpand, setExpandedAll,
+    setQuickAddOpen, focusMode, setFocusMode, changeParent, updateTask,
+    selectTask, clearSelection, batchMove, batchDelete, batchComplete,
+    // Note: 'tasks' is usually stable enough if we rely on 'visibleTasksRef', 
+    // but changeParent uses 'tasks'. Ideally we should pass tasks via Ref too if 'tasks' changes often.
+    // But 'tasks' is only used in Tab logic. Refactoring that to use visibleTasksRef or similar is safer.
+    // For now, removing 'tasks' from dep might break 'Tab' if it relies on stale tasks closure?
+    // Actually, 'tasks' is used in Tab logic: `const parent = tasks.find(...)`.
+    // Let's rely on `visibleTasksRef` or just accept that Tab logic might be slightly stale if not used carefully,
+    // OR, better, use 'useTaskStore.getState().tasks' inside handler if possible? 
+    // But we have 'tasks' from hook.
+    // Let's add 'tasks' to a ref too to be safe?
+    // Yes, let's make a tasksRef.
+    tasks
+  ]);
 
   useEffect(() => {
     if (focusedId && focusMode === 'main' && !editingTaskId) {
@@ -604,6 +708,7 @@ export const TaskList: React.FC<TaskListProps> = ({ filter }) => {
                 <TaskItem
                   task={task}
                   isFocused={task.id === focusedId}
+                  isSelected={selectedIds.includes(task.id)}
                   isEditing={task.id === editingTaskId}
                   focusMode={focusMode}
                   paddingLeft={`${task.depth * 1.5 + 0.75}rem`}
@@ -635,6 +740,7 @@ export const TaskList: React.FC<TaskListProps> = ({ filter }) => {
               <TaskItem
                 task={activeTask}
                 isFocused={activeTask.id === focusedId}
+                isSelected={selectedIds.includes(activeTask.id)}
                 isEditing={false}
                 focusMode="main"
                 paddingLeft={`${activeTask.depth * 1.5 + 0.75}rem`}
