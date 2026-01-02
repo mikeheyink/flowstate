@@ -660,7 +660,9 @@ export const TaskList: React.FC<TaskListProps> = ({ filter }) => {
   // --- DND Logic ---
   const [activeTaskId, setActiveTaskId] = useState<string | null>(null);
   const [dragState, setDragState] = useState<DragState | null>(null);
+  const dragStateRef = useRef<DragState | null>(null);
   const lastHapticRef = useRef<string | null>(null);
+
 
   const sensors = useSensors(
     useSensor(MouseSensor, {
@@ -684,7 +686,9 @@ export const TaskList: React.FC<TaskListProps> = ({ filter }) => {
   const handleDragStart = (event: any) => {
     setActiveTaskId(event.active.id);
     setDragState(null);
+    dragStateRef.current = null;
   };
+
 
   const handleDragMove = (event: any) => {
     const { active, over } = event;
@@ -725,6 +729,7 @@ export const TaskList: React.FC<TaskListProps> = ({ filter }) => {
 
     if (!dragState || dragState.type !== newType || dragState.targetId !== over.id) {
       setDragState(newState);
+      dragStateRef.current = newState;
       // Haptics
       if (typeof navigator !== 'undefined' && navigator.vibrate) {
         // Prevent spamming
@@ -738,11 +743,16 @@ export const TaskList: React.FC<TaskListProps> = ({ filter }) => {
   };
 
 
+
   const handleDragEnd = (event: DragEndEvent) => {
     const { active, over } = event;
+
+    const finalDragState = dragStateRef.current;
+
+    // Clear state
     setActiveTaskId(null);
     setDragState(null);
-
+    dragStateRef.current = null;
     lastHapticRef.current = null;
 
     if (active.id !== over?.id && over) {
@@ -750,60 +760,50 @@ export const TaskList: React.FC<TaskListProps> = ({ filter }) => {
       const overTask = visibleTasks.find(t => t.id === over.id);
 
       if (activeTask && overTask) {
-        // Use computed dragState if available for precision
-        // Or re-calculate? Better to rely on what was last shown to user?
-        // Actually, let's re-calculate to be safe or use state if reliable. 
-        // Sync issue: dragState might be stale if race condition? 
-        // Let's re-calculate quickly.
-
-        // Actually, just use standard logic unless "Nesting" was the intent.
-        // How do we know intent if we don't store it? Logic replay.
-
-        // Re-calcing logic from DragMove:
-        const node = document.querySelector(`[data-task-id="${over.id}"]`);
-        let action = 'reorder';
-
-        if (node) {
-          const rect = node.getBoundingClientRect();
-          // We don't have active rect here easily in DragEndEvent (it has active.rect.current.translated usually)
-          const activeRect = active.rect.current.translated;
-          if (activeRect) {
-            const activeCenterY = activeRect.top + activeRect.height / 2;
-            const relativeY = activeCenterY - rect.top;
-            const percentage = Math.max(0, Math.min(1, relativeY / rect.height));
-            if (percentage >= 0.25 && percentage <= 0.75) {
-              action = 'nest';
+        if (finalDragState && finalDragState.targetId === over.id) {
+          // Priority: Use the calculated Zone state
+          if (finalDragState.type === 'nest') {
+            if (activeTask.parentId !== overTask.id) {
+              changeParent(activeTask.id, overTask.id);
+              if (!overTask.expanded) toggleExpand(overTask.id);
             }
-          }
-        }
+          } else if (finalDragState.type === 'insert-before' || finalDragState.type === 'insert-after') {
+            // Insert Logic
+            // If inserting before target, we want target's order - delta
+            // If inserting after target, we want target's order + delta
+            // BUT we also need to match Parent of target
+            const newParentId = overTask.parentId;
 
-        if (action === 'nest') {
-          // Nest Logic
-          if (activeTask.parentId !== overTask.id) {
-            changeParent(activeTask.id, overTask.id);
-            if (!overTask.expanded) toggleExpand(overTask.id);
+            // Calculate new order
+            // We can use standard logic but biased by direction
+            // Or simply:
+            // Pre-calculate desired index?
+            // `moveTaskTo` takes (taskId, parentId, order)
+
+            // Let's rely on basic arithmetic relative to target
+            const targetOrder = overTask.order || 0;
+            let newOrder = targetOrder;
+
+            if (finalDragState.type === 'insert-before') {
+              // We want it to be LESS than target
+              // Check previous sibling to avg? Or just subtract 100?
+              // FlowState usually just effectively resorts or uses big gaps.
+              // Let's assume (targetOrder - 100) is safe, or (target + prev)/2
+              newOrder = targetOrder - 50;
+            } else {
+              // insert-after
+              newOrder = targetOrder + 50;
+            }
+
+            moveTaskTo(activeTask.id, newParentId, newOrder);
           }
         } else {
-          // Reorder Logic (Standard)
+          // Fallback: Standard Reorder if no zone detected (e.g. keyboard or other input)
           const newParentId = overTask.parentId;
           const oldIndex = visibleTasks.findIndex(t => t.id === active.id);
           const newIndex = visibleTasks.findIndex(t => t.id === over.id);
 
           let newOrder = overTask.order || 0;
-
-          // Refined reorder based on insert direction
-          // If we are "insert-before" (top 25%), we want to be ABOVE target.
-          // If "insert-after" (bottom 25%), we want to be BELOW target.
-          // Existing logic was "dumb" (just index based).
-
-          // Since we established zones, we should honor them.
-          // But if we fall back to standard dnd-kit behavior (center-based), 
-          // the 'over' might be different.
-          // Let's stick to the visual expectation.
-
-          // If we are strictly 'nest', we handled it.
-          // If not nest, we are 'reorder'.
-
           if (oldIndex < newIndex) {
             newOrder = (overTask.order || 0) + 100;
           } else {
@@ -815,6 +815,7 @@ export const TaskList: React.FC<TaskListProps> = ({ filter }) => {
       }
     }
   };
+
 
 
   const activeTask = activeTaskId ? visibleTasks.find(t => t.id === activeTaskId) : null;
@@ -837,8 +838,9 @@ export const TaskList: React.FC<TaskListProps> = ({ filter }) => {
       onDragStart={handleDragStart}
       onDragMove={handleDragMove}
       onDragEnd={handleDragEnd}
-      onDragCancel={() => { setActiveTaskId(null); setDragState(null); }}
+      onDragCancel={() => { setActiveTaskId(null); setDragState(null); dragStateRef.current = null; }}
     >
+
 
       <div ref={listRef} className="pb-24">
         <SortableContext
