@@ -179,6 +179,22 @@ function App() {
                 return;
             }
 
+            // Global Sidebar Nav (PageUp / PageDown)
+            if (key === 'pagedown') {
+                e.preventDefault();
+                const nextIndex = (sidebarIndex + 1) % menuItems.length;
+                setSidebarIndex(nextIndex);
+                setFilter(menuItems[nextIndex]);
+                return;
+            }
+            if (key === 'pageup') {
+                e.preventDefault();
+                const nextIndex = (sidebarIndex - 1 + menuItems.length) % menuItems.length;
+                setSidebarIndex(nextIndex);
+                setFilter(menuItems[nextIndex]);
+                return;
+            }
+
             if (gPressed) {
                 if (key === 'i') { setFilter('active'); toast("Go to Inbox"); }
                 if (key === 't') { setFilter('today'); toast("Go to Today"); }
@@ -189,12 +205,12 @@ function App() {
 
             // Sidebar Nav
             if (focusMode === 'sidebar') {
-                if (key === 'arrowdown' || key === 'pagedown') {
+                if (key === 'arrowdown') {
                     e.preventDefault();
                     const nextIndex = (sidebarIndex + 1) % menuItems.length;
                     setSidebarIndex(nextIndex);
                     setFilter(menuItems[nextIndex]);
-                } else if (key === 'arrowup' || key === 'pageup') {
+                } else if (key === 'arrowup') {
                     e.preventDefault();
                     const nextIndex = (sidebarIndex - 1 + menuItems.length) % menuItems.length;
                     setSidebarIndex(nextIndex);
