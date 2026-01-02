@@ -1,0 +1,27 @@
+# Implementation Plan - Pantry Editing and Deletion
+
+Enable users to manage their ingredients library by adding edit and delete capabilities to the Pantry page.
+
+## Proposed Changes
+
+### Service Layer
+
+#### [MODIFY] [pantryService.ts](file:///c:/Users/mheyi/HeyinkMeals/src/services/pantryService.ts)
+- Add `updateGrocery(id: string, updates: Partial<GroceryType>)` method.
+
+### UI Layer
+
+#### [MODIFY] [IngredientsPage.tsx](file:///c:/Users/mheyi/HeyinkMeals/src/pages/pantry/IngredientsPage.tsx)
+- Add state to track which item is being edited.
+- Update ingredient cards to show Edit/Delete icons (using `lucide-react`).
+- Implement inline editing mode for the cards.
+- Add delete confirmation.
+- Ensure the "Add New" form and "Edit" form share similar validation and styling.
+
+## Verification Plan
+
+### Manual Verification
+1. Navigate to **Ingredients Library**.
+2. **Edit**: Click the edit icon on an existing ingredient. Change its name and category. Save and verify the update.
+3. **Delete**: Click the delete icon. Confirm the deletion. Verify the item is removed from the grid.
+4. **Validation**: Attempt to save an empty name or invalid category and verify it's blocked.

@@ -1,0 +1,48 @@
+# Fix ReferenceError in Layout.tsx
+
+The console log indicates an `Uncaught ReferenceError: isActive is not defined` at `Layout.tsx:95:58`. Analysis reveals that `isActive` is being accessed outside the scope where it is defined by `react-router-dom`'s `NavLink`.
+
+## Proposed Changes
+
+### [Layout Component](file:///c:/Users/mheyi/HeyinkMeals/src/components/Layout.tsx)
+
+#### [MODIFY] [Layout.tsx](file:///c:/Users/mheyi/HeyinkMeals/src/components/Layout.tsx)
+
+- Update [NavItem](file:///c:/Users/mheyi/HeyinkMeals/src/components/Layout.tsx#6-30) to properly access `isActive` by using the function-as-a-child pattern for `NavLink`.
+- Update the mobile navigation loop to properly access `isActive` using the function-as-a-child pattern for `NavLink`.
+
+```diff
+-            <Icon size={18} strokeWidth={isActive ? 2.5 : 2} className="transition-transform duration-500 group-hover:scale-110" />
+-            <span className="font-semibold text-sm tracking-tight">{label}</span>
+-            <NavLink to={to}>
+-                {({ isActive }) => isActive && (
+-                    <motion.div
+-                        layoutId="nav-dot"
+-                        className="ml-auto w-1 h-1 rounded-full bg-indigo-400"
+-                    />
+-                )}
+-            </NavLink>
++            {({ isActive }) => (
++                <>
++                    <Icon size={18} strokeWidth={isActive ? 2.5 : 2} className="transition-transform duration-500 group-hover:scale-110" />
++                    <span className="font-semibold text-sm tracking-tight">{label}</span>
++                    {isActive && (
++                        <motion.div
++                            layoutId="nav-dot"
++                            className="ml-auto w-1 h-1 rounded-full bg-indigo-400"
++                        />
++                    )}
++                </>
++            )}
+```
+
+## Verification Plan
+
+### Automated Tests
+- None, as this is a UI-only fix.
+
+### Manual Verification
+1. Run the app using `npm run dev`.
+2. Open the browser and check the console.
+3. Verify that the `ReferenceError` is gone.
+4. Navigate through the sidebar and mobile bottom bar to ensure active states are correctly highlighted with the dot and stroke width change.

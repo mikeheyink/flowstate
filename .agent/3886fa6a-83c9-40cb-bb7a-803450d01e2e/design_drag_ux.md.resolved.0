@@ -1,0 +1,58 @@
+# Design: Advanced Drag & Nest UX
+
+The goal is to make reordering obvious (**Affordance**) and nesting intuitive (**Interaction**).
+
+## Part 1: Affordance (Making it Obvious)
+
+How does the user know they can drag?
+
+### Option A: The "Grip" Handle (Recommended)
+Add a subtle **6-dot grip icon** to the right side of every task.
+*   **Pro**: Universally understood symbol for "Drag me".
+*   **Con**: Takes up horizontal space (approx 24px).
+*   **UX**: "I see a handle, I grab it."
+
+### Option B: The "Hint" Toast
+Keep the clean UI (no handles), but show a **one-time educational toast** or an "Empty State" tip: _"Long press any task to reorganize."_
+*   **Pro**: Cleaner aesthetic.
+*   **Con**: Reliance on memory.
+
+### Option C: The "Lift" Animation
+When the user starts scrolling, if they pause their finger for a split second, slightly "lift" the item under their finger.
+*   **Pro**: Very organic/Apple-like.
+*   **Con**: easy to trigger accidentally.
+
+---
+
+## Part 2: Nesting (The "Phenomenal" Interaction)
+
+How do we distinguish "Reorder (move between)" vs "Nest (move inside)"?
+
+### Proposal 1: The "Magnetic" Drop (Apple Reminders Style)
+This mimics physical objects. You either place an item *between* two others, or you place it *on top* of one to put it inside.
+
+*   **Zone 1 (Top/Bottom Edge)**: Reorder as sibling.
+    *   *Visual*: A blue horizontal line appears between tasks.
+*   **Zone 2 (Center Body)**: Nest inside.
+    *   *Visual*: The target task **pulses** and gets a **highlighted border**.
+    *   *Interaction*: You drag "on top" of a task. After a brief delay (e.g., 200ms), the target "opens" or glows to accept the drop.
+
+### Proposal 2: The "Side-Step" (Workflowy/Dynalist Style)
+This relies on horizontal gesture.
+
+*   **Vertical Drag**: Reorders up/down.
+*   **Horizontal Drag (Right)**: Indents the task to become a child of the one above it.
+*   **Visual**: A "guideline" (L-shaped connector) appears showing the new parent-child relationship in real-time.
+
+---
+
+## Recommendation
+**Combine Option A (Grip Handle) + Proposal 1 (Magnetic Drop).**
+
+1.  **The Handle** solves the "How do I do it?" problem instantly.
+2.  **Magnetic Drop** is the most intuitive mapping for "put *into* another". It feels tactile and premium if backed by physics-based animations (scale down the dragged item slightly as it enters the drop zone).
+
+### Implementation Plan (If Approved)
+1.  **Add Grip Icon**: Right side of [TaskItem](file:///c:/Users/mheyi/.gemini/antigravity/scratch/flowstate/components/TaskList.tsx#70-249).
+2.  **Highlight State**: Update [TaskItem](file:///c:/Users/mheyi/.gemini/antigravity/scratch/flowstate/components/TaskList.tsx#70-249) to accept an `isOver` prop from dnd-kit.
+3.  **Collision Logic**: Custom dnd-kit collision detection to distinguish "Center" (Nest) vs "Edge" (Sort).

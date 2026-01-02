@@ -1,0 +1,22 @@
+# Keyboard-Driven Todo App Project Tasklist
+
+- [ ] Project Initialization [/]
+    - [x] Create project directory
+    - [ ] Initialize Vite + React project
+    - [ ] Configure ESLint & Prettier
+    - [ ] Setup base CSS and Design System
+- [ ] Orchestration Framework Setup
+    - [ ] Create `AGENT_ROLES.md` to define collaboration patterns
+    - [ ] Create `AGENT_LOGS.md` for cross-agent activity monitoring
+- [ ] UI/UX Planning & Design
+    - [ ] Design keyboard shortcut system (Superhuman-style)
+    - [ ] Create Mobile-first responsive layout
+    - [ ] Generate landing page mockup
+- [ ] Core Implementation
+    - [ ] Local storage/Persistence layer
+    - [ ] Command Palette / Omni-search
+    - [ ] Task list view (ListView)
+    - [ ] Task details/editing view
+- [ ] Verification & Polish
+    - [ ] End-to-end keyboard flow testing
+    - [ ] Mobile touch interaction testing

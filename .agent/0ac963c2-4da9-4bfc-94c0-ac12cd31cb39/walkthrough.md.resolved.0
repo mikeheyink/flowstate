@@ -1,0 +1,230 @@
+# Walkthrough - Fix isActive ReferenceError
+
+I have fixed the `ReferenceError: isActive is not defined` that was preventing the application from rendering correctly.
+
+## Changes Made
+
+### [Layout Component](file:///c:/Users/mheyi/HeyinkMeals/src/components/Layout.tsx)
+
+Updated the [Layout](file:///c:/Users/mheyi/HeyinkMeals/src/components/Layout.tsx#32-106) component and its sub-components to correctly handle the `isActive` state from `react-router-dom`'s `NavLink`.
+
+- **NavItem Fix**: Wrapped the content of `NavLink` in a function to access the `isActive` property provided by the component.
+- **Mobile Nav Fix**: Similarly updated the mobile navigation mapping to use the function-as-a-child pattern.
+- **Cleanup**: Removed unused imports (`React`, `Smartphone`).
+
+```diff:Layout.tsx
+import React from 'react';
+import { NavLink, Outlet } from 'react-router-dom';
+import { Home, Calendar, BookOpen, ShoppingCart, List, Smartphone } from 'lucide-react';
+import { motion } from 'framer-motion';
+
+const NavItem = ({ to, icon: Icon, label }: { to: string, icon: any, label: string }) => {
+    return (
+        <NavLink
+            to={to}
+            className={({ isActive }) =>
+                `flex items-center gap-4 px-5 py-3.5 rounded-2xl transition-all duration-500 group ${isActive
+                    ? 'bg-white/[0.08] text-white shadow-[0_0_20px_rgba(255,255,255,0.05)] border border-white/[0.05]'
+                    : 'text-white/40 hover:text-white/80 hover:bg-white/[0.03]'
+                }`
+            }
+        >
+            <Icon size={18} strokeWidth={isActive ? 2.5 : 2} className="transition-transform duration-500 group-hover:scale-110" />
+            <span className="font-semibold text-sm tracking-tight">{label}</span>
+            <NavLink to={to}>
+                {({ isActive }) => isActive && (
+                    <motion.div
+                        layoutId="nav-dot"
+                        className="ml-auto w-1 h-1 rounded-full bg-indigo-400"
+                    />
+                )}
+            </NavLink>
+        </NavLink>
+    );
+};
+
+export const Layout = () => {
+    return (
+        <div className="flex min-h-screen bg-void selection:bg-indigo-500/30">
+            {/* Desktop Sidebar */}
+            <aside className="fixed left-0 top-0 h-full w-72 hidden lg:flex flex-col p-8 z-50">
+                <div className="mb-12 flex items-center gap-4 px-2">
+                    <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-indigo-400/20 to-emerald-400/20 border border-white/10 flex items-center justify-center backdrop-blur-md">
+                        <div className="w-4 h-4 rounded-full bg-white/90 shadow-[0_0_15px_rgba(255,255,255,0.5)]" />
+                    </div>
+                    <h1 className="text-xl font-bold tracking-tighter text-gradient-celestial">
+                        HEYINK<span className="font-light text-white/40">MEALS</span>
+                    </h1>
+                </div>
+
+                <nav className="space-y-1.5 flex-1">
+                    <NavItem to="/" icon={Home} label="Dashboard" />
+                    <NavItem to="/pantry" icon={List} label="Pantry" />
+                    <NavItem to="/recipes" icon={BookOpen} label="Recipes" />
+                    <NavItem to="/planner" icon={Calendar} label="Meal Planner" />
+                    <NavItem to="/shopping-list" icon={ShoppingCart} label="Shopping List" />
+                </nav>
+
+                <div className="mt-auto p-6 rounded-3xl bg-white/[0.03] border border-white/[0.05] backdrop-blur-md">
+                    <div className="flex items-center gap-3 mb-3">
+                        <div className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse shadow-[0_0_10px_rgba(52,211,153,0.5)]" />
+                        <span className="text-xs font-bold tracking-widest text-white/30 uppercase">System Active</span>
+                    </div>
+                    <p className="text-[10px] text-white/20 font-medium">Celestial Minimal v2.6</p>
+                </div>
+            </aside>
+
+            {/* Main Content Area */}
+            <main className="flex-1 lg:ml-72 min-h-screen relative overflow-y-auto">
+                <div className="max-w-7xl mx-auto px-6 py-8 md:p-12 lg:p-16 mb-24 lg:mb-0">
+                    <motion.div
+                        initial={{ opacity: 0, y: 10 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        transition={{ duration: 0.8, ease: [0.2, 0.8, 0.2, 1] }}
+                    >
+                        <Outlet />
+                    </motion.div>
+                </div>
+            </main>
+
+            {/* Mobile Navigation Bar */}
+            <nav className="lg:hidden fixed bottom-6 left-6 right-6 z-50">
+                <div className="glass-panel-elevated rounded-3xl p-3 flex justify-around items-center">
+                    {[
+                        { to: '/', icon: Home },
+                        { to: '/pantry', icon: List },
+                        { to: '/recipes', icon: BookOpen },
+                        { to: '/planner', icon: Calendar },
+                        { to: '/shopping-list', icon: ShoppingCart }
+                    ].map(({ to, icon: Icon }) => (
+                        <NavLink
+                            key={to}
+                            to={to}
+                            className={({ isActive }) =>
+                                `p-3 rounded-2xl transition-all duration-500 ${isActive
+                                    ? 'bg-white/10 text-white border border-white/5'
+                                    : 'text-white/30'
+                                }`
+                            }
+                        >
+                            <Icon size={22} strokeWidth={isActive ? 2.5 : 2} />
+                        </NavLink>
+                    ))}
+                </div>
+            </nav>
+        </div>
+    );
+};
+===
+import { NavLink, Outlet } from 'react-router-dom';
+import { Home, Calendar, BookOpen, ShoppingCart, List } from 'lucide-react';
+import { motion } from 'framer-motion';
+
+const NavItem = ({ to, icon: Icon, label }: { to: string, icon: any, label: string }) => {
+    return (
+        <NavLink
+            to={to}
+            className={({ isActive }) =>
+                `flex items-center gap-4 px-5 py-3.5 rounded-2xl transition-all duration-500 group ${isActive
+                    ? 'bg-white/[0.08] text-white shadow-[0_0_20px_rgba(255,255,255,0.05)] border border-white/[0.05]'
+                    : 'text-white/40 hover:text-white/80 hover:bg-white/[0.03]'
+                }`
+            }
+        >
+            {({ isActive }) => (
+                <>
+                    <Icon size={18} strokeWidth={isActive ? 2.5 : 2} className="transition-transform duration-500 group-hover:scale-110" />
+                    <span className="font-semibold text-sm tracking-tight">{label}</span>
+                    {isActive && (
+                        <motion.div
+                            layoutId="nav-dot"
+                            className="ml-auto w-1 h-1 rounded-full bg-indigo-400"
+                        />
+                    )}
+                </>
+            )}
+        </NavLink>
+    );
+};
+
+export const Layout = () => {
+    return (
+        <div className="flex min-h-screen bg-void selection:bg-indigo-500/30">
+            {/* Desktop Sidebar */}
+            <aside className="fixed left-0 top-0 h-full w-72 hidden lg:flex flex-col p-8 z-50">
+                <div className="mb-12 flex items-center gap-4 px-2">
+                    <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-indigo-400/20 to-emerald-400/20 border border-white/10 flex items-center justify-center backdrop-blur-md">
+                        <div className="w-4 h-4 rounded-full bg-white/90 shadow-[0_0_15px_rgba(255,255,255,0.5)]" />
+                    </div>
+                    <h1 className="text-xl font-bold tracking-tighter text-gradient-celestial">
+                        HEYINK<span className="font-light text-white/40">MEALS</span>
+                    </h1>
+                </div>
+
+                <nav className="space-y-1.5 flex-1">
+                    <NavItem to="/" icon={Home} label="Dashboard" />
+                    <NavItem to="/pantry" icon={List} label="Pantry" />
+                    <NavItem to="/recipes" icon={BookOpen} label="Recipes" />
+                    <NavItem to="/planner" icon={Calendar} label="Meal Planner" />
+                    <NavItem to="/shopping-list" icon={ShoppingCart} label="Shopping List" />
+                </nav>
+
+                <div className="mt-auto p-6 rounded-3xl bg-white/[0.03] border border-white/[0.05] backdrop-blur-md">
+                    <div className="flex items-center gap-3 mb-3">
+                        <div className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse shadow-[0_0_10px_rgba(52,211,153,0.5)]" />
+                        <span className="text-xs font-bold tracking-widest text-white/30 uppercase">System Active</span>
+                    </div>
+                    <p className="text-[10px] text-white/20 font-medium">Celestial Minimal v2.6</p>
+                </div>
+            </aside>
+
+            {/* Main Content Area */}
+            <main className="flex-1 lg:ml-72 min-h-screen relative overflow-y-auto">
+                <div className="max-w-7xl mx-auto px-6 py-8 md:p-12 lg:p-16 mb-24 lg:mb-0">
+                    <motion.div
+                        initial={{ opacity: 0, y: 10 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        transition={{ duration: 0.8, ease: [0.2, 0.8, 0.2, 1] }}
+                    >
+                        <Outlet />
+                    </motion.div>
+                </div>
+            </main>
+
+            {/* Mobile Navigation Bar */}
+            <nav className="lg:hidden fixed bottom-6 left-6 right-6 z-50">
+                <div className="glass-panel-elevated rounded-3xl p-3 flex justify-around items-center">
+                    {[
+                        { to: '/', icon: Home },
+                        { to: '/pantry', icon: List },
+                        { to: '/recipes', icon: BookOpen },
+                        { to: '/planner', icon: Calendar },
+                        { to: '/shopping-list', icon: ShoppingCart }
+                    ].map(({ to, icon: Icon }) => (
+                        <NavLink
+                            key={to}
+                            to={to}
+                            className={({ isActive }) =>
+                                `p-3 rounded-2xl transition-all duration-500 ${isActive
+                                    ? 'bg-white/10 text-white border border-white/5'
+                                    : 'text-white/30'
+                                }`
+                            }
+                        >
+                            {({ isActive }) => (
+                                <Icon size={22} strokeWidth={isActive ? 2.5 : 2} />
+                            )}
+                        </NavLink>
+                    ))}
+                </div>
+            </nav>
+        </div>
+    );
+};
+```
+
+## Verification Results
+
+### Manual Verification
+- The `ReferenceError` is resolved.
+- Navigation items now correctly display active states (thick stroke and dot on desktop, thick stroke on mobile).

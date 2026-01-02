@@ -1,0 +1,47 @@
+# Walkthrough - Persistent Shopping List Redesign
+
+## Changes
+Redesigned the shopping list logic from dynamic generation to a persistent ledger system.
+
+### 1. Database Schema
+- Added `shopping_list_items` table to track ingredients linked to specific meal plan entries.
+
+### 2. Service Layer (`plannerService.ts`)
+- **`addPlanEntry`**: Now automatically fetches recipe ingredients and inserts them into the `shopping_list_items` ledger.
+- **`getShoppingList`**: Fetches unarchived items, including context about which meal/recipe each ingredient is for.
+- **`toggleItemStatus`**: Allows marking items as "In Stock" or "Purchased".
+- **`archivePurchased`**: Cleans up the list by archiving completed items.
+
+### 3. UI Layer (`ShoppingListPage.tsx`)
+- **New Layout**: Replaced the simple list with a context-rich view.
+- **Status Toggles**: 
+    - **Shopping Cart Icon**: Mark as Purchased.
+    - **Home Icon**: Mark as In Stock (already at home).
+- **Context Display**: Each item shows the recipe and date it was planned for.
+- **Checked Off Section**: Shows completed items for verification.
+- **Fix**: Resolved a faulty database join that previously prevented items from appearing in the list.
+
+## Instructions for User
+> [!IMPORTANT]
+> **Database Update Required**
+> Please copy the SQL block below and run it in your **Supabase SQL Editor** to create the new table:
+> ```sql
+> create table shopping_list_items (
+>   id uuid primary key default uuid_generate_v4(),
+>   meal_plan_entry_id uuid references meal_plan_entries(id) on delete cascade,
+>   recipe_id uuid references recipes(id) on delete set null,
+>   grocery_type_id uuid references grocery_types(id) on delete cascade,
+>   quantity numeric not null,
+>   unit text not null,
+>   is_in_stock boolean default false,
+>   is_purchased boolean default false,
+>   is_archived boolean default false,
+>   created_at timestamptz default now()
+> );
+> ```
+
+## Verification
+1. Add a meal in the **Meal Planner**.
+2. Navigate to **Shopping List**.
+3. Verify ingredients appear with the correct meal context.
+4. Use the toggle buttons to manage your shop.

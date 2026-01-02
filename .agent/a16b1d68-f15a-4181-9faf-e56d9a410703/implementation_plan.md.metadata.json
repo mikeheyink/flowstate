@@ -1,0 +1,6 @@
+{
+  "artifactType":  "ARTIFACT_TYPE_IMPLEMENTATION_PLAN",
+  "summary":  "Implementation plan for Multi-Select and Batch Actions.\n- New `selectedIds` state in `useTaskStore`.\n- Update `handleKeyDown` in `TaskList` for `Shift+Arrow` selection.\n- Update `TaskItem` for visual selection state.\n- Implement batch actions: Move, Delete, Complete, Due Date, Indent/Outdent.\n- Resolve hotkey conflicts (Shift+Arrows).",
+  "updatedAt":  "2026-01-02T10:16:54.668189300Z",
+  "version":  "1"
+}

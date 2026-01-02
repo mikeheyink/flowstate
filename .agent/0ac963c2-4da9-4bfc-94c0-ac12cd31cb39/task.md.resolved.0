@@ -1,0 +1,6 @@
+# Tasks
+
+- [/] Debug "isActive is not defined" error in [Layout.tsx](file:///c:/Users/mheyi/HeyinkMeals/src/components/Layout.tsx)
+    - [ ] Analyze [Layout.tsx](file:///c:/Users/mheyi/HeyinkMeals/src/components/Layout.tsx) around line 95
+    - [ ] Fix the undefined reference
+    - [ ] Verify the fix

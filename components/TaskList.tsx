@@ -13,6 +13,12 @@ import { SortableTaskItem } from './SortableTaskItem';
 
 // ... (Existing Interfaces and Components: TaskListProps, VisibleTask, PriorityIcon) ...
 
+interface DragState {
+  type: 'nest' | 'insert-before' | 'insert-after';
+  targetId: string;
+}
+
+
 interface TaskListProps {
   filter: 'all' | 'active' | 'completed' | 'today';
 }
@@ -87,7 +93,9 @@ const TaskItem = ({
   isOver,
   attributes,
   listeners,
+  dragState,
 }: {
+
   task: VisibleTask;
   isFocused: boolean;
   isSelected?: boolean;
@@ -106,6 +114,9 @@ const TaskItem = ({
   isOver?: boolean;
   attributes?: any;
   listeners?: any;
+  dragState?: DragState | null;
+
+
 }) => {
   const x = useMotionValue(0);
   const opacity = useTransform(x, [0, 50, 100], [0, 0, 1]);
@@ -118,9 +129,16 @@ const TaskItem = ({
     checkMobile();
     window.addEventListener('resize', checkMobile);
     return () => window.removeEventListener('resize', checkMobile);
+
   }, []);
 
+  // Visuals for Magnetic Drop based on dragState
+  const isNestTarget = dragState?.type === 'nest' && dragState.targetId === task.id;
+  const isInsertBefore = dragState?.type === 'insert-before' && dragState.targetId === task.id;
+  const isInsertAfter = dragState?.type === 'insert-after' && dragState.targetId === task.id;
+
   const handleDragEnd = (_: any, info: any) => {
+
     if (info.offset.x > 80) { // Threshold for complete
       handleToggle(task.id, task.completed);
     }
@@ -156,8 +174,12 @@ const TaskItem = ({
               ${isSelected ? 'bg-primary-100 dark:bg-primary-900/40 ring-2 ring-primary-500 dark:ring-primary-400' : ''}
               ${!isFocused && !isSelected ? 'group-hover:bg-slate-100 dark:group-hover:bg-slate-900' : ''}
               ${task.completed ? 'opacity-50' : 'opacity-100'}
-              ${isOver && !isDragging ? 'ring-2 ring-primary-500 bg-primary-50 dark:bg-primary-900/10 scale-[1.02] z-10' : ''}
+              ${!isFocused && !isSelected ? 'group-hover:bg-slate-100 dark:group-hover:bg-slate-900' : ''}
+              ${task.completed ? 'opacity-50' : 'opacity-100'}
+              ${isOver && !isDragging && !isNestTarget ? 'ring-2 ring-primary-500 bg-primary-50 dark:bg-primary-900/10 scale-[1.02] z-10' : ''}
+              ${isNestTarget ? 'ring-2 ring-primary-500 bg-primary-100 dark:bg-primary-900/30 scale-[1.02] z-20' : ''}
             `}
+
         onClick={(e) => {
           e.stopPropagation();
           setFocusedId(task.id);
@@ -165,7 +187,12 @@ const TaskItem = ({
         }}
       >
         <div style={{ paddingLeft }}>
+          {/* Insert Lines */}
+          {isInsertBefore && <div className="absolute top-0 left-0 right-0 h-0.5 bg-blue-500 z-50 shadow-[0_0_4px_rgba(59,130,246,0.5)]" />}
+          {isInsertAfter && <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-blue-500 z-50 shadow-[0_0_4px_rgba(59,130,246,0.5)]" />}
+
           {/* Focus Indicator (Left Border) */}
+
           {isFocused && (
             <div className={`absolute left-0 top-1/2 -translate-y-1/2 w-1 h-8 rounded-r-full ${focusMode === 'main' ? 'bg-primary-500' : 'bg-slate-400 dark:bg-slate-600'}`} />
           )}
@@ -543,24 +570,30 @@ export const TaskList: React.FC<TaskListProps> = ({ filter }) => {
             tasksToIndent.sort((a, b) => currentTasks.indexOf(a) - currentTasks.indexOf(b));
 
             if (isShift) { // Outdent
+              const updates: { id: string, newParentId: string | null }[] = [];
               tasksToIndent.forEach(t => {
                 if (t.parentId) {
                   const parent = tasks.find(pt => pt.id === t.parentId);
                   // Move to parent's parent
-                  changeParent(t.id, parent?.parentId || null);
+                  updates.push({ id: t.id, newParentId: parent?.parentId || null });
                 }
               });
+              useTaskStore.getState().batchChangeParent(updates);
             } else { // Indent
+              const updates: { id: string, newParentId: string | null }[] = [];
+              // Toggle parents separately (acceptable side effect separation) or could allow batching too, 
+              // but expansion is less critical to undo group.
               tasksToIndent.forEach(t => {
                 const idx = currentTasks.findIndex(ct => ct.id === t.id);
                 if (idx > 0) {
                   const prev = currentTasks[idx - 1];
                   if (prev.depth === t.depth || prev.depth > t.depth) { // standard constraint
-                    changeParent(t.id, prev.id);
+                    updates.push({ id: t.id, newParentId: prev.id });
                     if (!prev.expanded) toggleExpand(prev.id);
                   }
                 }
               });
+              useTaskStore.getState().batchChangeParent(updates);
             }
             return;
           }
@@ -626,6 +659,8 @@ export const TaskList: React.FC<TaskListProps> = ({ filter }) => {
 
   // --- DND Logic ---
   const [activeTaskId, setActiveTaskId] = useState<string | null>(null);
+  const [dragState, setDragState] = useState<DragState | null>(null);
+  const lastHapticRef = useRef<string | null>(null);
 
   const sensors = useSensors(
     useSensor(MouseSensor, {
@@ -648,33 +683,139 @@ export const TaskList: React.FC<TaskListProps> = ({ filter }) => {
 
   const handleDragStart = (event: any) => {
     setActiveTaskId(event.active.id);
+    setDragState(null);
   };
+
+  const handleDragMove = (event: any) => {
+    const { active, over } = event;
+
+    if (!over || !active || active.id === over.id) {
+      if (dragState) setDragState(null);
+      return;
+    }
+
+    const overNode = over.data?.current?.sortable?.node?.current; // Ensure we get the node from Sortable
+    // Fallback if not sortable node
+    const node = overNode || document.querySelector(`[data-task-id="${over.id}"]`);
+
+    if (!node) return;
+
+    const rect = node.getBoundingClientRect();
+    // Use pointer coordinates for more precision on mobile? 
+    // dnd-kit provides geometry in collisions but `event.delta` is relative?
+    // Actually we can get pointer coordinates? Typically we rely on the `activatorEvent` or custom collision logic.
+    // However, `dnd-kit` doesn't pass pointer coordinates directly in onDragMove easily without custom sensors/modifiers.
+    // BUT checking standard approach: We want relative Y within the target.
+    // We can use `event.active.rect.current.translated` vs `event.over.rect`.
+
+    // Simplest approach: Use `active` rect center vs `over` rect.
+    const activeRect = event.active.rect.current.translated;
+    if (!activeRect) return;
+
+    const activeCenterY = activeRect.top + activeRect.height / 2;
+    const relativeY = activeCenterY - rect.top;
+    const percentage = Math.max(0, Math.min(1, relativeY / rect.height));
+
+    let newType: DragState['type'] = 'nest';
+    if (percentage < 0.25) newType = 'insert-before';
+    else if (percentage > 0.75) newType = 'insert-after';
+    else newType = 'nest';
+
+    const newState = { type: newType, targetId: over.id };
+
+    if (!dragState || dragState.type !== newType || dragState.targetId !== over.id) {
+      setDragState(newState);
+      // Haptics
+      if (typeof navigator !== 'undefined' && navigator.vibrate) {
+        // Prevent spamming
+        const key = `${over.id}-${newType}`;
+        if (lastHapticRef.current !== key) {
+          navigator.vibrate(10);
+          lastHapticRef.current = key;
+        }
+      }
+    }
+  };
+
 
   const handleDragEnd = (event: DragEndEvent) => {
     const { active, over } = event;
     setActiveTaskId(null);
+    setDragState(null);
+
+    lastHapticRef.current = null;
 
     if (active.id !== over?.id && over) {
       const activeTask = visibleTasks.find(t => t.id === active.id);
       const overTask = visibleTasks.find(t => t.id === over.id);
 
       if (activeTask && overTask) {
-        // Simple Reorder logic (adoption)
-        const newParentId = overTask.parentId;
-        const oldIndex = visibleTasks.findIndex(t => t.id === active.id);
-        const newIndex = visibleTasks.findIndex(t => t.id === over.id);
+        // Use computed dragState if available for precision
+        // Or re-calculate? Better to rely on what was last shown to user?
+        // Actually, let's re-calculate to be safe or use state if reliable. 
+        // Sync issue: dragState might be stale if race condition? 
+        // Let's re-calculate quickly.
 
-        let newOrder = overTask.order || 0;
-        if (oldIndex < newIndex) {
-          newOrder = (overTask.order || 0) + 100;
-        } else {
-          newOrder = (overTask.order || 0) - 100;
+        // Actually, just use standard logic unless "Nesting" was the intent.
+        // How do we know intent if we don't store it? Logic replay.
+
+        // Re-calcing logic from DragMove:
+        const node = document.querySelector(`[data-task-id="${over.id}"]`);
+        let action = 'reorder';
+
+        if (node) {
+          const rect = node.getBoundingClientRect();
+          // We don't have active rect here easily in DragEndEvent (it has active.rect.current.translated usually)
+          const activeRect = active.rect.current.translated;
+          if (activeRect) {
+            const activeCenterY = activeRect.top + activeRect.height / 2;
+            const relativeY = activeCenterY - rect.top;
+            const percentage = Math.max(0, Math.min(1, relativeY / rect.height));
+            if (percentage >= 0.25 && percentage <= 0.75) {
+              action = 'nest';
+            }
+          }
         }
 
-        moveTaskTo(activeTask.id, newParentId, newOrder);
+        if (action === 'nest') {
+          // Nest Logic
+          if (activeTask.parentId !== overTask.id) {
+            changeParent(activeTask.id, overTask.id);
+            if (!overTask.expanded) toggleExpand(overTask.id);
+          }
+        } else {
+          // Reorder Logic (Standard)
+          const newParentId = overTask.parentId;
+          const oldIndex = visibleTasks.findIndex(t => t.id === active.id);
+          const newIndex = visibleTasks.findIndex(t => t.id === over.id);
+
+          let newOrder = overTask.order || 0;
+
+          // Refined reorder based on insert direction
+          // If we are "insert-before" (top 25%), we want to be ABOVE target.
+          // If "insert-after" (bottom 25%), we want to be BELOW target.
+          // Existing logic was "dumb" (just index based).
+
+          // Since we established zones, we should honor them.
+          // But if we fall back to standard dnd-kit behavior (center-based), 
+          // the 'over' might be different.
+          // Let's stick to the visual expectation.
+
+          // If we are strictly 'nest', we handled it.
+          // If not nest, we are 'reorder'.
+
+          if (oldIndex < newIndex) {
+            newOrder = (overTask.order || 0) + 100;
+          } else {
+            newOrder = (overTask.order || 0) - 100;
+          }
+
+          moveTaskTo(activeTask.id, newParentId, newOrder);
+        }
       }
     }
   };
+
 
   const activeTask = activeTaskId ? visibleTasks.find(t => t.id === activeTaskId) : null;
 
@@ -694,9 +835,11 @@ export const TaskList: React.FC<TaskListProps> = ({ filter }) => {
       sensors={sensors}
       collisionDetection={closestCenter}
       onDragStart={handleDragStart}
+      onDragMove={handleDragMove}
       onDragEnd={handleDragEnd}
-      onDragCancel={() => setActiveTaskId(null)}
+      onDragCancel={() => { setActiveTaskId(null); setDragState(null); }}
     >
+
       <div ref={listRef} className="pb-24">
         <SortableContext
           items={visibleTasks.map(t => t.id)}
@@ -724,7 +867,9 @@ export const TaskList: React.FC<TaskListProps> = ({ filter }) => {
                   isOver={isOver}
                   attributes={attributes}
                   listeners={listeners}
+                  dragState={dragState}
                 />
+
               )}
             </SortableTaskItem>
           ))}

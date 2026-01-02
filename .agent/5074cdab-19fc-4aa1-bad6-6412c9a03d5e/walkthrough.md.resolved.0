@@ -1,0 +1,15 @@
+# Walkthrough - Meal Planner Dropdown Fix
+
+## Changes
+Fixed an issue where the meal planner dropdown was empty and saving meals failed.
+
+### planner/PlannerPage.tsx
+- **Date Formatting**: Now using `yyyy-MM-dd` format when calling `plannerService` instead of passing raw Date objects.
+- **Service Calls**: 
+    - Updated [getPlanForRange](file:///c:/Users/mheyi/HeyinkMeals/src/services/plannerService.ts#29-40) to receive formatted date strings.
+    - Updated [addPlanEntry](file:///c:/Users/mheyi/HeyinkMeals/src/services/plannerService.ts#12-28) to include `dinerType` ('Everyone') and `planType` ('Recipe') arguments, which were missing.
+
+## Verification Results
+### Manual Verification
+- **Recipes Loading**: valid recipes from the database should now populate the dropdown.
+- **Saving Meals**: Clicking "Save" should successfully persist the meal plan entry to Supabase without 400 errors.

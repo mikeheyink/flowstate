@@ -1,0 +1,34 @@
+# Mobile UX Enhancements Walkthrough
+
+We have implemented two major mobile-focused improvements.
+
+## 1. Quick Add Indentation
+(For adding sub-tasks on the go)
+
+### How to Verify
+1.  Open the app on Mobile (or shrink browser width).
+2.  Tap the **Floating "+" Button** (bottom right).
+3.  Type a new task name (e.g., "Step 2").
+4.  **Before hitting enter**:
+    -   Tap the **Right Arrow (`>`)** inside the input bar.
+    -   Notice it says "Adding Subtask" or indents logically under the previous item.
+    -   Tap **Left Arrow (`<`)** to outdent.
+5.  Hit Enter/Submit.
+6.  Verify the task appears nested correctly in the list.
+
+## 2. Swipe-to-Complete
+(For "Done" actions that feel great)
+
+### How to Verify
+1.  Touch any task card on mobile.
+2.  **Drag it to the Right**.
+    -   **Visuals**: As you drag, a green background with a Check Icon is revealed behind the card.
+    -   **Physics**: Notice the rubber-banding feel (thanks to Framer Motion).
+3.  **Release Interaction**:
+    -   **Short Swipe (< 30%)**: The card bounces back (Action cancelled).
+    -   **Long Swipe (> 30%)**: The card snaps, creating a "Task Completed" event.
+    -   You should see the "Undo" toast appear immediately.
+
+## Tech Details
+-   **Library**: `framer-motion` handles the spring physics and gesture tracking.
+-   **Components**: [TaskList](file:///c:/Users/mheyi/.gemini/antigravity/scratch/flowstate/components/TaskList.tsx#245-609) was refactored to extract [TaskItem](file:///c:/Users/mheyi/.gemini/antigravity/scratch/flowstate/components/TaskList.tsx#65-244), improving code modularity.

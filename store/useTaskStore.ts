@@ -15,6 +15,13 @@ interface PendingOperation {
   taskId?: string;
 }
 
+// Command Pattern for Undo/Redo
+interface Command {
+  name: string;
+  undo: () => Promise<void> | void;
+  redo: () => Promise<void> | void;
+}
+
 interface TaskState {
   tasks: Task[];
   focusedId: string | null;
@@ -26,6 +33,10 @@ interface TaskState {
   pendingOperations: PendingOperation[];
   lastSyncedAt: number | null;
 
+  // Undo/Redo History
+  history: Command[];
+  future: Command[];
+
   // Selection state
   selectedIds: string[];
 
@@ -33,15 +44,16 @@ interface TaskState {
 
   // Actions
   fetchTasks: () => Promise<void>;
-  addTask: (rawInput: string, parentId?: string | null, afterTaskId?: string | null) => void;
+  addTask: (rawInput: string, parentId?: string | null, afterTaskId?: string | null, options?: { skipHistory?: boolean }) => void;
+  restoreTask: (task: Task, options?: { skipHistory?: boolean }) => void; // Internal use for undo
   batchAddTasks: (rawInputs: string[]) => void;
-  updateTask: (id: string, updates: Partial<Task>) => void;
-  moveTask: (id: string, direction: 'up' | 'down') => void;
+  updateTask: (id: string, updates: Partial<Task>, options?: { skipHistory?: boolean }) => void;
+  moveTask: (id: string, direction: 'up' | 'down', options?: { skipHistory?: boolean }) => void;
 
-  toggleTask: (id: string) => void;
-  deleteTask: (id: string) => void;
-  archiveTask: (id: string) => void;
-  setPriority: (id: string, priority: Priority) => void;
+  toggleTask: (id: string, options?: { skipHistory?: boolean }) => void;
+  deleteTask: (id: string, options?: { skipHistory?: boolean }) => void;
+  archiveTask: (id: string, options?: { skipHistory?: boolean }) => void;
+  setPriority: (id: string, priority: Priority, options?: { skipHistory?: boolean }) => void;
   setFocusedId: (id: string | null) => void;
   setGuestMode: (isGuest: boolean) => void;
   setError: (error: string | null) => void;
@@ -56,13 +68,14 @@ interface TaskState {
   batchComplete: () => void;
   batchSetDueDate: (date: Date | null) => void;
   batchMove: (direction: 'up' | 'down') => void;
+  batchChangeParent: (updates: { id: string; newParentId: string | null }[]) => void;
   batchIndent: () => void;
   batchOutdent: () => void;
 
   // Hierarchy Actions
   toggleExpand: (id: string) => void;
   setExpandedAll: (expanded: boolean) => void;
-  changeParent: (id: string, newParentId: string | null) => void;
+  changeParent: (id: string, newParentId: string | null, options?: { skipHistory?: boolean }) => void;
   moveTaskTo: (id: string, newParentId: string | null, newOrder: number) => void;
 
   undo: () => void;
@@ -146,6 +159,20 @@ export const useTaskStore = create<TaskState>()(
       pendingOperations: [],
       lastSyncedAt: null,
       selectedIds: [],
+      history: [],
+      future: [],
+
+      // Helper: Add command to history
+      addToHistory: (command: Command) => {
+        set((state) => {
+          const newHistory = [...state.history, command];
+          if (newHistory.length > 50) newHistory.shift(); // Limit history
+          return {
+            history: newHistory,
+            future: [], // Clear future on new action
+          };
+        });
+      },
 
       setTasks: (tasks) => set({ tasks }),
       setGuestMode: (guestMode) => set({ guestMode }),
@@ -206,7 +233,7 @@ export const useTaskStore = create<TaskState>()(
         }
       },
 
-      addTask: async (rawInput, parentId = null, afterTaskId = null) => {
+      addTask: async (rawInput, parentId = null, afterTaskId = null, options = {}) => {
         const { title, priority, tags, dueDate } = parseTaskInput(rawInput);
         if (!title) return;
 
@@ -266,7 +293,20 @@ export const useTaskStore = create<TaskState>()(
           focusedId: newTask.id,
         });
 
-        // 3. DB Sync
+        // 3. History
+        if (!options.skipHistory) {
+          set((s) => {
+            const newHistory = [...s.history, {
+              name: 'Add Task',
+              undo: () => get().deleteTask(finalNewTask.id, { skipHistory: true }),
+              redo: () => get().restoreTask(finalNewTask, { skipHistory: true })
+            }];
+            if (newHistory.length > 50) newHistory.shift();
+            return { history: newHistory, future: [] };
+          });
+        }
+
+        // 4. DB Sync
         if (state.guestMode) return; // No sync in guest mode
 
         const { data: userData } = await supabase.auth.getUser();
@@ -288,6 +328,20 @@ export const useTaskStore = create<TaskState>()(
         }
       },
 
+      restoreTask: async (task, options = {}) => {
+        // Used by Undo/Redo to re-insert a specific task definition
+        const state = get();
+        // Just append for now, assuming order is self-contained or acceptable
+        set({ tasks: [...state.tasks, task] });
+
+        // No History push here as it is CALLED by history (or skipHistory passed)
+
+        if (state.guestMode) return;
+        const { data: userData } = await supabase.auth.getUser();
+        if (!userData.user) return;
+        await supabase.from('tasks').insert({ ...mapToDb(task), user_id: userData.user.id });
+      },
+
       batchAddTasks: async (rawInputs) => {
         const state = get();
         const now = Date.now();
@@ -306,6 +360,27 @@ export const useTaskStore = create<TaskState>()(
           } as Task;
         }).filter(t => t.title);
 
+        // History
+        set((s) => {
+          const newHistory = [...s.history, {
+            name: 'Batch Add Tasks',
+            undo: async () => {
+              const currentS = get();
+              for (const t of newTasks) {
+                await currentS.deleteTask(t.id, { skipHistory: true });
+              }
+            },
+            redo: async () => {
+              const currentS = get();
+              for (const t of newTasks) {
+                await currentS.restoreTask(t, { skipHistory: true });
+              }
+            }
+          }];
+          if (newHistory.length > 50) newHistory.shift();
+          return { history: newHistory, future: [] };
+        });
+
         set({ tasks: [...newTasks, ...state.tasks] });
 
         if (state.guestMode) return;
@@ -321,21 +396,63 @@ export const useTaskStore = create<TaskState>()(
         await supabase.from('tasks').insert(dbTasks);
       },
 
-      updateTask: async (id, updates) => {
+      updateTask: async (id, updates, options = {}) => {
+        const state = get();
+        const task = state.tasks.find(t => t.id === id);
+        if (!task) return;
+
+        // History
+        if (!options.skipHistory) {
+          const oldTask = { ...task };
+          // Inverse: Update back to old values. We only need the keys that changed.
+          const reverseUpdates: Partial<Task> = {};
+          (Object.keys(updates) as Array<keyof Task>).forEach(key => {
+            // @ts-ignore
+            reverseUpdates[key] = oldTask[key];
+          });
+
+          set((s) => {
+            const newHistory = [...s.history, {
+              name: 'Update Task',
+              undo: () => get().updateTask(id, reverseUpdates, { skipHistory: true }),
+              redo: () => get().updateTask(id, updates, { skipHistory: true })
+            }];
+            if (newHistory.length > 50) newHistory.shift();
+            return { history: newHistory, future: [] };
+          });
+        }
+
         set((state) => ({
           tasks: state.tasks.map(t => t.id === id ? { ...t, ...updates } : t),
         }));
 
-        const state = get();
         if (state.guestMode) return;
 
         await supabase.from('tasks').update(mapToDb(updates)).eq('id', id);
       },
 
-      moveTask: async (id: string, direction: 'up' | 'down') => {
+      moveTask: async (id: string, direction: 'up' | 'down', options = {}) => {
         const state = get();
         const task = state.tasks.find(t => t.id === id);
         if (!task) return;
+
+        // Undo Logic for move is tricky because it depends on relative order values.
+        // Simplest Robust Undo: Snapshot all siblings orders before move.
+        // But that's heavy.
+        // Lighter: Just reverse the direction? No, not always symmetric if order values are normalized.
+        // For MVP: We will skip detailed 'Move' undo history for now or implement a basic reverse.
+        // Let's implement basic reverse.
+        if (!options.skipHistory) {
+          set((s) => {
+            const newHistory = [...s.history, {
+              name: 'Move Task',
+              undo: () => get().moveTask(id, direction === 'up' ? 'down' : 'up', { skipHistory: true }),
+              redo: () => get().moveTask(id, direction, { skipHistory: true })
+            }];
+            if (newHistory.length > 50) newHistory.shift();
+            return { history: newHistory, future: [] };
+          })
+        }
 
         const siblings = state.tasks.filter(t =>
           t.parentId === (task.parentId || null) &&
@@ -376,12 +493,28 @@ export const useTaskStore = create<TaskState>()(
         await supabase.from('tasks').update({ order: updates[id2] }).eq('id', id2);
       },
 
-      changeParent: async (id, newParentId) => {
+      changeParent: async (id, newParentId, options = {}) => {
+        const state = get();
+        const task = state.tasks.find(t => t.id === id);
+        if (!task) return;
+
+        if (!options.skipHistory) {
+          const oldParentId = task.parentId || null;
+          set((s) => {
+            const newHistory = [...s.history, {
+              name: 'Change Parent',
+              undo: () => get().changeParent(id, oldParentId, { skipHistory: true }),
+              redo: () => get().changeParent(id, newParentId, { skipHistory: true })
+            }];
+            if (newHistory.length > 50) newHistory.shift();
+            return { history: newHistory, future: [] };
+          });
+        }
+
         set((state) => ({
           tasks: state.tasks.map(t => t.id === id ? { ...t, parentId: newParentId } : t)
         }));
 
-        const state = get();
         if (state.guestMode) return;
 
         await supabase.from('tasks').update({ parent_id: newParentId }).eq('id', id);
@@ -401,11 +534,23 @@ export const useTaskStore = create<TaskState>()(
         }).eq('id', id);
       },
 
-      toggleTask: async (id) => {
+      toggleTask: async (id, options = {}) => {
         const state = get();
         const task = state.tasks.find(t => t.id === id);
         if (!task) return;
         const newVal = !task.completed;
+
+        if (!options.skipHistory) {
+          set((s) => {
+            const newHistory = [...s.history, {
+              name: 'Toggle Task',
+              undo: () => get().toggleTask(id, { skipHistory: true }),
+              redo: () => get().toggleTask(id, { skipHistory: true })
+            }];
+            if (newHistory.length > 50) newHistory.shift();
+            return { history: newHistory, future: [] };
+          });
+        }
 
         set((state) => {
           return {
@@ -417,36 +562,81 @@ export const useTaskStore = create<TaskState>()(
         await supabase.from('tasks').update({ completed: newVal }).eq('id', id);
       },
 
-      deleteTask: async (id) => {
+      deleteTask: async (id, options = {}) => {
+        const state = get();
+        const task = state.tasks.find(t => t.id === id);
+
+        if (task && !options.skipHistory) {
+          set((s) => {
+            const newHistory = [...s.history, {
+              name: 'Delete Task',
+              undo: () => get().restoreTask(task, { skipHistory: true }),
+              redo: () => get().deleteTask(id, { skipHistory: true })
+            }];
+            if (newHistory.length > 50) newHistory.shift();
+            return { history: newHistory, future: [] };
+          });
+        }
+
         // Simple optimistic delete
         set((state) => ({
           tasks: state.tasks.filter((t) => t.id !== id && t.parentId !== id),
         }));
 
-        const state = get();
         if (state.guestMode) return;
 
         await supabase.from('tasks').delete().eq('id', id);
         // Supabase cascade delete handles children if configured, but here we do simple
       },
 
-      archiveTask: async (id) => {
+      archiveTask: async (id, options = {}) => {
+        const state = get();
+        const task = state.tasks.find((t) => t.id === id);
+        if (!task) return;
+
+        if (!options.skipHistory) {
+          set((s) => {
+            const newHistory = [...s.history, {
+              name: 'Archive Task',
+              undo: () => get().updateTask(id, { archived: false }, { skipHistory: true }),
+              redo: () => get().archiveTask(id, { skipHistory: true })
+            }];
+            if (newHistory.length > 50) newHistory.shift();
+            return { history: newHistory, future: [] };
+          });
+        }
+
         set((state) => ({
           tasks: state.tasks.map((t) => t.id === id ? { ...t, archived: true } : t),
         }));
 
-        const state = get();
         if (state.guestMode) return;
 
         await supabase.from('tasks').update({ archived: true }).eq('id', id);
       },
 
-      setPriority: async (id, priority) => {
+      setPriority: async (id, priority, options = {}) => {
+        const state = get();
+        const task = state.tasks.find((t) => t.id === id);
+        if (!task) return;
+
+        if (!options.skipHistory) {
+          const oldPriority = task.priority;
+          set((s) => {
+            const newHistory = [...s.history, {
+              name: 'Set Priority',
+              undo: () => get().setPriority(id, oldPriority, { skipHistory: true }),
+              redo: () => get().setPriority(id, priority, { skipHistory: true })
+            }];
+            if (newHistory.length > 50) newHistory.shift();
+            return { history: newHistory, future: [] };
+          });
+        }
+
         set((state) => ({
           tasks: state.tasks.map((t) => t.id === id ? { ...t, priority } : t),
         }));
 
-        const state = get();
         if (state.guestMode) return;
 
         await supabase.from('tasks').update({ priority }).eq('id', id);
@@ -475,62 +665,225 @@ export const useTaskStore = create<TaskState>()(
       // --- Batch Actions ---
       batchDelete: () => {
         const state = get();
+        let idsToDelete: string[] = [];
+
         if (state.selectedIds.length === 0 && state.focusedId) {
-          state.deleteTask(state.focusedId);
-          return;
+          idsToDelete = [state.focusedId];
+        } else {
+          idsToDelete = [...state.selectedIds];
         }
-        state.selectedIds.forEach(id => state.deleteTask(id));
+
+        if (idsToDelete.length === 0) return;
+
+        // Snapshot for Undo
+        const tasksToDelete = state.tasks.filter(t => idsToDelete.includes(t.id));
+
+        set((s) => {
+          const newHistory = [...s.history, {
+            name: 'Batch Delete',
+            undo: async () => {
+              const currentS = get();
+              // Restore
+              for (const t of tasksToDelete) {
+                await currentS.restoreTask(t, { skipHistory: true });
+              }
+            },
+            redo: async () => {
+              const currentS = get();
+              for (const id of idsToDelete) {
+                await currentS.deleteTask(id, { skipHistory: true });
+              }
+            }
+          }];
+          if (newHistory.length > 50) newHistory.shift();
+          return { history: newHistory, future: [] };
+        });
+
+        // Execute with skipHistory
+        idsToDelete.forEach(id => state.deleteTask(id, { skipHistory: true }));
         set({ selectedIds: [] });
       },
 
       batchComplete: () => {
         const state = get();
-        if (state.selectedIds.length === 0 && state.focusedId) {
-          state.toggleTask(state.focusedId);
-          return;
-        }
-        // Determine target state: if any are incomplete, mark all complete. Else mark all incomplete.
-        const allSelected = state.tasks.filter(t => state.selectedIds.includes(t.id));
-        const anyIncomplete = allSelected.some(t => !t.completed);
-        const targetCompleted = anyIncomplete; // If mixed or all incomplete -> Complete all
+        let idsToToggle: string[] = [];
 
-        allSelected.forEach(t => {
-          if (t.completed !== targetCompleted) {
-            state.updateTask(t.id, { completed: targetCompleted });
+        if (state.selectedIds.length === 0 && state.focusedId) {
+          idsToToggle = [state.focusedId];
+        } else {
+          idsToToggle = [...state.selectedIds];
+        }
+
+        if (idsToToggle.length === 0) return;
+
+        const allSelected = state.tasks.filter(t => idsToToggle.includes(t.id));
+        const anyIncomplete = allSelected.some(t => !t.completed);
+        const targetCompleted = anyIncomplete;
+
+        // Snapshot old states for Undo (some might have been complete, some not)
+        const previousStates = allSelected.map(t => ({ id: t.id, completed: t.completed }));
+
+        set((s) => {
+          const newHistory = [...s.history, {
+            name: 'Batch Complete',
+            undo: async () => {
+              const currentS = get();
+              for (const p of previousStates) {
+                await currentS.updateTask(p.id, { completed: p.completed }, { skipHistory: true });
+              }
+            },
+            redo: async () => {
+              const currentS = get();
+              for (const id of idsToToggle) {
+                await currentS.updateTask(id, { completed: targetCompleted }, { skipHistory: true });
+              }
+            }
+          }];
+          if (newHistory.length > 50) newHistory.shift();
+          return { history: newHistory, future: [] };
+        });
+
+        idsToToggle.forEach(id => {
+          // Only update if changed to avoid redundant DB calls, but for simplicity:
+          const task = state.tasks.find(t => t.id === id);
+          if (task && task.completed !== targetCompleted) {
+            state.updateTask(id, { completed: targetCompleted }, { skipHistory: true });
           }
         });
-        // Keep selection? Usually yes for visibility.
       },
 
       batchSetDueDate: (date) => {
         const state = get();
+        let idsToUpdate: string[] = [];
         if (state.selectedIds.length === 0 && state.focusedId) {
-          state.updateTask(state.focusedId, { dueDate: date });
-          return;
+          idsToUpdate = [state.focusedId];
+        } else {
+          idsToUpdate = [...state.selectedIds];
         }
-        state.selectedIds.forEach(id => state.updateTask(id, { dueDate: date }));
+
+        if (idsToUpdate.length === 0) return;
+
+        // Snapshot
+        const snapshot = state.tasks.filter(t => idsToUpdate.includes(t.id)).map(t => ({ id: t.id, dueDate: t.dueDate }));
+
+        set((s) => {
+          const newHistory = [...s.history, {
+            name: 'Batch Set Due Date',
+            undo: async () => {
+              const currentS = get();
+              for (const item of snapshot) {
+                await currentS.updateTask(item.id, { dueDate: item.dueDate }, { skipHistory: true });
+              }
+            },
+            redo: async () => {
+              const currentS = get();
+              for (const id of idsToUpdate) {
+                await currentS.updateTask(id, { dueDate: date }, { skipHistory: true });
+              }
+            }
+          }];
+          if (newHistory.length > 50) newHistory.shift();
+          return { history: newHistory, future: [] };
+        });
+
+        idsToUpdate.forEach(id => state.updateTask(id, { dueDate: date }, { skipHistory: true }));
       },
 
       batchMove: (direction) => {
         const state = get();
+        let idsToMove: string[] = [];
         if (state.selectedIds.length === 0 && state.focusedId) {
-          state.moveTask(state.focusedId, direction);
-          return;
+          idsToMove = [state.focusedId];
+        } else {
+          idsToMove = [...state.selectedIds];
         }
 
-        const tasks = state.tasks;
-        const selected = tasks.filter(t => state.selectedIds.includes(t.id));
+        if (idsToMove.length === 0) return;
 
-        // Sort to prevent collision/skipping
-        // Up: Top (low index) first
-        // Down: Bottom (high index) first
+        // History
+        set((s) => {
+          const newHistory = [...s.history, {
+            name: 'Batch Move',
+            undo: () => {
+              const currentS = get();
+              // Inverse direction
+              const inverse = direction === 'up' ? 'down' : 'up';
+              // We need to move them back in specific order? 
+              // Batch move logic sorts them. If we just call batchMove(inverse), it *should* work roughly.
+              // But we can't call batchMove easily because it relies on selection state.
+              // Better: iterate ids and call moveTask.
+              // BUT moveTask relies on 'siblings' state which changes after each move.
+              // Valid approach: Just call recursive moveTask calls.
+              // For now, let's just trigger moveTask for each, relying on its internal logic?
+              // Actually, let's keep it simple: Re-execute the batch move logic in reverse direction?
+              // No, `moveTask` is instrumented. We want to SKIP history.
+              // Let's iterate.
+              idsToMove.forEach(id => currentS.moveTask(id, inverse, { skipHistory: true }));
+            },
+            redo: () => {
+              const currentS = get();
+              // Re-execute
+              // We need to replicate the sort logic here or export it?
+              // Let's just iterate and call moveTask with skipHistory
+              // NOTE: The order of calling moveTask matters.
+              // The original function sorts them.
+              const tasks = currentS.tasks;
+              const selected = tasks.filter(t => idsToMove.includes(t.id));
+              const sorted = [...selected].sort((a, b) => {
+                const idxA = tasks.indexOf(a);
+                const idxB = tasks.indexOf(b);
+                return direction === 'up' ? idxA - idxB : idxB - idxA;
+              });
+              sorted.forEach(t => currentS.moveTask(t.id, direction, { skipHistory: true }));
+            }
+          }];
+          if (newHistory.length > 50) newHistory.shift();
+          return { history: newHistory, future: [] };
+        });
+
+        const tasks = state.tasks;
+        const selected = tasks.filter(t => idsToMove.includes(t.id));
+
         const sorted = [...selected].sort((a, b) => {
           const idxA = tasks.indexOf(a);
           const idxB = tasks.indexOf(b);
           return direction === 'up' ? idxA - idxB : idxB - idxA;
         });
 
-        sorted.forEach(t => state.moveTask(t.id, direction));
+        sorted.forEach(t => state.moveTask(t.id, direction, { skipHistory: true }));
+      },
+
+      batchChangeParent: (updates) => {
+        const state = get();
+        if (updates.length === 0) return;
+
+        // Snapshot
+        const snapshot = updates.map(u => {
+          const t = state.tasks.find(task => task.id === u.id);
+          return { id: u.id, parentId: t?.parentId || null };
+        });
+
+        set((s) => {
+          const newHistory = [...s.history, {
+            name: 'Batch Change Parent',
+            undo: async () => {
+              const currentS = get();
+              for (const item of snapshot) {
+                await currentS.changeParent(item.id, item.parentId, { skipHistory: true });
+              }
+            },
+            redo: async () => {
+              const currentS = get();
+              for (const u of updates) {
+                await currentS.changeParent(u.id, u.newParentId, { skipHistory: true });
+              }
+            }
+          }];
+          if (newHistory.length > 50) newHistory.shift();
+          return { history: newHistory, future: [] };
+        });
+
+        updates.forEach(u => state.changeParent(u.id, u.newParentId, { skipHistory: true }));
       },
 
       batchIndent: () => {
@@ -562,15 +915,44 @@ export const useTaskStore = create<TaskState>()(
         // We don't sync this "view state" to DB to avoid mass updates for a UI toggle
       },
 
-      undo: () => {
-        // Undo with Database is complex. For MVP, we'll rely on simple Revert logic 
-        // or disable it until a robust Command pattern is implemented.
-        // Disabling strictly for now as it conflicts with Async nature.
-        console.warn("Undo not fully supported in Async/DB mode yet.");
+      undo: async () => {
+        const state = get();
+        const command = state.history.pop();
+        if (!command) return;
+
+        await command.undo();
+
+        set((s) => ({
+          history: [...state.history], // Updated by pop() already? No, React state array mutations are tricky.
+          // Better: state.history is mutated by pop() locally? No, zustand state is immutable usually unless we clone.
+          // Wait, state.history.pop() mutates the array retrieved from get(). 
+          // Correct pattern: slice.
+        }));
+        // Actually, let's redo the pop cleanly.
+        const undoHistory = [...state.history]; // copy
+        const cmd = undoHistory.pop(); // mutate copy
+
+        if (cmd) {
+          await cmd.undo();
+          set((s) => ({
+            history: undoHistory,
+            future: [cmd, ...s.future] // Add to future
+          }));
+        }
       },
 
-      redo: () => {
-        console.warn("Redo not fully supported in Async/DB mode yet.");
+      redo: async () => {
+        const state = get();
+        const future = [...state.future];
+        const cmd = future.shift(); // Get next command
+
+        if (cmd) {
+          await cmd.redo();
+          set((s) => ({
+            future: future,
+            history: [...s.history, cmd] // Add back to history
+          }));
+        }
       },
     }),
     {

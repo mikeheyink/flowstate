@@ -1,0 +1,22 @@
+# Keyboard-First To-Do Application
+
+## Planning
+- [/] Create implementation plan and project structure
+- [ ] User review and approval of plan
+
+## Execution
+- [ ] Initialize Next.js project with Tailwind CSS
+- [ ] Create Zustand TaskStore with undo/redo support
+- [ ] Build NLP Parser utility for natural language input
+- [ ] Create Command Palette component (Cmd+K)
+- [ ] Build MainList component with Vim-style navigation
+- [ ] Implement Toast notification system
+- [ ] Add keyboard shortcuts (J/K/X/D/E/1-3/N)
+- [ ] Apply dark theme styling
+
+## Verification
+- [ ] Test all keyboard shortcuts
+- [ ] Test command palette functionality
+- [ ] Test NLP quick add parsing
+- [ ] Test undo/redo functionality
+- [ ] Visual inspection of dark theme UI

@@ -1,0 +1,31 @@
+# Planner Customization Plan (Refined)
+
+This plan outlines the enhancements to the planner customization, allowing for granular slot selection per diner type and the ability to re-order diner types in the grid.
+
+## Proposed Changes
+
+### [Component] [PlannerPage.tsx](file:///c:/Users/mheyi/HeyinkMeals/src/pages/planner/PlannerPage.tsx)
+
+- **Update Settings State**:
+    - **Unify Configuration**: Move from separate `visibleSlots` and `visibleDinerTypes` to a single `plannerConfig` array:
+      ```typescript
+      type DinerConfig = { id: string, slots: string[] };
+      const [plannerConfig, setPlannerConfig] = useState<DinerConfig[]>(...);
+      ```
+    - **Persistence**: Save `plannerConfig` to `localStorage`.
+- **Enhanced Customization UI**:
+    - **Per-Type Slots**: The menu will now show each diner type with its specific slot checkboxes underneath.
+    - **Re-ordering**: Add "Up/Down" arrow buttons next to each diner type in the menu to change its position in the `plannerConfig` array.
+    - **Slot Toggling**: Clicking a slot checkbox will add/remove it from that specific diner type's `slots` array.
+- **Dynamic Grid Rendering**:
+    - **Calculating Columns**: Total columns will be `120px` (date) plus one column for every active slot across all active diner types.
+    - **Span-based Headers**: Diner type headers will use `grid-column: span X` where X is the number of active slots for that type.
+    - **Order-aware Mapping**: The grid will map through the `plannerConfig` array to ensure the user's preferred order is respected.
+
+## Verification Plan
+
+### Manual Verification
+- **Granularity**: Select "Lunch" only for "Parents" and all three slots for "Children". Verify the grid shows exactly 4 meal columns (1 for Parents, 3 for Children).
+- **Re-ordering**: Move "Children" to the first position using the "Up" arrow. Verify the grid updates immediately to show Children first.
+- **Persistence**: Refresh the page and ensure both the slot selections AND the custom order are preserved.
+- **Minimal State**: Deselect all slots for a diner type. Verify that diner type disappears from the grid.

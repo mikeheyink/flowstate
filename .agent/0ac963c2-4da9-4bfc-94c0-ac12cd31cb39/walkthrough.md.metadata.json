@@ -1,0 +1,6 @@
+{
+  "artifactType":  "ARTIFACT_TYPE_WALKTHROUGH",
+  "summary":  "Restructured app around 3 core pillars: Planner, Shopping, and Cooking. Implemented a dedicated Cooking Mode for meal prep.",
+  "updatedAt":  "2025-12-29T11:36:42.877883500Z",
+  "version":  "3"
+}

@@ -1,0 +1,3 @@
+- [ ] Investigate workspace profile lock <!-- id: 0 -->
+    - [ ] Check .gemini configuration <!-- id: 1 -->
+    - [ ] Ask user for specific workspace path <!-- id: 2 -->

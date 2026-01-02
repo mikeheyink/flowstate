@@ -110,7 +110,7 @@ function App() {
         }
     }, [isOnline, pendingCount, isGuest, processPendingOperations]);
 
-    // Global Hotkeys
+    // Keyboard Shortcuts
     useEffect(() => {
         if (!session && !isGuest) return;
 
@@ -126,13 +126,30 @@ function App() {
             const isCmd = e.metaKey || e.ctrlKey;
             const isShift = e.shiftKey;
 
-            // Shortcuts Modal (?)
+            // SHORTCUTS MODAL
             if (key === '?') {
                 setShortcutsOpen(true);
                 return;
             }
             if (key === 'escape' && isShortcutsOpen) {
                 setShortcutsOpen(false);
+                return;
+            }
+
+            // UNDO / REDO
+            if (isCmd && key === 'z') {
+                e.preventDefault();
+                if (isShift) {
+                    redo();
+                } else {
+                    undo();
+                }
+                return;
+            }
+            // Redo alternative (Ctrl+Y)
+            if (isCmd && key === 'y') {
+                e.preventDefault();
+                redo();
                 return;
             }
 

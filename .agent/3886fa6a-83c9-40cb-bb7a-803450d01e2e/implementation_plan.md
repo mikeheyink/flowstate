@@ -1,0 +1,25 @@
+# Implementation Plan - Magnetic Drop & Grip Handle
+
+## Goal
+Implement "Option C" (Grip/Lift) and "Magnetic Drop" visuals.
+1.  **Affordance**: Add a visible "Grip" handle to task items.
+2.  **Feedback**: When dragging over a task, it should "Pulse" (Magnetic Highlight) to indicate it's a valid drop target for nesting.
+
+## Proposed Changes
+
+### 1. `components/TaskList.tsx`
+-   **Fix**: Update `visibleTasks.map` to use the new `SortableTaskItem` render prop pattern.
+-   **Pass Props**: Pass `isOver` and `isActive` (global drag state) to `TaskItem`.
+
+### 2. `components/TaskItem.tsx` (Internal to TaskList)
+-   **Grip Handle**: Insert `<GripVertical />` icon on the right side.
+-   **Visuals**:
+    -   **Lift**: Already handled by `DragOverlay`.
+    -   **Magnetic Pulse**: Add conditional styling: if `isOver` (and we are dragging something else), apply `ring-2 ring-primary-500` or `bg-primary-50` to the item container.
+
+## Verification
+### Manual Test
+1.  **Affordance**: Verify 6-dot grip appears.
+2.  **Lift**: Drag handle -> Item lifts (Overlay).
+3.  **Pulse**: Drag item over another -> Target item glows/pulses.
+4.  **Drop**: Drop on target -> Item becomes child (existing logic).

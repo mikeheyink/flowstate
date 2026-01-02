@@ -1,0 +1,17 @@
+# Bulk Selection Fix Walkthrough
+
+## Issue
+Bulk selection (Shift+Arrow) was unreliable because the keyboard event listener was being recreated on every state change (selection update). This caused dropped events or stale state reads, preventing smooth multi-selection.
+
+## Fix
+Refactored [TaskList.tsx](file:///c:/Users/mheyi/.gemini/antigravity/scratch/flowstate/components/TaskList.tsx) to use `useRef` hook for tracking `selectedIds` inside the event listener. This ensures the event listener remains attached and stable while still having access to the latest state.
+
+### Changes
+- Added `selectedIdsRef` to track `selectedIds`.
+- Updated [handleKeyDown](file:///c:/Users/mheyi/.gemini/antigravity/scratch/flowstate/components/TaskList.tsx#429-592) to use `selectedIdsRef.current`.
+- Removed `selectedIds` from `useEffect` dependencies for the event listener.
+
+## Verification
+- [x] Select multiple items with Shift+Down (Continuous selection now works)
+- [x] Batch completion (x)
+- [x] Batch deletion (Backspace/Delete)

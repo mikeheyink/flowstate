@@ -1,0 +1,39 @@
+# Offline Persistence Implementation
+
+## Planning
+- [x] Analyze current data persistence implementation
+- [x] Document options and get user approval
+
+## Implementation
+- [x] Add Zustand persist middleware for localStorage
+- [x] Create offline detection hook
+- [x] Implement operation queue for failed syncs
+- [x] Add retry logic on reconnect
+- [x] Add minimal sync indicator (only visible when offline/pending)
+
+## Additional Fixes
+- [x] Fixed scroll-into-view when navigating with arrow keys
+- [x] Replaced j/k with arrow keys in shortcuts modal
+- [x] Implement Page Up / Page Down for sidebar navigation
+- [x] Update shortcuts modal with new navigation keys
+
+## Verification
+- [x] Code changes committed and pushed
+
+# Multi-Select Implementation
+
+## Planning
+- [x] Analyze requirements and conflicts
+- [x] Create implementation plan
+
+## Implementation
+- [ ] Add `selectedIds` and batch actions to `useTaskStore`
+- [ ] Update [TaskList](file:///c:/Users/mheyi/.gemini/antigravity/scratch/flowstate/components/TaskList.tsx#279-658) navigation specific logic (Shift+Arrow)
+- [ ] Update [moveTask](file:///c:/Users/mheyi/.gemini/antigravity/scratch/flowstate/store/useTaskStore.ts#235-278) hotkeys to support batch
+- [ ] Update [TaskItem](file:///c:/Users/mheyi/.gemini/antigravity/scratch/flowstate/components/TaskList.tsx#70-278) to show selection state
+- [ ] Implement batch delete, complete, date, indent
+
+## Verification
+- [ ] Verify Shift+Arrow selection
+- [ ] Verify batch actions execution
+- [ ] Verify no regression in standard nav

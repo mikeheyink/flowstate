@@ -1,0 +1,7 @@
+# Debugging Bulk Selection
+
+- [ ] Investigate `TaskList.tsx` for keydown handlers and selection logic <!-- id: 0 -->
+- [ ] Investigate state management (Zustand store) for selection <!-- id: 1 -->
+- [ ] Reproduce/Verify issue (mentally or via tests/logs) <!-- id: 2 -->
+- [ ] Fix bulk selection logic <!-- id: 3 -->
+- [ ] Verify fix <!-- id: 4 -->

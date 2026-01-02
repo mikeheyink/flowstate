@@ -1,0 +1,25 @@
+# Mobile UX Enhancements Walkthrough
+
+We have implemented Phase 4: Advanced Drag UX.
+
+## 1. Smart "Contextual Add"
+(The intuitive way to create sub-tasks)
+-   **Add Subtask**: Tap task -> Tap (+).
+-   **Clear Focus**: Tap whitespace.
+
+## 2. Advanced Drag & Nest (Phase 4)
+We've added "Magnetic" interactions to make reordering vs nesting obvious.
+
+### How to Verify
+1.  **The Grip Handle**:
+    -   Notice the **6-dot grip icon** on the right side of every task.
+    -   This is your affordance: "I can be moved."
+2.  **Magnetic Nesting**:
+    -   **Drag Reorder**: Drag a task up/down. Position it between items.
+    -   **Drag Nest**: Drag a task **ON TOP** of another task (hover over the center).
+    -   **Visual Pulse**: The target task will **Pulse/Glow Blue** to indicate "Drop inside me".
+    -   Drop it while pulsing to nest it as a child.
+
+**Tech Details**:
+-   **Lift Animation**: Item floats with shadow when dragged.
+-   **Render Prop Pattern**: `SortableTaskItem` now exposes drag state (`isOver`, `isDragging`) to the child `TaskItem` for styling.

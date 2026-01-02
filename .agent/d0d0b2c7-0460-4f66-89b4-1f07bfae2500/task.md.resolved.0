@@ -1,0 +1,25 @@
+# Spiritual Companion Web App - Task List
+
+- [ ] Project Setup <!-- id: 0 -->
+    - [ ] Initialize Vite + React project <!-- id: 1 -->
+    - [ ] Clean up default boilerplate <!-- id: 2 -->
+    - [ ] Set up basic folder structure <!-- id: 3 -->
+- [ ] Design System & UI Foundation <!-- id: 4 -->
+    - [ ] Define color palette (Minimalist: Sage, Off-white, Charcoal) <!-- id: 5 -->
+    - [ ] Set up typography (Serif for wisdom, Sans for UI) <!-- id: 6 -->
+    - [ ] Create base CSS variables and global styles <!-- id: 7 -->
+    - [ ] Create Layout component <!-- id: 8 -->
+- [ ] Core Features Implementation <!-- id: 9 -->
+    - [ ] **Daily Wisdom** <!-- id: 10 -->
+        - [ ] Create quote data structure (Sam Harris, Joseph Goldstein style) <!-- id: 11 -->
+        - [ ] Implement DailyQuote component <!-- id: 12 -->
+    - [ ] **Meditation Timer** <!-- id: 13 -->
+        - [ ] Implement Timer logic <!-- id: 14 -->
+        - [ ] Create Minimalist Timer UI <!-- id: 15 -->
+    - [ ] **Mindful Habits** <!-- id: 16 -->
+        - [ ] Design Habit data model <!-- id: 17 -->
+        - [ ] Implement HabitTracker component <!-- id: 18 -->
+- [ ] Verification & Polish <!-- id: 19 -->
+    - [ ] Verify responsive design <!-- id: 20 -->
+    - [ ] Test all user flows <!-- id: 21 -->
+    - [ ] Add micro-animations for "alive" feel <!-- id: 22 -->

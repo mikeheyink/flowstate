@@ -1,0 +1,26 @@
+# Planner Customization Plan
+
+This plan outlines the steps to allow users to choose which slots (Breakfast, Lunch, Dinner) and diner types (Everyone, Parents, Children) are displayed in the meal planner.
+
+## Proposed Changes
+
+### [Component] [PlannerPage.tsx](file:///c:/Users/mheyi/HeyinkMeals/src/pages/planner/PlannerPage.tsx)
+
+- **Add Settings State**:
+    - `visibleSlots`: List of currently visible slots, persisted in `localStorage`.
+    - `visibleDinerTypes`: List of currently visible diner types, persisted in `localStorage`.
+    - `isSettingsOpen`: UI state for toggling the customization menu.
+- **Update Grid Rendering**:
+    - Dynamically calculate the number of columns based on the product of visible diner types and slots.
+    - Filter headers and cells to only show selected options.
+- **Add Customization UI**:
+    - Add a "Customize" button with advanced icons (e.g., `Settings` or `Sliders`).
+    - Implement a small overlay or inline section within the header area to toggle checkboxes for each category.
+
+## Verification Plan
+
+### Manual Verification
+- Toggle a Diner Type (e.g., "Children") and verify it disappears from the grid immediately.
+- Toggle a Slot (e.g., "Breakfast") and verify it disappears across all visible diner types.
+- Refresh the page and ensure the selections are preserved.
+- Ensure the table layout remains stable even with few columns selected.

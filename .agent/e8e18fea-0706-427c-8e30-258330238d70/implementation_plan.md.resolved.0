@@ -1,0 +1,31 @@
+# Implement Page Up/Page Down Navigation for Menus
+
+The goal is to allow the user to navigate between application views (Inbox, Today, Completed, All) using the `PageUp` and `PageDown` keys.
+
+## User Review Required
+
+> [!NOTE]
+> This change adds global hotkeys `PageUp` and `PageDown`. These will be intercepted at the top level to switch the main filter (view).
+
+## Proposed Changes
+
+### [flowstate]
+
+#### [MODIFY] [App.tsx](file:///C:/Users/mheyi/.gemini/antigravity/scratch/flowstate/App.tsx)
+- Add `PageUp` and `PageDown` to the global [handleKeyDown](file:///C:/Users/mheyi/.gemini/antigravity/scratch/flowstate/App.tsx#117-211) event listener.
+- `PageDown`: Switch to the next menu item (cycling).
+- `PageUp`: Switch to the previous menu item (cycling).
+- Ensure `sidebarIndex` state is updated to reflect the new active item.
+- Ensure `filter` in `useUIStore` is updated.
+- Prevent default behavior to avoid scrolling (if applicable/desired, usually `PageUp`/[Down](file:///C:/Users/mheyi/.gemini/antigravity/scratch/flowstate/App.tsx#117-211) scroll, but here they change views).
+
+## Verification Plan
+
+### Manual Verification
+1. Open the application.
+2. Press `PageDown`. Verify the view changes from "Inbox" to "Today".
+3. Press `PageDown` again. Verify "Today" -> "Done" (Completed).
+4. Press `PageDown` again. Verify "Done" -> "All".
+5. Press `PageDown` again. Verify "All" -> "Inbox" (Cycle).
+6. Press `PageUp`. Verify the reverse order.
+7. Verify that the sidebar active indicator updates accordingly.

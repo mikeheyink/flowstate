@@ -1,0 +1,6 @@
+{
+  "artifactType":  "ARTIFACT_TYPE_IMPLEMENTATION_PLAN",
+  "summary":  "Implementation plan for adding planner customization (slots and diner types visibility). We'll use localStorage for persistence and add a settings menu to the Planner page.",
+  "updatedAt":  "2025-12-31T11:04:21.500432800Z",
+  "version":  "1"
+}

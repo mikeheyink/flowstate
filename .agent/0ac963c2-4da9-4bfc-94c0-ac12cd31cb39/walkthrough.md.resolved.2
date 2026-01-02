@@ -1,0 +1,38 @@
+# UI/UX Overhaul: Celestial Minimal
+
+The application has been completely transformed with a new "Celestial Minimal" design system. This overhaul focuses on premium aesthetics, weightless interactions, and ergonomic spacing.
+
+## Key Enhancements
+
+### 1. New Design System ([index.css](file:///c:/Users/mheyi/HeyinkMeals/src/index.css))
+- **Celestial Palette**: Deep void backgrounds with soft indigo, mint, and rose accents.
+- **Typography**: Bold "Outfit" headings paired with "Inter" for high-legibility body text.
+- **Glassmorphism**: Sophisticated layered effects using Vite-integrated Tailwind v4.
+- **Micro-animations**: Floating elements and smooth transitions using `framer-motion`.
+
+### 2. Premium Layout ([Layout.tsx](file:///c:/Users/mheyi/HeyinkMeals/src/components/Layout.tsx))
+- **Desktop Sidebar**: Redesigned for a sense of weightlessness with increased padding, larger icons, and a real-time system status display.
+- **Mobile Navigation**: A refined floating bar with improved active states and haptic-like animations.
+- **Smooth Transitions**: Entire pages now glide into view with delicate opacity and translate effects.
+
+### 3. Redesigned Planner ([PlannerPage.tsx](file:///c:/Users/mheyi/HeyinkMeals/src/pages/planner/PlannerPage.tsx))
+- **Ergonomic Daily Cards**: Day headers and meal slots are now clearly separated with generous spacing.
+- **High-Contrast Meal Slots**: Improved legibility for recipe names and meal categories.
+- **Intuitive Interactions**: Subtle hover states and refined "Add Meal" buttons.
+
+### 4. Sophisticated Shopping List ([ShoppingListPage.tsx](file:///c:/Users/mheyi/HeyinkMeals/src/pages/planner/ShoppingListPage.tsx))
+- **Ledger Aesthetics**: Reimagined as a "Shopping Ledger" with high-contrast typography and elegant status indicators.
+- **Interactive Inventory**: Premium toggle buttons for securing ingredients and managing stock.
+- **Animated List Management**: Items smoothly transition between active and secured states.
+
+## Verification & Proof
+
+- [x] **Tailwind v4 Integration**: Verified Vite configuration and CSS directives.
+- [x] **Component Consistency**: [Button](file:///c:/Users/mheyi/HeyinkMeals/src/components/ui/Button.tsx#11-45) and [Card](file:///c:/Users/mheyi/HeyinkMeals/src/components/ui/Card.tsx#11-30) components updated across the entire app.
+- [x] **Responsive Design**: Layout verified for both extreme desktop and mobile viewports.
+- [x] **Error Resolution**: Fixed all major TypeScript and linting regressions, including a Tailwind v4 build issue in [index.css](file:///c:/Users/mheyi/HeyinkMeals/src/index.css).
+
+---
+
+> [!TIP]
+> The new design utilizes heavy `backdrop-blur` and `radial-gradient` effects. For the best experience, view the application on a high-refresh-rate display and ensure hardware acceleration is enabled in your browser.

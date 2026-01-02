@@ -1,0 +1,30 @@
+# Tasks
+
+- [/] Project Setup
+    - [/] Initialize Next.js project with TypeScript and Tailwind CSS
+    - [/] Set up project structure (components, lib, types)
+    - [ ] Install necessary dependencies (shadcn/ui, lucide-react, etc.)
+- [ ] Core UI/UX Implementation
+    - [ ] Implement Layout and Navigation (Sidebar/Top bar)
+    - [ ] Create Command Palette (Cmd+K) component
+    - [ ] Set up Theme (Dark mode, premium aesthetics)
+- [ ] Data Modeling & State Management
+    - [ ] Define data schemas (Imperatives, Objectives, Milestones, Users)
+    - [ ] Set up local state management (Zustand or Context for now, mocking backend)
+- [ ] Feature: User Profiles & Capacity
+    - [ ] Create User Profile view
+    - [ ] Implement Capacity Calculation logic (Total - Leave - Routine)
+- [ ] Feature: Mission Board
+    - [ ] Build Editable Grid/Table component
+    - [ ] Implement keyboard navigation for the grid
+    - [ ] Integrate Capacity Warning visual cues
+- [ ] Feature: Strategy & Planning
+    - [ ] Create Quarterly Strategy view
+    - [ ] Link Objectives to Milestones
+- [ ] Feature: Gamification & Scoreboard
+    - [ ] Implement Scoreboard view
+    - [ ] Add Star Pilot Voting interface
+- [ ] Verification & Polish
+    - [ ] Verify keyboard interactions
+    - [ ] Check responsiveness and aesthetics
+    - [ ] Create Walkthrough

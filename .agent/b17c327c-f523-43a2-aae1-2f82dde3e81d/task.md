@@ -1,0 +1,57 @@
+# HeyinkMeals# Task Breakdown
+
+- [x] Refactor UI to Zen Minimal Theme
+    - [x] Update `RecipeListPage.tsx`
+    - [x] Update `IngredientsPage.tsx`
+    - [x] Update `RecipeEditor.tsx`
+    - [x] Standardize color tokens (`ink-900`, `ink-500`, `accent`)
+    - [x] Integrate `PageHeader` component
+- [x] Refine Database and Import Script
+    - [x] Update `schema.sql` with new columns
+    - [x] Locate/Create `import-recipes.ts`
+    - [x] Update import script for new columns and CSV mapping
+    - [x] Execute import script
+- [x] Refactor Planner Table Structure
+    - [x] Add Diner Type header row
+    - [x] Implement 9-column meal grid
+    - [x] Update selection logic to use slot and diner type
+    - [x] Verify data persistence and UI display
+- [x] Implement Planner Customization
+    - [x] Add state and persistence for visible slots/diner types
+    - [x] Make grid layout dynamic based on selections
+    - [x] Add 'Customize' UI menu in PlannerPage
+- [x] Refine Planner Customization
+    - [x] Unify configuration state (`plannerConfig`)
+    - [x] Implement granular slot selection per diner type
+    - [x] Implement diner type re-ordering (Up/Down)
+    - [x] Update grid rendering for variable slot spans
+- [x] Refactor Library Lists to Tables
+    - [x] Add `zen-table` styles to `index.css`
+    - [x] Refactor `IngredientsPage.tsx` to use tables
+    - [x] Refactor `RecipeListPage.tsx` to use tables
+    - [x] Implement row actions and hover effects
+- [x] Bug Fixes
+    - [x] Fix recipe list URL parsing error (Invalid URL exception)
+- [x] Data Cleanup and Seeding
+    - [x] Update `clear-database.ts` to preserve specific items
+    - [x] Execute data cleanup
+    - [x] Create `seed-example-recipes.ts` with 5 recipes (3 toddler, 2 parent)
+    - [x] Execute recipe seeding
+    - [x] Alphabetize grocery categories
+- [x] Refine Shopping List Organization
+    - [x] Update `ShoppingListPage.tsx` logic to split In Stock/Ordered
+    - [x] Add expand/collapse state for sections
+    - [x] Implement collapsible UI sections with headers
+    - [x] Verify grouping and toggle functionality
+- [x] Cooking Terminal Refactor
+    - [x] Research `PlannerPage` grid logic for architectural parity
+    - [x] Implement multi-day grid layout in `CookingPage`
+    - [x] Integrate user's `plannerConfig` for consistent views
+    - [x] Design and implement ergonomics-focused "Start Cooking" buttons
+    - [x] Verify read-only state and navigation
+- [/] Mobile UX Optimization
+    - [ ] Create `BottomNav` component in `Layout.tsx`
+    - [ ] Implement sticky headers and Date columns for Planner/Cooking
+    - [ ] Add card-view transformations for Ingredients/Recipes tables
+    - [ ] Refactor Shopping Ledger to single-column stack on mobile
+    - [ ] Sanitize input font sizes and touch targets

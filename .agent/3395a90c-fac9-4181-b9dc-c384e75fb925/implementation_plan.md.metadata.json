@@ -1,0 +1,5 @@
+{
+  "artifactType":  "ARTIFACT_TYPE_IMPLEMENTATION_PLAN",
+  "summary":  "Refactor `TaskList.tsx` to use `useRef` for tracking `selectedIds` within the keyboard event listener. This prevents the listener from being detached and re-attached on every selection change, fixing the bulk selection issue.",
+  "updatedAt":  "2026-01-02T10:55:18.339403700Z"
+}

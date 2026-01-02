@@ -1,0 +1,5 @@
+{
+  "artifactType":  "ARTIFACT_TYPE_TASK",
+  "summary":  "Task checklist for implementing offline persistence with localStorage and an offline queue. Includes adding zustand persist middleware, offline detection, operation queue, retry logic, and minimal sync indicator.",
+  "updatedAt":  "2026-01-02T09:37:42.823822500Z"
+}

@@ -1,0 +1,5 @@
+{
+  "artifactType":  "ARTIFACT_TYPE_WALKTHROUGH",
+  "summary":  "Summary of offline persistence implementation including localStorage with Zustand persist, offline queue, sync indicator UI, scroll-into-view fix, and j/k hotkey cleanup.",
+  "updatedAt":  "2026-01-02T09:57:51.025015400Z"
+}

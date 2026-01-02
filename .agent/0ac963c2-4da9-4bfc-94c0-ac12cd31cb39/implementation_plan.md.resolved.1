@@ -1,0 +1,62 @@
+# Comprehensive UI/UX Overhaul
+
+The current application lacks a functional styling engine (Tailwind CSS) and suffers from poor spacing and legibility. This plan addresses these issues through a complete design refresh.
+
+## User Review Required
+
+> [!IMPORTANT]
+> This overhaul includes installing new dependencies (`tailwindcss`, `postcss`, `autoprefixer`) and creating configuration files.
+
+## Proposed Changes
+
+### [Infrastructure]
+
+#### [NEW] [tailwind.config.js](file:///c:/Users/mheyi/HeyinkMeals/tailwind.config.js)
+Define the Tailwind configuration with a custom "Celestial" color palette and typography.
+
+#### [NEW] [postcss.config.js](file:///c:/Users/mheyi/HeyinkMeals/postcss.config.js)
+Standard PostCSS configuration for Vite.
+
+---
+
+### [Global Styles]
+
+#### [MODIFY] [index.css](file:///c:/Users/mheyi/HeyinkMeals/src/index.css)
+- Add Tailwind directives.
+- Refine CSS variables for better contrast.
+- Add "glow" and "glass" utility classes.
+
+---
+
+### [Layout & Components]
+
+#### [MODIFY] [Layout.tsx](file:///c:/Users/mheyi/HeyinkMeals/src/components/Layout.tsx)
+- Improve sidebar spacing and typography.
+- Enhance mobile navigation with better icons and active states.
+- Ensure the main content area has generous padding.
+
+#### [MODIFY] [Card.tsx](file:///c:/Users/mheyi/HeyinkMeals/src/components/ui/Card.tsx)
+- Update glassmorphism effects for a more premium look.
+- Increase default padding for better ergonomics.
+
+---
+
+### [Plan & Pages]
+
+#### [MODIFY] [PlannerPage.tsx](file:///c:/Users/mheyi/HeyinkMeals/src/pages/planner/PlannerPage.tsx)
+- Completly redesign the day cards.
+- Use a grid for meal slots with clear hierarchy.
+- Fix low-contrast text (e.g., changing `text-white/20` to more legible values).
+- Add subtle gradients and hover effects.
+
+---
+
+## Verification Plan
+
+### Automated Tests
+- Run `npm run dev` to ensure no build errors.
+
+### Manual Verification
+1. Compare layout with the provided screenshot to ensure spacing is significantly improved.
+2. Check color contrast against WCAG guidelines (visually).
+3. Test layout responsiveness on mobile and desktop.

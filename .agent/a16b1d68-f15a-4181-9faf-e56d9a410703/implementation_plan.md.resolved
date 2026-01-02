@@ -1,0 +1,77 @@
+# Multi-Select and Batch Actions Implementation Plan
+
+## Goal
+Enable users to select multiple tasks using `Shift + Arrow Up/Down` and perform batch actions on them.
+
+## Proposed Changes
+
+### Store Layer
+
+#### [MODIFY] [useTaskStore.ts](file:///c:/Users/mheyi/.gemini/antigravity/scratch/flowstate/store/useTaskStore.ts)
+
+- Add `selectedIds: Set<string>` to state.
+- Add actions:
+    - `selectTask(id: string, multi: boolean)`: Adds to selection (multi) or sets single selection.
+    - `toggleSelection(id: string)`: Toggles specific ID.
+    - `clearSelection()`: Clears all (except optionally focused).
+    - `batchDelete(ids: string[])`
+    - `batchComplete(ids: string[], completed: boolean)`
+    - `batchSetDueDate(ids: string[], date: Date | null)`
+    - `batchMove(ids: string[], direction: 'up' | 'down')`
+    - `batchIndent(ids: string[])`
+    - `batchOutdent(ids: string[])`
+
+### UI Layer
+
+#### [MODIFY] [TaskList.tsx](file:///c:/Users/mheyi/.gemini/antigravity/scratch/flowstate/components/TaskList.tsx)
+
+- Update [handleKeyDown](file:///c:/Users/mheyi/.gemini/antigravity/scratch/flowstate/components/TaskList.tsx#416-507):
+    - **Navigation**:
+        - `ArrowUp/Down`: If `Shift` is held, add new focused ID to `selectedIds`. If `Shift` NOT held, `clearSelection()`.
+    - **Batch Actions**: (Effective on `selectedIds` if size > 1, else current focus)
+        - `Cmd + ArrowUp/Down`: Call `batchMove`.
+        - `x`: Call `batchComplete`.
+        - `Delete` / `Backspace`: Call `batchDelete`.
+        - `D`: Call `batchSetDueDate`.
+        - `Tab`: Call `batchIndent`.
+        - `Shift + Tab`: Call `batchOutdent`.
+    - **Selection display**:
+        - Pass `isSelected` prop to [TaskItem](file:///c:/Users/mheyi/.gemini/antigravity/scratch/flowstate/components/TaskList.tsx#70-278).
+
+#### [MODIFY] [TaskItem.tsx](file:///c:/Users/mheyi/.gemini/antigravity/scratch/flowstate/components/TaskItem.tsx) (or SortableTaskItem)
+
+- Add visual indicator for `isSelected` (e.g., darker background `bg-primary-100 dark:bg-primary-900/30`).
+- Ensure selection highlight plays nicely with focus highlight.
+
+### Batch Exclusions
+The following actions will **NOT** be batched and will only apply to the focused task:
+- **Edit Note (`n`)**: Notes are task-specific.
+- **Edit Title (`e` / `Enter`)**: Titles are task-specific.
+- **Add Tag (`l`)**: Could be batched later, but start with single.
+- **Quick Add**: Always creates relative to focused task or at end.
+
+### Conflicts & resolution
+
+- **Shift + ArrowLeft/Right**: Currently Expand/Collapse All.
+    - **Resolution**: Move "Expand All" to `Alt + Shift + Arrow`. Keep `Shift + ArrowRight` free or use standard range expansion (not relevant for now, focus is vertical).
+    - `Shift + ArrowLeft/Right` will essentially be no-op for selection logic, or standard collapse/expand of specific nodes if selected.
+
+## Verification Plan
+
+### Manual Verification
+1. **Selection**:
+   - Focus a task.
+   - Hold `Shift` + `ArrowDown`. Expected: Focus moves down, previous and current tasks are selected (highlighted).
+   - Release `Shift`, `ArrowDown`. Expected: Selection clears, only new task focused.
+2. **Batch Move**:
+   - Select 3 tasks.
+   - Press `Cmd + ArrowDown`. Expected: All 3 move down together.
+3. **Batch Complete**:
+   - Select multiple mixed tasks.
+   - Press `Space`. Expected: All marked complete.
+4. **Batch Date**:
+   - Select multiple.
+   - Press `D`. Expected: Date picker -> Applies to all.
+5. **Batch Delete**:
+   - Select multiple.
+   - Press `X`. Expected: All deleted.

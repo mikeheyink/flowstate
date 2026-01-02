@@ -1,0 +1,58 @@
+# Mobile UX Optimization Plan
+
+This plan outlines a series of non-breaking refinements to make HeyinkMeals feel like a high-end native app on mobile devices.
+
+## Proposed Changes
+
+### 1. Global Navigation & Layout
+- **Bottom Navigation**: Add a `lg:hidden` fixed bottom navigation bar for high-frequency "Operations" (Planner, Shopping, Cooking).
+- **Ergonomic Headers**: Reduce header padding on mobile to reclaim vertical space.
+- **Input Zoom**: Standardize font sizes for inputs/selects to 16px to prevent automatic mobile browser zooming.
+
+### 2. Planner & Cooking Terminal (Grid Optimizations)
+- **Sticky Column**: Make the "Date" column (`120px`) sticky to the left so users maintain context while scrolling horizontally.
+- **Sticky Headers**: Ensure the Diner Type and Meal Slot headers stay fixed at the top during vertical scrolling.
+- **Touch-Friendly Slots**: Increase the padding and tap area for empty slots ("+") and recipe cells.
+- **Visual Separation**: Thicken the borders between days on mobile for clearer scrolling boundaries.
+
+### 3. Shopping Ledger
+- **Stack Layout**: Switch from a 2-column or grid layout to a simple, single-column full-width list on screens under 768px.
+- **Action Targets**: Replace small icons for "Purchased" and "In Stock" with larger, colored "Action Zones" or standardizing their size for reliable thumb-tapping.
+
+### 4. Library Transformations (Ingredients & Recipes)
+- **Card-View Flip**: Hide the standard `zen-table` on mobile and instead render a tailored `zen-card` list.
+- **Recipe Cards**: Show name, servings, and time in a stacked layout. Move the "Source" badge to the top-right.
+- **Ingredient Cards**: Group ingredients by category using the existing logic, but render them as simple full-width rows with clear Edit/Delete icons.
+
+---
+
+## Technical Details
+
+### CSS Utilities
+Add new responsive utilities to [index.css](file:///c:/Users/mheyi/HeyinkMeals/src/index.css):
+```css
+.sticky-left {
+  @apply sticky left-0 z-20 bg-base-200 border-r border-base-300;
+}
+.sticky-top {
+  @apply sticky top-0 z-30 bg-base-100;
+}
+```
+
+### Layout Components
+#### [MODIFY] [Layout.tsx](file:///c:/Users/mheyi/HeyinkMeals/src/components/Layout.tsx)
+- Add the `BottomNav` component at the end of the layout.
+- Adjust [main](file:///c:/Users/mheyi/HeyinkMeals/src/pages/recipes/RecipeListPage.tsx#27-34) padding to account for the bottom nav height.
+
+---
+
+## Verification Plan
+
+### Automated Tests
+- N/A
+
+### Manual Verification
+1. **Vertical Scroll (Planner)**: Scroll vertically and verify that Meal Headers (Breakfast/Lunch/Dinner) stay stuck to the top.
+2. **Horizontal Scroll (Planner)**: Scroll horizontally and verify the "Date/Day" column stays fixed on the left.
+3. **Library Check**: View Ingredients/Recipes on a narrow browser window and confirm they transform into a card-based layout.
+4. **Bottom Nav Click**: Verify all 3 primary buttons navigate correctly and show the active state.

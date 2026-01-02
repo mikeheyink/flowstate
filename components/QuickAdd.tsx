@@ -37,6 +37,18 @@ export const QuickAdd: React.FC<QuickAddProps> = ({ isOpen, onClose }) => {
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
+
+    // Special case: Clear deadline if empty string provided in date mode
+    if (quickAddMode === 'date' && !value.trim()) {
+      if (selectedIds.length > 1) {
+        batchSetDueDate(null);
+      } else if (targetTask) {
+        updateTask(targetTask.id, { dueDate: null });
+      }
+      onClose();
+      return;
+    }
+
     if (!value.trim()) return;
 
     if (quickAddMode === 'create') {

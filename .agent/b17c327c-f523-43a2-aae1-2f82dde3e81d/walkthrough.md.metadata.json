@@ -1,0 +1,6 @@
+{
+  "artifactType":  "ARTIFACT_TYPE_WALKTHROUGH",
+  "summary":  "Walkthrough of the shopping list organization refactor. Includes transition from a single \"Secured\" group to collapsible \"In Stock\" and \"Ordered\" sections.",
+  "updatedAt":  "2026-01-01T06:41:03.424505800Z",
+  "version":  "5"
+}

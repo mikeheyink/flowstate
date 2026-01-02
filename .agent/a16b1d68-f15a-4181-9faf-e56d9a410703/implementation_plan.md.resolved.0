@@ -1,0 +1,96 @@
+# Offline Persistence Implementation Plan
+
+## Goal
+Ensure tasks are never lost when offline or on page refresh. Only show sync UI when there are pending operations.
+
+---
+
+## Proposed Changes
+
+### Store Layer
+
+#### [MODIFY] [useTaskStore.ts](file:///c:/Users/mheyi/.gemini/antigravity/scratch/flowstate/store/useTaskStore.ts)
+
+- Wrap store with Zustand `persist` middleware for localStorage
+- Add `pendingOperations: Operation[]` queue to state
+- Add `isOnline: boolean` to state
+- Add `queueOperation(op)` helper that either executes immediately or queues
+- Modify all async Supabase calls to use `queueOperation`
+- Add `processPendingQueue()` function to retry queued operations
+
+---
+
+#### [NEW] [useOnlineStatus.ts](file:///c:/Users/mheyi/.gemini/antigravity/scratch/flowstate/store/useOnlineStatus.ts)
+
+Simple hook to detect online/offline status:
+```typescript
+export function useOnlineStatus() {
+  const [isOnline, setIsOnline] = useState(navigator.onLine);
+  useEffect(() => {
+    const handleOnline = () => setIsOnline(true);
+    const handleOffline = () => setIsOnline(false);
+    window.addEventListener('online', handleOnline);
+    window.addEventListener('offline', handleOffline);
+    return () => { /* cleanup */ };
+  }, []);
+  return isOnline;
+}
+```
+
+---
+
+### UI Layer
+
+#### [MODIFY] [App.tsx](file:///c:/Users/mheyi/.gemini/antigravity/scratch/flowstate/App.tsx)
+
+- Add minimal sync indicator that only appears when:
+  - User is offline, OR
+  - There are pending operations in the queue
+- Small pill/badge in header or bottom of screen
+
+Example UI (minimalist):
+```
+[Offline • 3 pending] ← Only visible when needed
+```
+
+---
+
+## What Stays the Same
+
+- All existing task operations (add, update, delete, toggle, etc.)
+- Mobile drag-and-drop functionality  
+- Desktop swipe-to-complete
+- Authentication flow
+- All UI components
+
+---
+
+## Verification Plan
+
+### Manual Testing (Browser)
+
+Since there are no automated tests in this project, verification will be manual:
+
+1. **Test localStorage persistence**
+   - Add a few tasks
+   - Refresh the page
+   - ✓ Verify tasks are still there
+
+2. **Test offline mode**
+   - Open DevTools → Network → Set to "Offline"
+   - Add 2-3 new tasks
+   - ✓ Verify sync indicator shows "Offline • X pending"
+   - Refresh the page while still offline
+   - ✓ Verify tasks persist (from localStorage)
+
+3. **Test sync on reconnect**
+   - While still offline with pending tasks
+   - Set network back to "Online"
+   - ✓ Verify sync indicator briefly shows, then disappears
+   - ✓ Verify tasks now exist in Supabase (check database or re-login)
+
+4. **Test existing functionality unchanged**
+   - Complete a task (swipe on mobile, checkbox on desktop)
+   - Reorder tasks via drag-and-drop
+   - Create sub-tasks
+   - ✓ All should work as before

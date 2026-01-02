@@ -1,0 +1,75 @@
+# AI Recipe Parser Feature
+
+Paste a recipe URL → AI extracts all details → Review and save.
+
+## Architecture
+
+```mermaid
+graph LR
+    A[User pastes URL] --> B[Frontend calls Edge Function]
+    B --> C[Edge Function fetches page HTML]
+    C --> D[Gemini parses recipe content]
+    D --> E[Return structured JSON]
+    E --> F[Frontend shows review form]
+    F --> G[User saves recipe to DB]
+```
+
+## Proposed Changes
+
+### Backend
+
+#### [NEW] Supabase Edge Function: `parse-recipe`
+- **Input:** `{ url: string }`
+- **Process:**
+  1. Fetch HTML from URL (handle CORS)
+  2. Extract text content (strip scripts/styles)
+  3. Send to Gemini with structured prompt
+  4. Parse response into recipe schema
+- **Output:**
+```json
+{
+  "name": "Green Goddess Pasta",
+  "servings": 4,
+  "total_time_mins": 30,
+  "web_source": "https://...",
+  "instructions": "Step 1...",
+  "ingredients": [
+    { "name": "Pasta", "quantity": 400, "unit": "g", "category": "Pantry" }
+  ]
+}
+```
+
+---
+
+### Frontend
+
+#### [NEW] `QuickAddPage.tsx`
+- URL input field with "Parse" button
+- Loading state while AI processes
+- Review form pre-filled with extracted data
+- Edit capability before saving
+- "Save Recipe" button
+
+#### [MODIFY] [App.tsx](file:///c:/Users/mheyi/HeyinkMeals/src/App.tsx)
+- Add route `/recipes/quick-add`
+
+---
+
+## User Review Required
+
+> [!IMPORTANT]
+> **Gemini API Key Required**
+> You'll need to provide a Gemini API key. I can set this up as an environment variable in your Supabase Edge Function secrets.
+
+> [!NOTE]
+> **Alternative: Client-Side Parsing**
+> If you prefer not to use Edge Functions, we could call Gemini directly from the frontend. However, this requires exposing your API key to the browser (not recommended for production).
+
+---
+
+## Verification Plan
+
+1. Deploy Edge Function to Supabase
+2. Test with various recipe URLs (Instagram, food blogs, YouTube)
+3. Verify extracted data accuracy
+4. Test full save flow

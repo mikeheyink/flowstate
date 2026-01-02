@@ -1,0 +1,35 @@
+# Mobile UX Enhancements Walkthrough
+
+We have implemented two major mobile-focused improvements.
+
+## 1. Smart "Contextual Add"
+(The intuitive way to create sub-tasks)
+
+### How to Verify
+1.  **Add Root Task**: Ensure no task is highlighted (gray). Tap the **Floating "+" Button**. It adds a normal task.
+2.  **Add Subtask**:
+    -   Tap any task in the list to **Focus** it (it turns gray).
+    -   Tap the **Floating "+" Button**.
+    -   Notice the input says "Subtask for [Task Name]".
+    -   Type and submit. The new task appears nested under the focused one.
+3.  **Clean State**:
+    -   Focus a task.
+    -   Switch tabs (e.g., from Inbox to Today).
+    -   Notice the focus clears automatically so you don't accidentally add subtasks in the wrong view.
+
+## 2. Swipe-to-Complete
+(For "Done" actions that feel great)
+
+### How to Verify
+1.  Touch any task card on mobile.
+2.  **Drag it to the Right**.
+    -   **Visuals**: As you drag, a green background with a Check Icon is revealed behind the card.
+    -   **Physics**: Notice the rubber-banding feel (thanks to Framer Motion).
+3.  **Release Interaction**:
+    -   **Short Swipe (< 30%)**: The card bounces back (Action cancelled).
+    -   **Long Swipe (> 30%)**: The card snaps, creating a "Task Completed" event.
+    -   You should see the "Undo" toast appear immediately.
+
+## Tech Details
+-   **Library**: `framer-motion` handles the spring physics and gesture tracking.
+-   **Components**: [TaskList](file:///c:/Users/mheyi/.gemini/antigravity/scratch/flowstate/components/TaskList.tsx#245-614) was refactored to extract [TaskItem](file:///c:/Users/mheyi/.gemini/antigravity/scratch/flowstate/components/TaskList.tsx#65-244), improving code modularity.

@@ -1,0 +1,53 @@
+# Zen Minimal Design Pivot
+
+Based on user feedback, we are pivoting from "Celestial Dark" to a high-contrast, compact, and distraction-free "Zen Minimal" aesthetic.
+
+## Proposed Changes
+
+### [Global Styling]
+
+#### [MODIFY] [index.css](file:///c:/Users/mheyi/HeyinkMeals/src/index.css)
+- Switch default color scheme to **Light Mode**.
+- Use a crisp, high-contrast palette (White background, Slate-900 text).
+- Define "Compact" spacing tokens.
+- Replace heavy glassmorphism with subtle, refined borders and shadows.
+
+### [Core Layout]
+
+#### [MODIFY] [Layout.tsx](file:///c:/Users/mheyi/HeyinkMeals/src/components/Layout.tsx)
+- **Compact Sidebar**: Reduce width and internal padding.
+- **Remove Clutter**: Delete system status, version indicators, and environment labels.
+- **Tighten Navigation**: Reduce size of icons and gap between menu items.
+
+### [UI Components]
+
+#### [MODIFY] [Button.tsx](file:///c:/Users/mheyi/HeyinkMeals/src/components/ui/Button.tsx)
+- Standardize on light-mode variants (Solid dark for primary, light borders for secondary).
+- Reduce vertical and horizontal padding for all sizes.
+
+#### [MODIFY] [Card.tsx](file:///c:/Users/mheyi/HeyinkMeals/src/components/ui/Card.tsx)
+- Reduce default padding from `p-10+` to `p-6` or less.
+- Use sharper, smaller border-radius (e.g., `rounded-xl`).
+- Switch to high-contrast white backgrounds with subtle borders.
+
+### [Feature Pages]
+
+#### [MODIFY] [PlannerPage.tsx](file:///c:/Users/mheyi/HeyinkMeals/src/pages/planner/PlannerPage.tsx)
+- Collapse daily cards into more horizontal, space-efficient rows.
+- Simplify meal slot display; remove decorative gradients.
+- Increase information density.
+
+#### [MODIFY] [ShoppingListPage.tsx](file:///c:/Users/mheyi/HeyinkMeals/src/pages/planner/ShoppingListPage.tsx)
+- Convert large cards into a dense list or table-like grid.
+- Remove redundant labels like "Requirement" or "Acquired Entities".
+- Simplify status toggles.
+
+## Verification Plan
+
+### Automated Tests
+- `npm run build` to verify Tailwind v4 bundle integrity.
+
+### Manual Verification
+1. Verify readability under different lighting conditions (Light mode check).
+2. Measure information density: ensure more than 5 items are visible without scrolling on standard viewports.
+3. Confirm absence of system/version text.

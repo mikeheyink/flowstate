@@ -1,0 +1,31 @@
+# App Restructuring & Cooking Mode
+
+The application has been refined to focus on the three essential pillars of the user's daily journey: **Planning**, **Shopping**, and **Cooking**.
+
+## New Structure
+
+- **Planner**: The new home of the app. All daily sequencing happens here.
+- **Shopping**: The central ledger for managing ingrediant requirements.
+- **Cooking**: A dedicated terminal for meal execution.
+
+## Key Features
+
+### 1. Daily Cooking Overview
+The `CookingPage` provides a clear view of all meals planned for the current day, allowing you to quickly jump into preparation mode.
+
+### 2. Focused Cooking Mode
+The `CookingMode` is a high-readability, distraction-free interface designed for the kitchen:
+- **Interactive Mise en Place**: Checklist for ingredients to ensure everything is ready before you start heat.
+- **High-Density Instructions**: Clear, bold instructions for easy reading while cooking.
+- **Built-in Timer**: A persistent, mono-spaced timer with quick presets for common cooking tasks.
+
+### 3. Library & Administration
+ Administrative tasks like managing your **Pantry** or **Recipes** have been moved to a secondary "Library" section at the bottom of the sidebar, keeping your main operational view clean and focused.
+
+## Verification Results
+
+- [x] `/` redirects to `/planner`.
+- [x] Sidebar navigation is segmented into "Operations" and "Library".
+- [x] Cooking Mode hydrates correctly with recipe data and ingredients.
+- [x] Timers are functional and persistent.
+- [x] Dashboard removed.

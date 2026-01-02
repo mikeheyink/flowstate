@@ -1,0 +1,15 @@
+# HeyinkMeals Tasks
+
+## Completed
+- [x] Zen Minimal Redesign
+- [x] App Refinement & Cooking Mode
+- [x] Database Maintenance (Categories)
+- [x] Database Reset
+
+## In Progress
+- [/] AI Recipe Parser Feature
+    - [ ] Plan architecture and data flow
+    - [ ] Create Supabase Edge Function for parsing
+    - [ ] Build frontend "Quick Add" page
+    - [ ] Integrate with recipe save flow
+    - [ ] Test end-to-end

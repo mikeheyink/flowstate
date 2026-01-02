@@ -1,0 +1,45 @@
+# Mobile Interaction Refinements
+
+Replacing manual indentation with Contextual Add and Gesture-based Reordering.
+
+## User Review Required
+**Decision**: We will implement **Focus-based Add** immediately.
+For **Drag-to-Reorder/Nest**, we will use `framer-motion`'s `Reorder` component for list reordering. *Note*: True "Drag-to-Nest" (dropping *onto* an item) is significantly more complex and might require a heavier library (`dnd-kit`).
+**Proposal**: Start with **Drag-to-Reorder** (long press). If that feels good, we add Nesting later.
+
+## Proposed Changes
+
+### 1. Remove Indent Buttons [QuickAdd.tsx]
+-   Revert changes adding `<` and `>` buttons.
+-   Keep the submit button logic.
+
+### 2. Focus-based Add [App.tsx]
+-   Update FAB click handler.
+-   **Logic**:
+    -   If `useTaskStore.focusedId` is set -> [setQuickAddOpen(true, focusedId)](file:///c:/Users/mheyi/.gemini/antigravity/scratch/flowstate/store/useUIStore.ts#42-44) (Creates subtask).
+    -   Else -> [setQuickAddOpen(true)](file:///c:/Users/mheyi/.gemini/antigravity/scratch/flowstate/store/useUIStore.ts#42-44) (Creates root task).
+
+### 3. Default Focus State [TaskList.tsx]
+-   `useEffect`: When `filter` changes (Today <-> Inbox), call [setFocusedId(null)](file:///c:/Users/mheyi/.gemini/antigravity/scratch/flowstate/store/useTaskStore.ts#340-341).
+-   `useEffect`: On mount, ensure `focusedId` is null.
+
+### 4. Drag-to-Reorder [TaskList.tsx]
+-   **Interaction**: Long-press on a task to lift it.
+-   **Implementation**:
+    -   Wrap list in `<Reorder.Group>`.
+    -   Wrap items in `<Reorder.Item>`.
+    -   **Constraint**: This only works well for *flat* lists. Since we have a tree, "Reorder" is tricky.
+    -   **Alternative**: Keep [TaskItem](file:///c:/Users/mheyi/.gemini/antigravity/scratch/flowstate/components/TaskList.tsx#65-244) as `motion.div`. Add a "Drag Handle" icon.
+    -   When dragging:
+        -   Track Y position.
+        -   If Y overlaps another task -> Reorder locally?
+        -   This is high complexity.
+
+**Refined Plan for Reorder**:
+Implementing "Ergonomically Wonderful" Tree Drag & Drop from scratch is risky.
+**Action**: I will implement points 1, 2, and 3 first.
+For Point 4, I will install `dnd-kit` (which supports Tree Sorting + Nesting natively) instead of hacking `framer-motion`.
+
+## Verification
+1.  **Context Add**: Tap a task (focus it). Tap "+". Verify it says "Subtask for [Task]".
+2.  **Clean State**: Switch tabs. Verify no task is gray/focused.

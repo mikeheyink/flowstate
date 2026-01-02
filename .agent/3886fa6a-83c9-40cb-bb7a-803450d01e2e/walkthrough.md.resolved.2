@@ -1,0 +1,31 @@
+# Mobile UX Enhancements Walkthrough
+
+We have implemented three major mobile-focused improvements.
+
+## 1. Smart "Contextual Add"
+(The intuitive way to create sub-tasks)
+1.  **Add Root Task**: Ensure no task is highlighted (gray). Tap the **Floating "+" Button**. It adds a normal task.
+2.  **Add Subtask**: Tap any task to **Focus** it. Tap **"+"**. Adds a subtask.
+3.  **Clean State**: Tapping whitespace or switching tabs clears the focus.
+
+## 2. Swipe-to-Complete
+(For "Done" actions)
+1.  Touch any task card on mobile.
+2.  **Drag it to the Right**.
+    -   **Short Swipe**: Bounces back (Cancelled).
+    -   **Long Swipe (> 30%)**: Completes the task + Undo Toast.
+
+## 3. Drag-to-Reorder & Nest
+(The Phase 3 Request)
+
+### How to Verify
+1.  **Long Press** on any task item (hold for ~250ms).
+2.  **Drag it** up or down.
+    -   Notice the item lifts up (visual feedback).
+3.  **Drop it**:
+    -   **Reorder**: Drop it between siblings to change order.
+    -   **Nest/Move**: Drop it onto a task from a different parent (or different depth) to "adopt" that parent and move into that section.
+
+**Tech Details**:
+-   Used `dnd-kit` for accessible, sensor-based drag and drop.
+-   Implemented a "Flattened Tree" strategy where dropping adopts the target's context.

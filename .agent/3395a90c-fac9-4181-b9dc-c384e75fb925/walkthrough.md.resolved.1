@@ -1,0 +1,30 @@
+# Bulk Selection Fix Walkthrough
+
+## Issue
+Bulk selection (Shift+Arrow) appeared not to work because **visual feedback was missing**. The underlying logic was functional, but only the focused item showed highlighting.
+
+## Root Cause
+The `isSelected` CSS classes in [TaskItem](file:///c:/Users/mheyi/.gemini/antigravity/scratch/flowstate/components/TaskList.tsx#70-281) used subtle background colors (`bg-primary-50`) that were being overridden by the `isFocused` styles due to CSS cascade order. This made it appear as if only one item was selected.
+
+## Solution
+Enhanced [TaskItem](file:///c:/Users/mheyi/.gemini/antigravity/scratch/flowstate/components/TaskList.tsx#70-281) styling in [TaskList.tsx](file:///c:/Users/mheyi/.gemini/antigravity/scratch/flowstate/components/TaskList.tsx#L151-160):
+
+```diff
+-${isFocused && focusMode === 'main' ? 'bg-slate-200 dark:bg-slate-800/60 ring-1 ring-slate-300 dark:ring-slate-700 shadow-lg' : ''}
+-${isSelected ? 'bg-primary-50 dark:bg-primary-900/30' : ''}
++${isFocused && focusMode === 'main' && !isSelected ? 'bg-slate-200 dark:bg-slate-800/60 ring-1 ring-slate-300 dark:ring-slate-700 shadow-lg' : ''}
++${isSelected ? 'bg-primary-100 dark:bg-primary-900/40 ring-2 ring-primary-500 dark:ring-primary-400' : ''}
+```
+
+**Key changes:**
+1. Focused styles no longer apply when item is selected (added `&& !isSelected`)
+2. Selected items now have a prominent `ring-2 ring-primary-500` border
+3. Stronger background color (`bg-primary-100`) for better visibility
+
+## Verification
+![Bulk selection working](file:///C:/Users/mheyi/.gemini/antigravity/brain/3395a90c-fac9-4181-b9dc-c384e75fb925/selection_visual_test_1767370452859.webp)
+
+- [x] Multiple tasks show simultaneous visual selection (blue ring)
+- [x] Shift+Arrow extends selection properly
+- [x] Pressing 'x' completes all selected tasks
+- [x] Pressing Delete removes all selected tasks
