@@ -128,6 +128,7 @@ const TaskItem = ({
     <div
       {...(!isMobile ? { ...attributes, ...listeners } : {})}
       className="relative mb-1 group"
+      data-task-id={task.id}
     >
       {/* Swipe Completion Background Layer */}
       <motion.div
@@ -424,7 +425,13 @@ export const TaskList: React.FC<TaskListProps> = ({ filter }) => {
 
       const navigate = (newIndex: number) => {
         if (newIndex >= 0 && newIndex < currentTasks.length) {
-          setFocusedId(currentTasks[newIndex].id);
+          const taskId = currentTasks[newIndex].id;
+          setFocusedId(taskId);
+          // Scroll the focused task into view
+          setTimeout(() => {
+            const element = document.querySelector(`[data-task-id="${taskId}"]`);
+            element?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+          }, 0);
         }
       };
 

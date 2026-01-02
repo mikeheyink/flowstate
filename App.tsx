@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useRef } from 'react';
-import { Command, Layers, Inbox, CheckSquare, Archive, Calendar as CalendarIcon, Keyboard, Loader2, AlertCircle, UserX } from 'lucide-react';
+import { Command, Layers, Inbox, CheckSquare, Archive, Calendar as CalendarIcon, Keyboard, Loader2, AlertCircle, UserX, Wifi, WifiOff, RefreshCw } from 'lucide-react';
 import { TaskList } from './components/TaskList';
 import { CommandPalette } from './components/CommandPalette';
 import { QuickAdd } from './components/QuickAdd';
@@ -8,6 +8,7 @@ import { Toaster, toast } from './components/Toaster';
 import { Login } from './components/Login';
 import { useTaskStore } from './store/useTaskStore';
 import { useUIStore } from './store/useUIStore';
+import { useOnlineStatus } from './store/useOnlineStatus';
 import { supabase } from './utils/supabase';
 
 function App() {
@@ -40,6 +41,11 @@ function App() {
     // Fix: Map guestMode from store to isGuest variable used in component
     const isGuest = useTaskStore((state) => state.guestMode);
     const setGuestMode = useTaskStore((state) => state.setGuestMode);
+    const pendingCount = useTaskStore((state) => state.pendingOperations.length);
+    const processPendingOperations = useTaskStore((state) => state.processPendingOperations);
+
+    // Online status for sync indicator
+    const isOnline = useOnlineStatus();
 
     // Sidebar selection state
     const menuItems = ['active', 'today', 'completed', 'all'] as const;
@@ -96,6 +102,13 @@ function App() {
         const idx = menuItems.indexOf(filter);
         if (idx !== -1) setSidebarIndex(idx);
     }, [filter]);
+
+    // Process pending operations when back online
+    useEffect(() => {
+        if (isOnline && pendingCount > 0 && !isGuest) {
+            processPendingOperations();
+        }
+    }, [isOnline, pendingCount, isGuest, processPendingOperations]);
 
     // Global Hotkeys
     useEffect(() => {
@@ -309,6 +322,26 @@ function App() {
                 </nav>
 
                 <div className="ml-2 md:ml-0 md:px-6 md:mt-auto flex flex-col gap-2 shrink-0 border-l md:border-l-0 pl-3 md:pl-0 border-slate-200 dark:border-slate-800">
+                    {/* Sync Status Indicator - Only visible when offline or pending */}
+                    {(!isOnline || pendingCount > 0) && (
+                        <div className={`flex items-center gap-1.5 text-xs px-2 py-1 rounded-md ${!isOnline
+                                ? 'bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-400'
+                                : 'bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-400'
+                            }`}>
+                            {!isOnline ? (
+                                <>
+                                    <WifiOff className="w-3 h-3" />
+                                    <span>Offline</span>
+                                    {pendingCount > 0 && <span className="opacity-70">• {pendingCount}</span>}
+                                </>
+                            ) : (
+                                <>
+                                    <RefreshCw className="w-3 h-3 animate-spin" />
+                                    <span>Syncing {pendingCount}...</span>
+                                </>
+                            )}
+                        </div>
+                    )}
                     <div className="text-xs text-slate-400 flex items-center gap-2 md:justify-between">
                         <span className="w-2 h-2 rounded-full bg-green-500 block md:hidden" title={isGuest ? 'Guest' : session?.user?.email} />
                         <span className="hidden md:block truncate max-w-[100px]">{isGuest ? 'Guest' : session?.user?.email}</span>

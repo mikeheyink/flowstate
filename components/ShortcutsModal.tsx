@@ -12,7 +12,7 @@ export const ShortcutsModal: React.FC<Props> = ({ isOpen, onClose }) => {
     {
       title: "Navigation",
       items: [
-        { k: "j / k", d: "Move Focus Down/Up" },
+        { k: "↑ / ↓", d: "Move Focus Up/Down" },
         { k: "Ctrl + ↑ / ↓", d: "Move Task Up/Down" },
         { k: "g then i", d: "Go to Inbox" },
         { k: "g then t", d: "Go to Today" },
@@ -58,19 +58,19 @@ export const ShortcutsModal: React.FC<Props> = ({ isOpen, onClose }) => {
           <kbd className="px-2 py-1 text-xs rounded bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700">Esc</kbd>
         </div>
         <div className="p-6 grid grid-cols-2 gap-8">
-           {sections.map(section => (
-             <div key={section.title}>
-               <h4 className="text-xs font-semibold uppercase tracking-wider text-slate-500 mb-3">{section.title}</h4>
-               <div className="space-y-2">
-                 {section.items.map(item => (
-                   <div key={item.k} className="flex justify-between items-center text-sm">
-                     <span className="text-slate-700 dark:text-slate-300">{item.d}</span>
-                     <kbd className="font-mono text-xs text-primary-600 dark:text-primary-400 bg-primary-50 dark:bg-primary-900/20 px-1.5 py-0.5 rounded">{item.k}</kbd>
-                   </div>
-                 ))}
-               </div>
-             </div>
-           ))}
+          {sections.map(section => (
+            <div key={section.title}>
+              <h4 className="text-xs font-semibold uppercase tracking-wider text-slate-500 mb-3">{section.title}</h4>
+              <div className="space-y-2">
+                {section.items.map(item => (
+                  <div key={item.k} className="flex justify-between items-center text-sm">
+                    <span className="text-slate-700 dark:text-slate-300">{item.d}</span>
+                    <kbd className="font-mono text-xs text-primary-600 dark:text-primary-400 bg-primary-50 dark:bg-primary-900/20 px-1.5 py-0.5 rounded">{item.k}</kbd>
+                  </div>
+                ))}
+              </div>
+            </div>
+          ))}
         </div>
       </div>
     </div>
