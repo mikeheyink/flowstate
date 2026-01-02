@@ -13,6 +13,7 @@ export const ShortcutsModal: React.FC<Props> = ({ isOpen, onClose }) => {
       title: "Navigation",
       items: [
         { k: "↑ / ↓", d: "Move Focus Up/Down" },
+        { k: "PgUp/PgDn", d: "Sidebar Navigation" },
         { k: "Ctrl + ↑ / ↓", d: "Move Task Up/Down" },
         { k: "g then i", d: "Go to Inbox" },
         { k: "g then t", d: "Go to Today" },

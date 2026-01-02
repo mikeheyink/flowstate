@@ -189,12 +189,12 @@ function App() {
 
             // Sidebar Nav
             if (focusMode === 'sidebar') {
-                if (key === 'arrowdown') {
+                if (key === 'arrowdown' || key === 'pagedown') {
                     e.preventDefault();
                     const nextIndex = (sidebarIndex + 1) % menuItems.length;
                     setSidebarIndex(nextIndex);
                     setFilter(menuItems[nextIndex]);
-                } else if (key === 'arrowup') {
+                } else if (key === 'arrowup' || key === 'pageup') {
                     e.preventDefault();
                     const nextIndex = (sidebarIndex - 1 + menuItems.length) % menuItems.length;
                     setSidebarIndex(nextIndex);
@@ -325,8 +325,8 @@ function App() {
                     {/* Sync Status Indicator - Only visible when offline or pending */}
                     {(!isOnline || pendingCount > 0) && (
                         <div className={`flex items-center gap-1.5 text-xs px-2 py-1 rounded-md ${!isOnline
-                                ? 'bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-400'
-                                : 'bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-400'
+                            ? 'bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-400'
+                            : 'bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-400'
                             }`}>
                             {!isOnline ? (
                                 <>
