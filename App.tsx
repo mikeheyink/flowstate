@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useRef } from 'react';
-import { Command, Layers, Inbox, CheckSquare, Archive, Calendar as CalendarIcon, Keyboard, Loader2, AlertCircle, UserX, Wifi, WifiOff, RefreshCw } from 'lucide-react';
+import { Command, Layers, Inbox, CheckSquare, Archive, Calendar as CalendarIcon, Keyboard, Loader2, AlertCircle, UserX, Wifi, WifiOff, RefreshCw, CalendarClock } from 'lucide-react';
 import { TaskList } from './components/TaskList';
 import { CommandPalette } from './components/CommandPalette';
 import { QuickAdd } from './components/QuickAdd';
@@ -48,7 +48,7 @@ function App() {
     const isOnline = useOnlineStatus();
 
     // Sidebar selection state
-    const menuItems = ['active', 'today', 'completed', 'all'] as const;
+    const menuItems = ['active', 'today', 'upcoming'] as const;
     const [sidebarIndex, setSidebarIndex] = useState(0);
 
     // G-chord state
@@ -215,7 +215,7 @@ function App() {
             if (gPressed) {
                 if (key === 'i') { setFilter('active'); toast("Go to Inbox"); }
                 if (key === 't') { setFilter('today'); toast("Go to Today"); }
-                if (key === 'a') { setFilter('all'); }
+                // if (key === 'a') { setFilter('all'); } // Removed
                 setGPressed(false);
                 return;
             }
@@ -327,10 +327,9 @@ function App() {
                         const isFocused = focusMode === 'sidebar' && sidebarIndex === index;
 
                         let Icon = Inbox;
-                        let Label = 'Inbox';
-                        if (item === 'completed') { Icon = CheckSquare; Label = 'Done'; }
-                        if (item === 'all') { Icon = Archive; Label = 'All'; }
+                        let Label = 'Plan';
                         if (item === 'today') { Icon = CalendarIcon; Label = 'Today'; }
+                        if (item === 'upcoming') { Icon = CalendarClock; Label = 'Upcoming'; }
 
                         return (
                             <button
@@ -399,7 +398,7 @@ function App() {
             <main className="flex-1 h-screen overflow-hidden flex flex-col relative bg-slate-50 dark:bg-slate-950">
                 <header className="h-16 border-b border-slate-200 dark:border-slate-800/50 flex items-center px-8 justify-between shrink-0 bg-white/50 dark:bg-slate-950/50 backdrop-blur-sm z-10">
                     <h2 className="text-lg font-semibold text-slate-800 dark:text-slate-200 capitalize flex items-center gap-2">
-                        {filter === 'active' ? 'Inbox' : filter}
+                        {filter === 'active' ? 'Plan' : filter}
                         {isLoading && <Loader2 className="w-4 h-4 animate-spin text-slate-400" />}
                     </h2>
                     <div className="flex items-center gap-4">
@@ -422,7 +421,7 @@ function App() {
                     }}
                     className={`flex-1 overflow-y-auto px-4 py-6 md:px-8 scroll-smooth transition-opacity duration-200 ${focusMode === 'sidebar' ? 'md:opacity-50' : 'opacity-100'}`}
                 >
-                    <div className="max-w-3xl mx-auto">
+                    <div className="max-w-5xl mx-auto">
                         <TaskList filter={filter} />
                     </div>
                 </div>

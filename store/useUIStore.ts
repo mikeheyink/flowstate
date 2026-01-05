@@ -10,17 +10,17 @@ interface UIState {
   quickAddParentId: string | null; // Context for creating subtasks
   quickAddMode: QuickAddMode;
   quickAddTaskId: string | null; // The task being modified (for date/tag mode)
-  
+
   editingTaskId: string | null; // ID of task currently being renamed
-  
-  filter: 'all' | 'active' | 'completed' | 'today';
+
+  filter: 'active' | 'today' | 'upcoming';
   focusMode: FocusMode;
-  
+
   setCmdOpen: (open: boolean) => void;
   setQuickAddOpen: (open: boolean, parentId?: string | null, mode?: QuickAddMode, taskId?: string | null) => void;
   setShortcutsOpen: (open: boolean) => void;
   setEditingTaskId: (id: string | null) => void;
-  setFilter: (filter: 'all' | 'active' | 'completed' | 'today') => void;
+  setFilter: (filter: 'active' | 'today' | 'upcoming') => void;
   setFocusMode: (mode: FocusMode) => void;
   toggleCmd: () => void;
 }
@@ -32,14 +32,14 @@ export const useUIStore = create<UIState>((set) => ({
   quickAddParentId: null,
   quickAddMode: 'create',
   quickAddTaskId: null,
-  
+
   editingTaskId: null,
-  
+
   filter: 'active',
   focusMode: 'main', // Default focus
-  
+
   setCmdOpen: (open) => set({ isCmdOpen: open }),
-  setQuickAddOpen: (open, parentId = null, mode = 'create', taskId = null) => 
+  setQuickAddOpen: (open, parentId = null, mode = 'create', taskId = null) =>
     set({ isQuickAddOpen: open, quickAddParentId: parentId, quickAddMode: mode, quickAddTaskId: taskId }),
   setShortcutsOpen: (open) => set({ isShortcutsOpen: open }),
   setEditingTaskId: (id) => set({ editingTaskId: id }),

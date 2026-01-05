@@ -20,12 +20,13 @@ interface DragState {
 
 
 interface TaskListProps {
-  filter: 'all' | 'active' | 'completed' | 'today';
+  filter: 'active' | 'today' | 'upcoming';
 }
 
 interface VisibleTask extends Task {
   depth: number;
   hasChildren: boolean;
+  isHeader?: boolean;
 }
 
 const PriorityIcon = ({ priority }: { priority: Priority }) => {
@@ -94,6 +95,7 @@ const TaskItem = ({
   attributes,
   listeners,
   dragState,
+  index,
 }: {
 
   task: VisibleTask;
@@ -115,7 +117,7 @@ const TaskItem = ({
   attributes?: any;
   listeners?: any;
   dragState?: DragState | null;
-
+  index: number;
 
 }) => {
   const x = useMotionValue(0);
@@ -137,6 +139,16 @@ const TaskItem = ({
   const isInsertBefore = dragState?.type === 'insert-before' && dragState.targetId === task.id;
   const isInsertAfter = dragState?.type === 'insert-after' && dragState.targetId === task.id;
 
+  // Header Rendering
+  if (task.isHeader) {
+    return (
+      <div className="pt-8 pb-3 px-4 md:px-0 flex items-center gap-2" data-task-id={task.id}>
+        <h3 className="text-sm font-bold text-slate-900 dark:text-slate-100">{task.title}</h3>
+        <div className="h-px flex-1 bg-slate-200 dark:bg-slate-800/50" />
+      </div>
+    );
+  }
+
   const handleDragEnd = (_: any, info: any) => {
 
     if (info.offset.x > 80) { // Threshold for complete
@@ -147,13 +159,13 @@ const TaskItem = ({
   return (
     <div
       {...(!isMobile ? { ...attributes, ...listeners } : {})}
-      className="relative mb-1 group"
+      className="relative group"
       data-task-id={task.id}
     >
       {/* Swipe Completion Background Layer */}
       <motion.div
         style={{ opacity, background }}
-        className="absolute inset-0 rounded-lg flex items-center justify-start pl-4 pointer-events-none"
+        className="absolute inset-0 flex items-center justify-start pl-4 pointer-events-none"
       >
         <CheckCircle2 className="w-6 h-6 text-green-600 dark:text-green-500" />
       </motion.div>
@@ -167,17 +179,17 @@ const TaskItem = ({
         whileDrag={{ scale: 1.02, zIndex: 10 }}
         style={{ x, touchAction: "pan-y" }}
         className={`
-              relative flex flex-col py-2.5 pr-3 rounded-r-lg transition-all duration-200 cursor-pointer 
-              bg-slate-50 dark:bg-slate-950
-              ${isFocused && focusMode === 'main' && !isSelected ? 'bg-slate-200 dark:bg-slate-800/60 ring-1 ring-slate-300 dark:ring-slate-700 shadow-lg' : ''}
+              relative flex items-center h-12 pr-4 transition-all duration-200 cursor-pointer 
+              border-b border-slate-100 dark:border-slate-800/50
+              ${index % 2 !== 0 ? 'bg-white dark:bg-slate-900/40' : 'bg-transparent'}
+              ${task.depth === 0 && filter === 'active' ? '!border-t-4 !border-t-slate-200 dark:!border-t-slate-800' : ''} 
+              ${isFocused && focusMode === 'main' && !isSelected ? 'bg-primary-50 dark:bg-primary-900/20 ring-1 ring-primary-200 dark:ring-primary-800 shadow-sm z-10' : ''}
               ${isFocused && focusMode === 'sidebar' ? 'bg-slate-100 dark:bg-slate-800/20' : ''}
-              ${isSelected ? 'bg-primary-100 dark:bg-primary-900/40 ring-2 ring-primary-500 dark:ring-primary-400' : ''}
-              ${!isFocused && !isSelected ? 'group-hover:bg-slate-100 dark:group-hover:bg-slate-900' : ''}
+              ${isSelected ? 'bg-primary-100 dark:bg-primary-900/40 ring-1 ring-primary-500 dark:ring-primary-400 z-10' : ''}
+              ${!isFocused && !isSelected ? 'hover:bg-slate-50 dark:hover:bg-slate-800/50' : ''}
               ${task.completed ? 'opacity-50' : 'opacity-100'}
-              ${!isFocused && !isSelected ? 'group-hover:bg-slate-100 dark:group-hover:bg-slate-900' : ''}
-              ${task.completed ? 'opacity-50' : 'opacity-100'}
-              ${isOver && !isDragging && !isNestTarget ? 'ring-2 ring-primary-500 bg-primary-50 dark:bg-primary-900/10 scale-[1.02] z-10' : ''}
-              ${isNestTarget ? 'ring-2 ring-primary-500 bg-primary-100 dark:bg-primary-900/30 scale-[1.02] z-20' : ''}
+              ${isOver && !isDragging && !isNestTarget ? 'ring-2 ring-primary-500 bg-primary-50 dark:bg-primary-900/10 scale-[1.02] z-20' : ''}
+              ${isNestTarget ? 'ring-2 ring-primary-500 bg-primary-100 dark:bg-primary-900/30 scale-[1.02] z-30' : ''}
             `}
 
         onClick={(e) => {
@@ -186,120 +198,117 @@ const TaskItem = ({
           setFocusMode('main');
         }}
       >
-        <div style={{ paddingLeft }}>
+        <div className="flex-1 flex items-center min-w-0" style={{ paddingLeft: `calc(${paddingLeft} + 0.5rem)` }}>
           {/* Insert Lines */}
           {isInsertBefore && <div className="absolute top-0 left-0 right-0 h-0.5 bg-blue-500 z-50 shadow-[0_0_4px_rgba(59,130,246,0.5)]" />}
           {isInsertAfter && <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-blue-500 z-50 shadow-[0_0_4px_rgba(59,130,246,0.5)]" />}
 
           {/* Focus Indicator (Left Border) */}
-
           {isFocused && (
-            <div className={`absolute left-0 top-1/2 -translate-y-1/2 w-1 h-8 rounded-r-full ${focusMode === 'main' ? 'bg-primary-500' : 'bg-slate-400 dark:bg-slate-600'}`} />
+            <div className={`absolute left-0 top-0 bottom-0 w-1 ${focusMode === 'main' ? 'bg-primary-500' : 'bg-slate-400 dark:bg-slate-600'}`} />
           )}
 
-          <div className="flex items-center gap-2">
-            {/* Expansion Toggle */}
-            <div
-              className="w-8 h-8 flex items-center justify-center text-slate-400 dark:text-slate-500 shrink-0 cursor-pointer -ml-1 transition-transform active:scale-90"
-              onClick={(e) => {
-                e.stopPropagation();
-                if (task.hasChildren) toggleExpand(task.id);
-              }}
+          {/* Expansion Toggle */}
+          <div
+            className={`w-6 h-6 flex items-center justify-center shrink-0 cursor-pointer mr-2 transition-all active:scale-90 ${task.expanded ? 'text-slate-500 dark:text-slate-400' : 'text-slate-300 dark:text-slate-600 hover:text-slate-500 dark:hover:text-slate-400'}`}
+            onClick={(e) => {
+              e.stopPropagation();
+              if (task.hasChildren) toggleExpand(task.id);
+            }}
+          >
+            {task.hasChildren ? (
+              task.expanded ? <ChevronDown className="w-3.5 h-3.5" /> : <ChevronRight className="w-3.5 h-3.5" />
+            ) : null}
+          </div>
+
+          {/* Checkbox - Desktop only, mobile uses swipe */}
+          {!isMobile && (
+            <button
+              onClick={(e) => { e.stopPropagation(); handleToggle(task.id, task.completed); }}
+              className={`p-1 transition-colors shrink-0 mr-3 group/cb ${task.completed ? 'text-primary-600 dark:text-primary-500' : 'text-slate-300 dark:text-slate-600 hover:text-primary-500 dark:hover:text-primary-400'}`}
             >
-              {task.hasChildren ? (
-                task.expanded ? <ChevronDown className="w-4 h-4" /> : <ChevronRight className="w-4 h-4" />
-              ) : (
-                task.depth > 0 && <CornerDownRight className="w-3.5 h-3.5 text-slate-400 dark:text-slate-700" />
-              )}
-            </div>
+              {task.completed ? <CheckCircle2 className="w-5 h-5" /> : <Circle className="w-5 h-5" />}
+            </button>
+          )}
 
-            {/* Checkbox - Desktop only, mobile uses swipe */}
-            {!isMobile && (
-              <button
-                onClick={(e) => { e.stopPropagation(); handleToggle(task.id, task.completed); }}
-                className="p-1.5 -m-1.5 text-slate-400 hover:text-primary-500 dark:hover:text-primary-400 transition-colors shrink-0"
-              >
-                {task.completed ? <CheckCircle2 className="w-5 h-5 text-primary-600 dark:text-primary-500" /> : <Circle className="w-5 h-5" />}
-              </button>
-            )}
-
-            {/* Content */}
-            <div className="flex-1 min-w-0 flex flex-col justify-center">
-              {/* Context Eyebrow */}
-              {((filter !== 'all' && filter !== 'active') || task.depth === 0) && task.parentId && (
-                (() => {
-                  const getParents = (currentTask: Task): string[] => {
-                    const parents: string[] = [];
-                    let curr = currentTask;
-                    while (curr.parentId) {
-                      const parent = tasks.find(t => t.id === curr.parentId);
-                      if (parent) {
-                        parents.unshift(parent.title);
-                        curr = parent;
-                      } else {
-                        break;
+          {/* Content */}
+          <div className="flex-1 min-w-0 flex flex-col justify-center">
+            {isEditing ? (
+              <InlineEdit task={task} updateTask={updateTask} setEditingTaskId={setEditingTaskId} />
+            ) : (
+              <>
+                {/* Context Eyebrow (Above Title) */}
+                {filter !== 'active' && task.parentId && (
+                  (() => {
+                    // Quick parent lookup (could be memoized but list is virtualized/small enough usually)
+                    const getParents = (currentTask: Task): string[] => {
+                      const parents: string[] = [];
+                      let curr = currentTask;
+                      // Limit depth to avoid infinite loops if cycle exists (safety)
+                      let depth = 0;
+                      while (curr.parentId && depth < 10) {
+                        const parent = tasks.find(t => t.id === curr.parentId);
+                        if (parent) {
+                          parents.unshift(parent.title);
+                          curr = parent;
+                          depth++;
+                        } else {
+                          break;
+                        }
                       }
-                    }
-                    return parents;
-                  };
-                  const path = getParents(task);
-                  if (path.length === 0) return null;
+                      return parents;
+                    };
+                    const path = getParents(task);
+                    if (path.length === 0) return null;
+                    return (
+                      <div className="flex items-center gap-1 text-[10px] font-medium text-slate-400/80 dark:text-slate-500/80 truncate w-full leading-none mb-0.5">
+                        {path.join(' > ')}
+                      </div>
+                    );
+                  })()
+                )}
 
-                  return (
-                    <div className="flex items-center gap-1 text-[10px] text-slate-400 dark:text-slate-500 font-medium mb-0.5">
-                      {path.join(' / ')}
-                    </div>
-                  );
-                })()
-              )}
-
-              {isEditing ? (
-                <InlineEdit task={task} updateTask={updateTask} setEditingTaskId={setEditingTaskId} />
-              ) : (
-                <div className="group/title">
+                <div className="flex items-center gap-2">
                   <h3 className={`text-sm font-medium truncate transition-all ${task.completed ? 'text-slate-500 line-through' : 'text-slate-700 dark:text-slate-200'}`}>
                     {task.title}
                   </h3>
+                  {task.notes && (
+                    <AlignLeft className="w-3 h-3 text-slate-400 shrink-0" />
+                  )}
                 </div>
-              )}
-            </div>
-            {/* Grip Handle - Mobile: drag handle for reorder. Desktop: visual only */}
-            <div
-              {...(isMobile ? { ...attributes, ...listeners } : {})}
-              className={`text-slate-300 dark:text-slate-600 cursor-grab active:cursor-grabbing hover:text-slate-500 p-2 -m-2 ${isMobile ? 'touch-none' : ''}`}
-            >
-              <GripVertical className="w-4 h-4" />
-            </div>
+              </>
+            )}
           </div>
 
-          {/* Metadata & Actions */}
-          <div className="flex items-center gap-3 pr-2 shrink-0 mt-1 ml-9">
+          {/* Metadata & Actions (Right Aligned) */}
+          <div className="flex items-center gap-4 pl-4 shrink-0">
             {(task.dueDate || (task.tags && task.tags.length > 0)) && (
-              <div className="flex items-center gap-3 text-[10px] text-slate-500">
+              <div className="flex items-center gap-3 text-xs text-slate-500">
                 {task.dueDate && (
-                  <span className={`flex items-center gap-1 ${new Date(task.dueDate) < new Date() && !task.completed ? 'text-red-500 dark:text-red-400' : ''}`}>
-                    <Calendar className="w-2.5 h-2.5" />
-                    {formatDate(task.dueDate)}
+                  <span className={`flex items-center gap-1.5 ${new Date(task.dueDate) < new Date() && !task.completed ? 'text-red-500 dark:text-red-400' : ''}`}>
+                    <span className="hidden md:inline">{formatDate(task.dueDate)}</span>
+                    <span className="md:hidden"><Calendar className="w-3 h-3" /></span>
                   </span>
                 )}
                 {(task.tags || []).map(tag => (
-                  <span key={tag} className="flex items-center gap-0.5 px-1 py-px rounded bg-slate-200 dark:bg-slate-800/50 text-slate-600 dark:text-slate-400">
-                    <Hash className="w-2.5 h-2.5" />
-                    {tag}
+                  <span key={tag} className="flex items-center gap-1 px-1.5 py-0.5 rounded bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 text-[10px] tracking-wide uppercase font-medium">
+                    <span className="opacity-50">#</span>{tag}
                   </span>
                 ))}
               </div>
             )}
-            <PriorityIcon priority={task.priority} />
-          </div>
-
-          {/* Notes Display */}
-          {task.notes && (
-            <div className="mt-1 ml-9 flex items-start gap-1.5 text-xs text-slate-500 dark:text-slate-400">
-              <AlignLeft className="w-3 h-3 mt-0.5 opacity-50" />
-              <p className="line-clamp-2">{task.notes}</p>
+            <div className="w-4 flex justify-center">
+              <PriorityIcon priority={task.priority} />
             </div>
-          )}
+
+            {/* Grip Handle - Mobile: drag handle for reorder. Desktop: Hidden */}
+            <div
+              {...(isMobile ? { ...attributes, ...listeners } : {})}
+              className={`md:hidden text-slate-300 dark:text-slate-600 cursor-grab active:cursor-grabbing hover:text-slate-500 p-1 ${isMobile ? 'touch-none' : ''}`}
+            >
+              <GripVertical className="w-4 h-4" />
+            </div>
+          </div>
         </div>
       </motion.div>
     </div >
@@ -343,69 +352,186 @@ export const TaskList: React.FC<TaskListProps> = ({ filter }) => {
 
   // --- Recursive Tree Flattening ---
   const visibleTasks = React.useMemo(() => {
-    let filtered = tasks.filter(t => !t.archived);
     const now = new Date();
     const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate());
     const endOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1);
 
-    if (filter === 'active') filtered = filtered.filter(t => !t.completed);
-    if (filter === 'completed') filtered = filtered.filter(t => t.completed);
-    if (filter === 'today') {
-      filtered = filtered.filter(t => {
-        if (t.completed) return false;
-        if (!t.dueDate) return false;
-        const d = new Date(t.dueDate);
-        return d >= startOfToday && d < endOfToday;
-      });
-    }
+    // 1. Build Helpers for Hierarchy Sort
+    // We need a map to quickly look up sort paths
+    // Path = [GrandparentOrder, ParentOrder, TaskOrder]
+    const taskMap = new Map<string, Task>();
+    tasks.forEach(t => taskMap.set(t.id, t));
 
-    // Sort order
-    filtered.sort((a, b) => {
-      // 1. Completed at bottom
-      if (a.completed !== b.completed) return a.completed ? 1 : -1;
-
-      // 2. Explicit Order (or fallback to createdAt)
-      const orderA = a.order ?? -a.createdAt;
-      const orderB = b.order ?? -b.createdAt;
-
-      return orderA - orderB;
-    });
-
-    // For 'completed' or 'today' filter, we want a flat list, ignoring hierarchy
-    if (filter === 'completed' || filter === 'today') {
-      return filtered.map(t => ({ ...t, depth: 0, hasChildren: false }));
-    }
-
-    const result: VisibleTask[] = [];
-    const childrenMap = new Map<string | null, Task[]>();
-
-    filtered.forEach(t => {
-      const pid = t.parentId || 'root';
-      if (!childrenMap.has(pid)) childrenMap.set(pid, []);
-      childrenMap.get(pid)?.push(t);
-    });
-
-    const build = (parentId: string | null, depth: number) => {
-      const children = childrenMap.get(parentId || 'root');
-      if (!children) return;
-
-      for (const child of children) {
-        const hasChildren = childrenMap.has(child.id) && (childrenMap.get(child.id)?.length || 0) > 0;
-
-        result.push({
-          ...child,
-          depth,
-          hasChildren
-        });
-
-        if (child.expanded && hasChildren) {
-          build(child.id, depth + 1);
+    const getSortPath = (task: Task): number[] => {
+      const path: number[] = [];
+      let current: Task | undefined = task;
+      while (current) {
+        // Use order or createdAt for stability
+        path.unshift(current.order ?? -current.createdAt);
+        if (current.parentId) {
+          current = taskMap.get(current.parentId);
+        } else {
+          current = undefined;
         }
       }
+      return path;
     };
 
-    build(null, 0);
-    return result;
+    const compareHierarchy = (a: Task, b: Task) => {
+      const pathA = getSortPath(a);
+      const pathB = getSortPath(b);
+      const len = Math.min(pathA.length, pathB.length);
+      for (let i = 0; i < len; i++) {
+        if (pathA[i] !== pathB[i]) return pathA[i] - pathB[i];
+      }
+      return pathA.length - pathB.length;
+    };
+
+    // --- VIEW: PLAN (Inbox) ---
+    if (filter === 'active') {
+      let filtered = tasks.filter(t => !t.archived && !t.completed);
+
+      // Standard Tree Build
+      const result: VisibleTask[] = [];
+      const childrenMap = new Map<string | null, Task[]>();
+
+      // Sort siblings first
+      filtered.sort((a, b) => (a.order ?? -a.createdAt) - (b.order ?? -b.createdAt));
+
+      filtered.forEach(t => {
+        const pid = t.parentId || 'root';
+        if (!childrenMap.has(pid)) childrenMap.set(pid, []);
+        childrenMap.get(pid)?.push(t);
+      });
+
+      const build = (parentId: string | null, depth: number) => {
+        const children = childrenMap.get(parentId || 'root');
+        if (!children) return;
+
+        for (const child of children) {
+          const hasChildren = childrenMap.has(child.id) && (childrenMap.get(child.id)?.length || 0) > 0;
+          result.push({ ...child, depth, hasChildren: hasChildren });
+          if (child.expanded && hasChildren) build(child.id, depth + 1);
+        }
+      };
+
+      build(null, 0);
+      return result;
+    }
+
+    // --- VIEW: TODAY ---
+    if (filter === 'today') {
+      const candidates = tasks.filter(t => !t.archived && t.dueDate);
+
+      const outstanding: Task[] = [];
+      const completedToday: Task[] = [];
+
+      candidates.forEach(t => {
+        const d = new Date(t.dueDate!);
+        // Reset times for date comparisons
+        const dDate = new Date(d.getFullYear(), d.getMonth(), d.getDate());
+
+        if (t.completed) {
+          // Complete & Due Today
+          if (dDate.getTime() === startOfToday.getTime()) {
+            completedToday.push(t);
+          }
+        } else {
+          // Incomplete & (Due Today OR Overdue)
+          if (dDate < endOfToday) {
+            outstanding.push(t);
+          }
+        }
+      });
+
+      // Sort Outstanding: Overdue first, then Hierarchy
+      outstanding.sort((a, b) => {
+        const dateA = new Date(a.dueDate!);
+        const dateB = new Date(b.dueDate!);
+        const isOverdueA = dateA < startOfToday;
+        const isOverdueB = dateB < startOfToday;
+
+        if (isOverdueA !== isOverdueB) return isOverdueA ? -1 : 1;
+        // Same bucket (both overdue or both today), sort by Hierarchy
+        return compareHierarchy(a, b);
+      });
+
+      // Sort Completed: Hierarchy
+      completedToday.sort(compareHierarchy);
+
+      const result: VisibleTask[] = [];
+
+      if (outstanding.length > 0) {
+        result.push({ id: 'header-outstanding', title: 'Outstanding', depth: 0, hasChildren: false, isHeader: true, completed: false } as any);
+        outstanding.forEach(t => result.push({ ...t, depth: 0, hasChildren: false }));
+      }
+
+      if (completedToday.length > 0) {
+        result.push({ id: 'header-complete', title: 'Complete', depth: 0, hasChildren: false, isHeader: true, completed: false } as any);
+        completedToday.forEach(t => result.push({ ...t, depth: 0, hasChildren: false }));
+      }
+
+      return result;
+    }
+
+    // --- VIEW: UPCOMING ---
+    if (filter === 'upcoming') {
+      const upcoming = tasks.filter(t => {
+        if (t.archived || t.completed || !t.dueDate) return false;
+        const d = new Date(t.dueDate);
+        return d >= endOfToday; // Tomorrow onwards
+      });
+
+      // Sort: Due Date ASC, then Hierarchy
+      upcoming.sort((a, b) => {
+        const dateA = new Date(a.dueDate!).getTime();
+        const dateB = new Date(b.dueDate!).getTime();
+        if (dateA !== dateB) return dateA - dateB;
+        return compareHierarchy(a, b);
+      });
+
+      // Bucket Logic
+      const result: VisibleTask[] = [];
+      let currentBucket = '';
+
+      const getBucketName = (date: Date): string => {
+        const d = new Date(date.getFullYear(), date.getMonth(), date.getDate());
+        const tomorrow = new Date(endOfToday); // endOfToday is actually start of tomorrow (00:00)
+
+        // Tomorrow?
+        if (d.getTime() === tomorrow.getTime()) return 'Tomorrow';
+
+        // Next 7 Days? (Approx check)
+        const diffDays = Math.round((d.getTime() - startOfToday.getTime()) / (1000 * 60 * 60 * 24));
+        if (diffDays < 7) {
+          return d.toLocaleDateString('en-US', { weekday: 'long' }); // e.g., "Monday"
+        }
+
+        // Future
+        return d.toLocaleDateString('en-US', { month: 'long', year: 'numeric' }); // e.g., "February 2026"
+      };
+
+      upcoming.forEach(t => {
+        const bucket = getBucketName(new Date(t.dueDate!));
+        if (bucket !== currentBucket) {
+          currentBucket = bucket;
+          result.push({
+            id: `header-${bucket}`,
+            title: bucket,
+            depth: 0,
+            hasChildren: false,
+            isHeader: true,
+            completed: false,
+            // Add dummy task props to satisfy type if needed, or use 'as any' safely since it's a header
+          } as any);
+        }
+        result.push({ ...t, depth: 0, hasChildren: false });
+      });
+
+      return result;
+    }
+
+    return [];
   }, [tasks, filter]);
 
   // Clear focus when filter changes
@@ -847,11 +973,12 @@ export const TaskList: React.FC<TaskListProps> = ({ filter }) => {
           items={visibleTasks.map(t => t.id)}
           strategy={verticalListSortingStrategy}
         >
-          {visibleTasks.map((task) => (
+          {visibleTasks.map((task, index) => (
             <SortableTaskItem key={task.id} id={task.id}>
               {({ isDragging, isOver, attributes, listeners }) => (
                 <TaskItem
                   task={task}
+                  index={index}
                   isFocused={task.id === focusedId}
                   isSelected={selectedIds.includes(task.id)}
                   isEditing={task.id === editingTaskId}
@@ -889,6 +1016,7 @@ export const TaskList: React.FC<TaskListProps> = ({ filter }) => {
                 isFocused={activeTask.id === focusedId}
                 isSelected={selectedIds.includes(activeTask.id)}
                 isEditing={false}
+                index={0}
                 focusMode="main"
                 paddingLeft={`${activeTask.depth * 1.5 + 0.75}rem`}
                 setFocusedId={() => { }}
