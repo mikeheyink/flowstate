@@ -27,6 +27,7 @@ interface VisibleTask extends Task {
   depth: number;
   hasChildren: boolean;
   isHeader?: boolean;
+  effectiveOrder?: number;
 }
 
 const PriorityIcon = ({ priority }: { priority: Priority }) => {
@@ -282,6 +283,12 @@ const TaskItem = ({
 
           {/* Metadata & Actions (Right Aligned) */}
           <div className="flex items-center gap-4 pl-4 shrink-0">
+            {task.importantOrder && (
+              <div className="flex items-center justify-center w-6 h-6 rounded-full bg-amber-500 text-white shadow-sm ring-2 ring-amber-200 dark:ring-amber-900/50">
+                <span className="text-[10px] font-bold">{task.importantOrder}</span>
+              </div>
+            )}
+
             {(task.dueDate || (task.tags && task.tags.length > 0)) && (
               <div className="flex items-center gap-3 text-xs text-slate-500">
                 {task.dueDate && (
@@ -325,6 +332,8 @@ export const TaskList: React.FC<TaskListProps> = ({ filter }) => {
   const toggleExpand = useTaskStore((state) => state.toggleExpand);
   const setExpandedAll = useTaskStore((state) => state.setExpandedAll);
   const moveTaskTo = useTaskStore((state) => state.moveTaskTo);
+  const toggleImportance = useTaskStore((state) => state.toggleImportance);
+  const clearImportance = useTaskStore((state) => state.clearImportance);
 
   // Selection & Batch Actions
   const selectedIds = useTaskStore((state) => state.selectedIds);
@@ -423,6 +432,7 @@ export const TaskList: React.FC<TaskListProps> = ({ filter }) => {
     if (filter === 'today') {
       const candidates = tasks.filter(t => !t.archived && t.dueDate);
 
+      const important: Task[] = [];
       const outstanding: Task[] = [];
       const completedToday: Task[] = [];
 
@@ -439,31 +449,93 @@ export const TaskList: React.FC<TaskListProps> = ({ filter }) => {
         } else {
           // Incomplete & (Due Today OR Overdue)
           if (dDate < endOfToday) {
-            outstanding.push(t);
+            if (t.importantOrder) {
+              important.push(t);
+            } else {
+              outstanding.push(t);
+            }
           }
         }
       });
 
-      // Sort Outstanding: Overdue first, then Hierarchy
-      outstanding.sort((a, b) => {
+      // Sort Important: By importantOrder
+      important.sort((a, b) => (a.importantOrder || 0) - (b.importantOrder || 0));
+
+      // FIXED: Today View Sorting - Completely Decoupled from Hierarchy
+      // 
+      // The key insight: dnd-kit's SortableContext expects the `items` array 
+      // to match the visual order. If we sort by hierarchy first, then by todayOrder,
+      // the arrays get out of sync and drops are rejected.
+      //
+      // Solution: Sort ONLY by todayOrder. Tasks without todayOrder get a stable
+      // default based on their position in the initial (overdue-first) sort.
+
+      // Step 1: Initial stable sort for tasks WITHOUT todayOrder
+      // This determines the "natural" position for unordered tasks
+      const hasOrder = (t: Task) => t.todayOrder !== undefined && t.todayOrder !== null;
+
+      const withOrder = outstanding.filter(hasOrder);
+      const withoutOrder = outstanding.filter(t => !hasOrder(t));
+
+      // Sort unordered tasks: overdue first, then by createdAt for stability
+      withoutOrder.sort((a, b) => {
         const dateA = new Date(a.dueDate!);
         const dateB = new Date(b.dueDate!);
         const isOverdueA = dateA < startOfToday;
         const isOverdueB = dateB < startOfToday;
 
         if (isOverdueA !== isOverdueB) return isOverdueA ? -1 : 1;
-        // Same bucket (both overdue or both today), sort by Hierarchy
-        return compareHierarchy(a, b);
+
+        // Use createdAt for stable ordering (not hierarchy!)
+        return a.createdAt - b.createdAt;
       });
+
+      // Sort ordered tasks by their todayOrder
+      withOrder.sort((a, b) => (a.todayOrder || 0) - (b.todayOrder || 0));
+
+      // Step 2: Calculate effectiveOrder for ALL tasks
+      // Find the max todayOrder to place unordered tasks after ordered ones
+      const maxOrder = withOrder.length > 0
+        ? Math.max(...withOrder.map(t => t.todayOrder || 0))
+        : 0;
+
+      // Assign effectiveOrder to ordered tasks (use their actual todayOrder)
+      const orderedVisible: VisibleTask[] = withOrder.map(t => ({
+        ...t,
+        depth: 0,
+        hasChildren: false,
+        effectiveOrder: t.todayOrder!
+      }));
+
+      // Assign effectiveOrder to unordered tasks (place after ordered ones)
+      const unorderedVisible: VisibleTask[] = withoutOrder.map((t, i) => ({
+        ...t,
+        depth: 0,
+        hasChildren: false,
+        effectiveOrder: maxOrder + ((i + 1) * 10000) // Wide spacing after existing orders
+      }));
+
+      // Step 3: Merge and final sort ONLY by effectiveOrder
+      const outstandingVisible = [...orderedVisible, ...unorderedVisible];
+      outstandingVisible.sort((a, b) => (a.effectiveOrder || 0) - (b.effectiveOrder || 0));
 
       // Sort Completed: Hierarchy
       completedToday.sort(compareHierarchy);
 
       const result: VisibleTask[] = [];
 
-      if (outstanding.length > 0) {
+      if (important.length > 0) {
+        // Optional: Header for Important? Spec says "grouped separately... potentially with colored number... top of list"
+        // Let's add a subtle header or just put them on top.
+        // Spec: "grouped seperately from the other tasks and be at the top of the list"
+        result.push({ id: 'header-important', title: 'Start Here', depth: 0, hasChildren: false, isHeader: true, completed: false } as any);
+        important.forEach(t => result.push({ ...t, depth: 0, hasChildren: false }));
+      }
+
+      if (outstandingVisible.length > 0) {
         result.push({ id: 'header-outstanding', title: 'Outstanding', depth: 0, hasChildren: false, isHeader: true, completed: false } as any);
-        outstanding.forEach(t => result.push({ ...t, depth: 0, hasChildren: false }));
+        // Push sorted outstandingVisible
+        outstandingVisible.forEach(t => result.push(t));
       }
 
       if (completedToday.length > 0) {
@@ -746,6 +818,18 @@ export const TaskList: React.FC<TaskListProps> = ({ filter }) => {
         case 'o':
           if (isCmd && currentId) { e.preventDefault(); const text = (currentTask.title + " " + (currentTask.notes || "")); const match = text.match(/(https?:\/\/[^\s]+)/g); if (match && match[0]) window.open(match[0], '_blank'); }
           break;
+        case '1':
+          if (currentId && !editingTaskIdRef.current) {
+            e.preventDefault();
+            toggleImportance(currentId);
+          }
+          break;
+        case '0':
+          if (currentId && !editingTaskIdRef.current) {
+            e.preventDefault();
+            clearImportance(currentId);
+          }
+          break;
       }
     };
 
@@ -756,6 +840,7 @@ export const TaskList: React.FC<TaskListProps> = ({ filter }) => {
     setFocusedId, toggleTask, deleteTask, moveTask, toggleExpand, setExpandedAll,
     setQuickAddOpen, focusMode, setFocusMode, changeParent, updateTask,
     selectTask, clearSelection, batchMove, batchDelete, batchComplete,
+    toggleImportance, clearImportance,
     // Note: 'tasks' is usually stable enough if we rely on 'visibleTasksRef', 
     // but changeParent uses 'tasks'. Ideally we should pass tasks via Ref too if 'tasks' changes often.
     // But 'tasks' is only used in Tab logic. Refactoring that to use visibleTasksRef or similar is safer.
@@ -886,57 +971,69 @@ export const TaskList: React.FC<TaskListProps> = ({ filter }) => {
       const overTask = visibleTasks.find(t => t.id === over.id);
 
       if (activeTask && overTask) {
+        // Determine context and field
+        const isToday = filter === 'today';
+        const context = isToday ? 'today' : 'project';
+        // If today, use todayOrder. If it's missing, we default to 0? Or what?
+        // Note: Sort logic implies un-ordered items are sorted by priority/hierarchy.
+        // If we drop explicit, we must give explicit value.
+        // If neighbor has no todayOrder, we might need to initialize it?
+        // Robust strategy: If target has no order, initialize it (and maybe neighbors)?
+        // For MVP: assume existing order or 0 is start point.
+        // Actually, if we sort by priority/order fallback, the "visual" order is what matters.
+        // But numeric gap calculation requires numbers.
+        const getOrder = (t: Task | VisibleTask) => {
+          if (isToday) {
+            // Use effectiveOrder if available (casted from VisibleTask)
+            if ((t as VisibleTask).effectiveOrder !== undefined) return (t as VisibleTask).effectiveOrder!;
+            // Fallback to todayOrder
+            if (t.todayOrder !== undefined && t.todayOrder !== null) return t.todayOrder;
+            // Final fallback (should have been covered by effectiveOrder)
+            return t.order || 0;
+          }
+          return t.order || 0;
+        };
+
         if (finalDragState && finalDragState.targetId === over.id) {
           // Priority: Use the calculated Zone state
-          if (finalDragState.type === 'nest') {
+          if (finalDragState.type === 'nest' && !isToday) {
             if (activeTask.parentId !== overTask.id) {
               changeParent(activeTask.id, overTask.id);
               if (!overTask.expanded) toggleExpand(overTask.id);
             }
           } else if (finalDragState.type === 'insert-before' || finalDragState.type === 'insert-after') {
-            // Insert Logic
-            // If inserting before target, we want target's order - delta
-            // If inserting after target, we want target's order + delta
-            // BUT we also need to match Parent of target
-            const newParentId = overTask.parentId;
+            const newParentId = isToday ? (activeTask.parentId || null) : overTask.parentId;
 
-            // Calculate new order
-            // We can use standard logic but biased by direction
-            // Or simply:
-            // Pre-calculate desired index?
-            // `moveTaskTo` takes (taskId, parentId, order)
-
-            // Let's rely on basic arithmetic relative to target
-            const targetOrder = overTask.order || 0;
+            const targetOrder = getOrder(overTask);
             let newOrder = targetOrder;
 
+            // In Today view, calculate gap based on neighbors if possible, or large steps?
+            // "Effective Order" is spaced by 10000. 
+            // If we insert, we want +/- 5000? 
             if (finalDragState.type === 'insert-before') {
-              // We want it to be LESS than target
-              // Check previous sibling to avg? Or just subtract 100?
-              // FlowState usually just effectively resorts or uses big gaps.
-              // Let's assume (targetOrder - 100) is safe, or (target + prev)/2
-              newOrder = targetOrder - 50;
+              newOrder = targetOrder - 5000;
             } else {
-              // insert-after
-              newOrder = targetOrder + 50;
+              newOrder = targetOrder + 5000;
             }
 
-            moveTaskTo(activeTask.id, newParentId, newOrder);
+            moveTaskTo(activeTask.id, newParentId, newOrder, { context });
           }
         } else {
-          // Fallback: Standard Reorder if no zone detected (e.g. keyboard or other input)
-          const newParentId = overTask.parentId;
+          // Fallback: Standard Reorder
+          const newParentId = isToday ? (activeTask.parentId || null) : overTask.parentId;
           const oldIndex = visibleTasks.findIndex(t => t.id === active.id);
           const newIndex = visibleTasks.findIndex(t => t.id === over.id);
 
-          let newOrder = overTask.order || 0;
+          const targetOrder = getOrder(overTask);
+          let newOrder = targetOrder;
+
           if (oldIndex < newIndex) {
-            newOrder = (overTask.order || 0) + 100;
+            newOrder = targetOrder + 5000;
           } else {
-            newOrder = (overTask.order || 0) - 100;
+            newOrder = targetOrder - 5000;
           }
 
-          moveTaskTo(activeTask.id, newParentId, newOrder);
+          moveTaskTo(activeTask.id, newParentId, newOrder, { context });
         }
       }
     }
@@ -979,11 +1076,11 @@ export const TaskList: React.FC<TaskListProps> = ({ filter }) => {
                 <TaskItem
                   task={task}
                   index={index}
-                  isFocused={task.id === focusedId}
+                  isFocused={focusedId === task.id}
                   isSelected={selectedIds.includes(task.id)}
-                  isEditing={task.id === editingTaskId}
+                  isEditing={editingTaskId === task.id}
                   focusMode={focusMode}
-                  paddingLeft={`${task.depth * 1.5 + 0.75}rem`}
+                  paddingLeft={`${task.depth * 1.5}rem`}
                   setFocusedId={setFocusedId}
                   setFocusMode={setFocusMode}
                   toggleExpand={toggleExpand}
@@ -996,9 +1093,8 @@ export const TaskList: React.FC<TaskListProps> = ({ filter }) => {
                   isOver={isOver}
                   attributes={attributes}
                   listeners={listeners}
-                  dragState={dragState}
+                  dragState={dragStateRef.current}
                 />
-
               )}
             </SortableTaskItem>
           ))}

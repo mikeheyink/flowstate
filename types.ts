@@ -13,6 +13,8 @@ export interface Task {
   createdAt: number;
   order?: number; // For manual reordering
   archived: boolean;
+  importantOrder?: number | null;
+  todayOrder?: number | null;
 }
 
 export interface ToastMessage {

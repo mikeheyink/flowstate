@@ -66,6 +66,26 @@ export const CommandPalette: React.FC<{ isOpen: boolean; onClose: () => void }> 
         perform: () => deleteTask(focusedId),
         section: 'Selected Task'
       });
+      if (task.dueDate) {
+        actions.push({
+          id: 'toggle-importance',
+          title: 'Mark as Important / Promote',
+          icon: <span className="font-bold">!</span>,
+          shortcut: '1',
+          perform: () => useTaskStore.getState().toggleImportance(focusedId),
+          section: 'Selected Task'
+        });
+        if (task.importantOrder) {
+          actions.push({
+            id: 'clear-importance',
+            title: 'Clear Importance',
+            icon: <span className="font-bold">0</span>,
+            shortcut: '0',
+            perform: () => useTaskStore.getState().clearImportance(focusedId),
+            section: 'Selected Task'
+          });
+        }
+      }
     }
   }
 
