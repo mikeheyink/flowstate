@@ -95,6 +95,7 @@ const mapFromDb = (dbTask: any): Task => ({
   title: dbTask.title,
   notes: dbTask.notes,
   completed: dbTask.completed,
+  completedAt: dbTask.completed_at ? new Date(dbTask.completed_at) : null,
   priority: dbTask.priority as Priority,
   tags: dbTask.tags || [],
   dueDate: dbTask.due_date ? new Date(dbTask.due_date) : null,
@@ -122,6 +123,7 @@ const mapToDb = (task: Partial<Task>) => {
   if (task.archived !== undefined) dbObj.archived = task.archived;
   if (task.importantOrder !== undefined) dbObj.important_order = task.importantOrder;
   if (task.todayOrder !== undefined) dbObj.today_order = task.todayOrder;
+  if (task.completedAt !== undefined) dbObj.completed_at = task.completedAt;
   return dbObj;
 };
 
@@ -704,6 +706,7 @@ export const useTaskStore = create<TaskState>()(
         const task = state.tasks.find(t => t.id === id);
         if (!task) return;
         const newVal = !task.completed;
+        const completedAt = newVal ? new Date() : null;
 
         if (!options.skipHistory) {
           set((s) => {
@@ -719,12 +722,12 @@ export const useTaskStore = create<TaskState>()(
 
         set((state) => {
           return {
-            tasks: state.tasks.map((t) => t.id === id ? { ...t, completed: newVal } : t),
+            tasks: state.tasks.map((t) => t.id === id ? { ...t, completed: newVal, completedAt } : t),
           };
         });
 
         if (state.guestMode) return;
-        await supabase.from('tasks').update({ completed: newVal }).eq('id', id);
+        await supabase.from('tasks').update({ completed: newVal, completed_at: completedAt }).eq('id', id);
       },
 
       deleteTask: async (id, options = {}) => {

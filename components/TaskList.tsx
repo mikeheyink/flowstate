@@ -556,9 +556,24 @@ export const TaskList: React.FC<TaskListProps> = ({ filter }) => {
 
       // Sort: Due Date ASC, then Hierarchy
       upcoming.sort((a, b) => {
-        const dateA = new Date(a.dueDate!).getTime();
-        const dateB = new Date(b.dueDate!).getTime();
-        if (dateA !== dateB) return dateA - dateB;
+        const dA = new Date(a.dueDate!);
+        const dB = new Date(b.dueDate!);
+
+        // Normalize to midnight for day comparison
+        const timeA = new Date(dA.getFullYear(), dA.getMonth(), dA.getDate()).getTime();
+        const timeB = new Date(dB.getFullYear(), dB.getMonth(), dB.getDate()).getTime();
+
+        if (timeA !== timeB) return timeA - timeB;
+
+        // Sort Important items first within the date group
+        const isImportantA = !!a.importantOrder;
+        const isImportantB = !!b.importantOrder;
+        if (isImportantA !== isImportantB) return isImportantA ? -1 : 1;
+
+        if (isImportantA && isImportantB) {
+          return (a.importantOrder || 0) - (b.importantOrder || 0);
+        }
+
         return compareHierarchy(a, b);
       });
 

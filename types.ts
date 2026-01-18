@@ -7,6 +7,7 @@ export interface Task {
   title: string;
   notes?: string; // Markdown notes
   completed: boolean;
+  completedAt?: Date | null; // When task was completed
   priority: Priority;
   tags: string[];
   dueDate?: Date | null;

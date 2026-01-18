@@ -1,7 +1,9 @@
 import React, { useEffect, useState, useRef } from 'react';
-import { Command, Layers, Inbox, CheckSquare, Archive, Calendar as CalendarIcon, Keyboard, Loader2, AlertCircle, UserX, Wifi, WifiOff, RefreshCw, CalendarClock } from 'lucide-react';
+import { Command, Layers, Inbox, CheckSquare, Archive, Calendar as CalendarIcon, Keyboard, Loader2, AlertCircle, UserX, Wifi, WifiOff, RefreshCw, CalendarClock, ClipboardList } from 'lucide-react';
 import { TaskList } from './components/TaskList';
+import { WeeklyReview } from './components/WeeklyReview';
 import { CommandPalette } from './components/CommandPalette';
+import { CoachChat } from './components/CoachChat';
 import { QuickAdd } from './components/QuickAdd';
 import { ShortcutsModal } from './components/ShortcutsModal';
 import { Toaster, toast } from './components/Toaster';
@@ -48,7 +50,7 @@ function App() {
     const isOnline = useOnlineStatus();
 
     // Sidebar selection state
-    const menuItems = ['active', 'today', 'upcoming'] as const;
+    const menuItems = ['active', 'today', 'upcoming', 'review'] as const;
     const [sidebarIndex, setSidebarIndex] = useState(0);
 
     // G-chord state
@@ -215,6 +217,7 @@ function App() {
             if (gPressed) {
                 if (key === 'i') { setFilter('active'); toast("Go to Inbox"); }
                 if (key === 't') { setFilter('today'); toast("Go to Today"); }
+                if (key === 'r') { setFilter('review'); toast("Go to Review"); }
                 // if (key === 'a') { setFilter('all'); } // Removed
                 setGPressed(false);
                 return;
@@ -330,6 +333,7 @@ function App() {
                         let Label = 'Plan';
                         if (item === 'today') { Icon = CalendarIcon; Label = 'Today'; }
                         if (item === 'upcoming') { Icon = CalendarClock; Label = 'Upcoming'; }
+                        if (item === 'review') { Icon = ClipboardList; Label = 'Review'; }
 
                         return (
                             <button
@@ -422,7 +426,7 @@ function App() {
                     className={`flex-1 overflow-y-auto px-4 py-6 md:px-8 scroll-smooth transition-opacity duration-200 ${focusMode === 'sidebar' ? 'md:opacity-50' : 'opacity-100'}`}
                 >
                     <div className="max-w-5xl mx-auto">
-                        <TaskList filter={filter} />
+                        {filter === 'review' ? <WeeklyReview /> : <TaskList filter={filter} />}
                     </div>
                 </div>
 
@@ -452,6 +456,7 @@ function App() {
             {/* Modals & Overlays */}
             <CommandPalette isOpen={isCmdOpen} onClose={() => setCmdOpen(false)} />
             <ShortcutsModal isOpen={isShortcutsOpen} onClose={() => setShortcutsOpen(false)} />
+            <CoachChat />
             <Toaster />
         </div>
     );

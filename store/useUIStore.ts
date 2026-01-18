@@ -13,14 +13,14 @@ interface UIState {
 
   editingTaskId: string | null; // ID of task currently being renamed
 
-  filter: 'active' | 'today' | 'upcoming';
+  filter: 'active' | 'today' | 'upcoming' | 'review';
   focusMode: FocusMode;
 
   setCmdOpen: (open: boolean) => void;
   setQuickAddOpen: (open: boolean, parentId?: string | null, mode?: QuickAddMode, taskId?: string | null) => void;
   setShortcutsOpen: (open: boolean) => void;
   setEditingTaskId: (id: string | null) => void;
-  setFilter: (filter: 'active' | 'today' | 'upcoming') => void;
+  setFilter: (filter: 'active' | 'today' | 'upcoming' | 'review') => void;
   setFocusMode: (mode: FocusMode) => void;
   toggleCmd: () => void;
 }

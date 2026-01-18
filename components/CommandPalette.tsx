@@ -1,7 +1,8 @@
 import React, { useEffect, useState } from 'react';
-import { Search, Plus, Trash2, Archive, CheckCircle, SunMoon } from 'lucide-react';
+import { Search, Plus, Trash2, Archive, CheckCircle, SunMoon, MessageCircle } from 'lucide-react';
 import { useTaskStore } from '../store/useTaskStore';
 import { useUIStore } from '../store/useUIStore';
+import { useCoachStore } from '../store/useCoachStore';
 
 interface Action {
   id: string;
@@ -17,6 +18,7 @@ export const CommandPalette: React.FC<{ isOpen: boolean; onClose: () => void }> 
   const [selectedIndex, setSelectedIndex] = useState(0);
   const { tasks, focusedId, toggleTask, deleteTask, archiveTask } = useTaskStore();
   const setQuickAddOpen = useUIStore((state) => state.setQuickAddOpen);
+  const setCoachOpen = useCoachStore((state) => state.setOpen);
 
   const actions: Action[] = [
     {
@@ -26,6 +28,15 @@ export const CommandPalette: React.FC<{ isOpen: boolean; onClose: () => void }> 
       shortcut: 'N',
       perform: () => {
         setQuickAddOpen(true);
+      },
+      section: 'Actions'
+    },
+    {
+      id: 'review-coach',
+      title: 'Review with Coach',
+      icon: <MessageCircle className="w-4 h-4" />,
+      perform: () => {
+        setCoachOpen(true);
       },
       section: 'Actions'
     },
