@@ -306,7 +306,7 @@ function App() {
     }
 
     return (
-        <div className="min-h-screen bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-200 flex flex-col md:flex-row font-sans selection:bg-primary-500/30">
+        <div className="h-dvh w-screen overflow-hidden bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-200 flex flex-col md:flex-row font-sans selection:bg-primary-500/30">
             {/* Sidebar / Mobile Header */}
             <aside
                 className={`
@@ -399,7 +399,7 @@ function App() {
             </aside>
 
             {/* Main Content */}
-            <main className="flex-1 h-screen overflow-hidden flex flex-col relative bg-slate-50 dark:bg-slate-950">
+            <main className="flex-1 overflow-hidden flex flex-col relative bg-slate-50 dark:bg-slate-950">
                 <header className="h-16 border-b border-slate-200 dark:border-slate-800/50 flex items-center px-8 justify-between shrink-0 bg-white/50 dark:bg-slate-950/50 backdrop-blur-sm z-10">
                     <h2 className="text-lg font-semibold text-slate-800 dark:text-slate-200 capitalize flex items-center gap-2">
                         {filter === 'active' ? 'Plan' : filter}
