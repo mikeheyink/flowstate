@@ -5,6 +5,7 @@ import { useCoachStore } from '../store/useCoachStore';
 import { Task } from '../types';
 import { CheckCircle2, ChevronRight, ChevronDown, Flag, MessageCircle } from 'lucide-react';
 import { formatDate } from '../utils/nlp';
+import { SectionHeader } from './SectionHeader';
 
 interface VisibleItem {
     type: 'week-header' | 'hierarchy-path' | 'task';
@@ -221,14 +222,14 @@ export const WeeklyReview: React.FC = () => {
             const currentItem = visibleItems[currentIndex];
 
             const navigate = (newIndex: number) => {
-                if (newIndex >= 0 && newIndex < visibleItems.length) {
-                    const itemId = visibleItems[newIndex].id;
-                    setFocusedId(itemId);
-                    setTimeout(() => {
-                        const element = document.querySelector(`[data-item-id="${itemId}"]`);
-                        element?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
-                    }, 0);
-                }
+                // Infinite Loop
+                const safeIndex = (newIndex + visibleItems.length) % visibleItems.length;
+                const itemId = visibleItems[safeIndex].id;
+                setFocusedId(itemId);
+                setTimeout(() => {
+                    const element = document.querySelector(`[data-item-id="${itemId}"]`);
+                    element?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+                }, 0);
             };
 
             const key = e.key.toLowerCase();
@@ -248,9 +249,14 @@ export const WeeklyReview: React.FC = () => {
                     break;
                 case 'arrowright':
                 case 'l':
-                    if (currentItem?.type === 'week-header' && currentItem.weekKey && !currentItem.isExpanded) {
-                        e.preventDefault();
-                        toggleWeek(currentItem.weekKey);
+                    e.preventDefault();
+                    if (currentItem) {
+                        if (currentItem.type === 'week-header' && currentItem.weekKey) {
+                            // Strict: Only Expand
+                            if (!currentItem.isExpanded) {
+                                toggleWeek(currentItem.weekKey);
+                            }
+                        }
                     }
                     break;
                 case 'enter':
@@ -263,18 +269,11 @@ export const WeeklyReview: React.FC = () => {
                 case 'arrowleft':
                 case 'h':
                     e.preventDefault();
-                    if (currentItem?.type === 'week-header' && currentItem.weekKey && currentItem.isExpanded) {
-                        toggleWeek(currentItem.weekKey);
-                    } else if (currentItem?.type !== 'week-header') {
-                        // Navigate to parent week header
-                        for (let i = currentIndex - 1; i >= 0; i--) {
-                            if (visibleItems[i].type === 'week-header') {
-                                setFocusedId(visibleItems[i].id);
-                                break;
-                            }
+                    if (currentItem?.type === 'week-header' && currentItem.weekKey) {
+                        // Strict: Only Collapse
+                        if (currentItem.isExpanded) {
+                            toggleWeek(currentItem.weekKey);
                         }
-                    } else {
-                        setFocusMode('sidebar');
                     }
                     break;
             }
@@ -309,59 +308,28 @@ export const WeeklyReview: React.FC = () => {
                 const isFocused = focusedId === item.id;
 
                 if (item.type === 'week-header') {
+                    const isFocused = focusedId === item.id;
                     return (
                         <div
                             key={item.id}
                             data-item-id={item.id}
-                            className={`
-                flex items-center gap-3 py-3 px-4 cursor-pointer transition-all rounded-lg
-                ${isFocused && focusMode === 'main'
-                                    ? 'bg-primary-50 dark:bg-primary-900/20 ring-1 ring-primary-200 dark:ring-primary-800'
-                                    : 'hover:bg-slate-100 dark:hover:bg-slate-800/50'
-                                }
-              `}
                         >
-                            <div
-                                className="text-slate-400 dark:text-slate-500"
-                                onClick={() => {
-                                    setFocusedId(item.id);
-                                    setFocusMode('main');
-                                    if (item.weekKey) toggleWeek(item.weekKey);
-                                }}
-                            >
-                                {item.isExpanded
-                                    ? <ChevronDown className="w-5 h-5" />
-                                    : <ChevronRight className="w-5 h-5" />
-                                }
-                            </div>
-                            <h3
-                                className="text-base font-semibold text-slate-800 dark:text-slate-200 flex-1"
-                                onClick={() => {
-                                    setFocusedId(item.id);
-                                    setFocusMode('main');
-                                    if (item.weekKey) toggleWeek(item.weekKey);
-                                }}
-                            >
-                                {item.title}
-                            </h3>
-                            <span className="text-sm text-slate-400 dark:text-slate-500">
-                                {item.taskCount} {item.taskCount === 1 ? 'task' : 'tasks'}
-                            </span>
-                            <button
-                                onClick={(e) => {
-                                    e.stopPropagation();
+                            <SectionHeader
+                                title={item.title}
+                                count={item.taskCount}
+                                isExpanded={item.isExpanded}
+                                isFocused={isFocused && focusMode === 'main'}
+                                onToggle={() => {
                                     if (item.weekKey) {
-                                        setCoachOpen(true, item.weekKey);
+                                        setFocusedId(item.id);
+                                        setFocusMode('main');
+                                        toggleWeek(item.weekKey);
                                     }
                                 }}
-                                className="p-1.5 hover:bg-slate-200 dark:hover:bg-slate-700 rounded-lg text-slate-400 hover:text-primary-600 dark:hover:text-primary-400 transition-colors"
-                                title="Review with Coach"
-                            >
-                                <MessageCircle className="w-4 h-4" />
-                            </button>
+                            />
                         </div>
                     );
-                }
+                } // End week-header
 
                 if (item.type === 'hierarchy-path') {
                     return (

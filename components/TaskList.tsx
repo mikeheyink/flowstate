@@ -5,6 +5,7 @@ import { Task, Priority } from '../types';
 import { CheckCircle2, Circle, Calendar, Hash, Flag, ChevronRight, ChevronDown, CornerDownRight, AlignLeft, GripVertical } from 'lucide-react';
 import { formatDate } from '../utils/nlp';
 import { toast } from './Toaster';
+import { SectionHeader } from './SectionHeader';
 import { motion, useMotionValue, useTransform } from 'framer-motion';
 import { FocusMode } from '../store/useUIStore';
 import { DndContext, DragEndEvent, TouchSensor, MouseSensor, PointerSensor, useSensor, useSensors, closestCenter, DragOverlay } from '@dnd-kit/core';
@@ -97,6 +98,8 @@ const TaskItem = ({
   listeners,
   dragState,
   index,
+  expandedGroups,
+  toggleGroup,
 }: {
 
   task: VisibleTask;
@@ -118,7 +121,10 @@ const TaskItem = ({
   attributes?: any;
   listeners?: any;
   dragState?: DragState | null;
+
   index: number;
+  expandedGroups?: Set<string>;
+  toggleGroup?: (id: string) => void;
 
 }) => {
   const x = useMotionValue(0);
@@ -142,10 +148,19 @@ const TaskItem = ({
 
   // Header Rendering
   if (task.isHeader) {
+    // Determine if expanded (only relevant for Today/Upcoming)
+    // We rely on the passed props here
+    const isExpanded = (expandedGroups && expandedGroups.has(task.id));
+
     return (
-      <div className="pt-8 pb-3 px-4 md:px-0 flex items-center gap-2" data-task-id={task.id}>
-        <h3 className="text-sm font-bold text-slate-900 dark:text-slate-100">{task.title}</h3>
-        <div className="h-px flex-1 bg-slate-200 dark:bg-slate-800/50" />
+      <div data-task-id={task.id}>
+        <SectionHeader
+          title={task.title}
+          count={(task as any).count}
+          isExpanded={isExpanded}
+          isFocused={isFocused}
+          onToggle={toggleGroup ? () => toggleGroup(task.id) : undefined}
+        />
       </div>
     );
   }
@@ -359,6 +374,25 @@ export const TaskList: React.FC<TaskListProps> = ({ filter }) => {
 
   const listRef = useRef<HTMLDivElement>(null);
 
+  const [expandedGroups, setExpandedGroups] = useState<Set<string>>(new Set());
+
+  // Initialize default expanded groups
+  useEffect(() => {
+    // We can default expand everything on mount, or persistent store.
+    // For now, let's expand 'header-outstanding' and 'header-important' by default for Today
+    // And 'Tomorrow' for Upcoming
+    setExpandedGroups(new Set(['header-important', 'header-outstanding', 'header-Tomorrow']));
+  }, []);
+
+  const toggleGroup = (groupId: string) => {
+    setExpandedGroups(prev => {
+      const next = new Set(prev);
+      if (next.has(groupId)) next.delete(groupId);
+      else next.add(groupId);
+      return next;
+    });
+  };
+
   // --- Recursive Tree Flattening ---
   const visibleTasks = React.useMemo(() => {
     const now = new Date();
@@ -442,10 +476,8 @@ export const TaskList: React.FC<TaskListProps> = ({ filter }) => {
         const dDate = new Date(d.getFullYear(), d.getMonth(), d.getDate());
 
         if (t.completed) {
-          // Complete & Due Today
-          if (dDate.getTime() === startOfToday.getTime()) {
-            completedToday.push(t);
-          }
+          // Hide Completed Tasks in Today View (as requested)
+          // Previously: completedToday.push(t);
         } else {
           // Incomplete & (Due Today OR Overdue)
           if (dDate < endOfToday) {
@@ -525,22 +557,51 @@ export const TaskList: React.FC<TaskListProps> = ({ filter }) => {
       const result: VisibleTask[] = [];
 
       if (important.length > 0) {
-        // Optional: Header for Important? Spec says "grouped separately... potentially with colored number... top of list"
-        // Let's add a subtle header or just put them on top.
-        // Spec: "grouped seperately from the other tasks and be at the top of the list"
-        result.push({ id: 'header-important', title: 'Start Here', depth: 0, hasChildren: false, isHeader: true, completed: false } as any);
-        important.forEach(t => result.push({ ...t, depth: 0, hasChildren: false }));
+        const headerId = 'header-important';
+        result.push({
+          id: headerId,
+          title: 'Start Here',
+          depth: 0,
+          hasChildren: false,
+          isHeader: true,
+          completed: false,
+          count: important.length
+        } as any);
+        if (expandedGroups.has(headerId)) {
+          important.forEach(t => result.push({ ...t, depth: 0, hasChildren: false }));
+        }
       }
 
       if (outstandingVisible.length > 0) {
-        result.push({ id: 'header-outstanding', title: 'Outstanding', depth: 0, hasChildren: false, isHeader: true, completed: false } as any);
-        // Push sorted outstandingVisible
-        outstandingVisible.forEach(t => result.push(t));
+        const headerId = 'header-outstanding';
+        result.push({
+          id: headerId,
+          title: 'Outstanding',
+          depth: 0,
+          hasChildren: false,
+          isHeader: true,
+          completed: false,
+          count: outstandingVisible.length
+        } as any);
+        if (expandedGroups.has(headerId)) {
+          outstandingVisible.forEach(t => result.push(t));
+        }
       }
 
       if (completedToday.length > 0) {
-        result.push({ id: 'header-complete', title: 'Complete', depth: 0, hasChildren: false, isHeader: true, completed: false } as any);
-        completedToday.forEach(t => result.push({ ...t, depth: 0, hasChildren: false }));
+        const headerId = 'header-complete';
+        result.push({
+          id: headerId,
+          title: 'Complete',
+          depth: 0,
+          hasChildren: false,
+          isHeader: true,
+          completed: false,
+          count: completedToday.length
+        } as any);
+        if (expandedGroups.has(headerId)) {
+          completedToday.forEach(t => result.push({ ...t, depth: 0, hasChildren: false }));
+        }
       }
 
       return result;
@@ -579,7 +640,9 @@ export const TaskList: React.FC<TaskListProps> = ({ filter }) => {
 
       // Bucket Logic
       const result: VisibleTask[] = [];
-      let currentBucket = '';
+
+      // We need to group first to get counts and correct headers
+      const groups = new Map<string, Task[]>();
 
       const getBucketName = (date: Date): string => {
         const d = new Date(date.getFullYear(), date.getMonth(), date.getDate());
@@ -600,31 +663,50 @@ export const TaskList: React.FC<TaskListProps> = ({ filter }) => {
 
       upcoming.forEach(t => {
         const bucket = getBucketName(new Date(t.dueDate!));
-        if (bucket !== currentBucket) {
-          currentBucket = bucket;
-          result.push({
-            id: `header-${bucket}`,
-            title: bucket,
-            depth: 0,
-            hasChildren: false,
-            isHeader: true,
-            completed: false,
-            // Add dummy task props to satisfy type if needed, or use 'as any' safely since it's a header
-          } as any);
+        if (!groups.has(bucket)) groups.set(bucket, []);
+        groups.get(bucket)!.push(t);
+      });
+
+      // Render Groups based on sort order observed in 'upcoming' array
+      // Since 'upcoming' is sorted, we can iterate through it to find unique buckets in order
+      const seenBuckets = new Set<string>();
+
+      upcoming.forEach(t => {
+        const bucket = getBucketName(new Date(t.dueDate!));
+        if (seenBuckets.has(bucket)) return;
+        seenBuckets.add(bucket);
+
+        const groupTasks = groups.get(bucket) || [];
+        const headerId = `header-${bucket}`;
+
+        result.push({
+          id: headerId,
+          title: bucket,
+          depth: 0,
+          hasChildren: false,
+          isHeader: true,
+          completed: false,
+          count: groupTasks.length
+          // Add dummy task props to satisfy type if needed, or use 'as any' safely since it's a header
+        } as any);
+
+        if (expandedGroups.has(headerId)) {
+          groupTasks.forEach(task => {
+            result.push({ ...task, depth: 0, hasChildren: false });
+          });
         }
-        result.push({ ...t, depth: 0, hasChildren: false });
       });
 
       return result;
     }
 
     return [];
-  }, [tasks, filter]);
+  }, [tasks, filter, expandedGroups]);
 
-  // Clear focus when filter changes
-  useEffect(() => {
-    setFocusedId(null);
-  }, [filter, setFocusedId]);
+  // Clear focus when filter changes - REMOVED to allow auto-focus logic to pick the first task
+  // useEffect(() => {
+  //   setFocusedId(null);
+  // }, [filter, setFocusedId]);
 
   const visibleTasksRef = useRef(visibleTasks);
   const focusedIdRef = useRef(focusedId);
@@ -679,15 +761,16 @@ export const TaskList: React.FC<TaskListProps> = ({ filter }) => {
       const currentTask = currentTasks[currentIndex];
 
       const navigate = (newIndex: number) => {
-        if (newIndex >= 0 && newIndex < currentTasks.length) {
-          const taskId = currentTasks[newIndex].id;
-          setFocusedId(taskId);
-          // Scroll the focused task into view
-          setTimeout(() => {
-            const element = document.querySelector(`[data-task-id="${taskId}"]`);
-            element?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
-          }, 0);
-        }
+        // Enforce infinite loop
+        const safeIndex = (newIndex + currentTasks.length) % currentTasks.length;
+
+        const taskId = currentTasks[safeIndex].id;
+        setFocusedId(taskId);
+        // Scroll the focused task into view
+        setTimeout(() => {
+          const element = document.querySelector(`[data-task-id="${taskId}"]`);
+          element?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+        }, 0);
       };
 
       const key = e.key.toLowerCase();
@@ -708,69 +791,62 @@ export const TaskList: React.FC<TaskListProps> = ({ filter }) => {
 
       switch (key) {
         case 'arrowdown':
+        case 'j':
           e.preventDefault();
-          if (isCmd) {
-            if (currentSelectedIds.length > 1) batchMove('down');
-            else if (currentId) moveTask(currentId, 'down');
-            return;
-          }
-          if (isShift) {
-            // Selection Mode
-            if (currentId && !currentSelectedIds.includes(currentId)) selectTask(currentId, true);
-            if (currentIndex === -1 && currentTasks.length > 0) {
-              navigate(0);
-              selectTask(currentTasks[0].id, true);
-            } else {
-              navigate(currentIndex + 1);
-              if (currentIndex + 1 < currentTasks.length) selectTask(currentTasks[currentIndex + 1].id, true);
-            }
-            return;
-          }
-          // Normal Nav - Clear selection if exists
-          if (currentSelectedIds.length > 0) clearSelection();
-
           if (currentIndex === -1 && currentTasks.length > 0) navigate(0);
-          else navigate(currentIndex + 1);
+          else navigate(currentIndex + 1); // Logic handled in navigate with modulo
           break;
         case 'arrowup':
+        case 'k':
           e.preventDefault();
-          if (isCmd) {
-            if (currentSelectedIds.length > 1) batchMove('up');
-            else if (currentId) moveTask(currentId, 'up');
-            return;
-          }
-          if (isShift) {
-            // Selection Mode
-            if (currentId && !currentSelectedIds.includes(currentId)) selectTask(currentId, true);
-            if (currentIndex === -1 && currentTasks.length > 0) {
-              navigate(currentTasks.length - 1);
-              selectTask(currentTasks[currentTasks.length - 1].id, true);
-            } else {
-              navigate(currentIndex - 1);
-              // Check bounds
-              if (currentIndex - 1 >= 0) selectTask(currentTasks[currentIndex - 1].id, true);
-            }
-            return;
-          }
-          // Normal Nav - Clear selection if exists
-          if (currentSelectedIds.length > 0) clearSelection();
-
           if (currentIndex === -1 && currentTasks.length > 0) navigate(currentTasks.length - 1);
           else navigate(currentIndex - 1);
           break;
-        case 'l': if (currentId && !isCmd) { e.preventDefault(); setQuickAddOpen(true, null, 'tag', currentId); } break;
-        case 'arrowright': e.preventDefault(); if (currentTask) { if (currentTask.hasChildren && !currentTask.expanded) toggleExpand(currentTask.id); } break;
-        case 'h': case 'arrowleft': e.preventDefault();
+        case 'arrowright':
+        case 'l':
+          e.preventDefault();
           if (currentTask) {
-            if (currentTask.hasChildren && currentTask.expanded) toggleExpand(currentTask.id);
-            else if (currentTask.depth > 0) { const parent = currentTasks.find(t => t.id === currentTask.parentId); if (parent) setFocusedId(parent.id); }
-            else setFocusMode('sidebar');
-          } else setFocusMode('sidebar');
+            if (currentTask.isHeader && toggleGroup) {
+              // Strict: Only Expand
+              if (!expandedGroups.has(currentTask.id)) {
+                toggleGroup(currentTask.id);
+              }
+            } else if (currentTask.hasChildren) {
+              // Strict: Only Expand
+              if (!currentTask.expanded) {
+                toggleExpand(currentTask.id);
+              }
+            }
+          }
           break;
-        case 'space': e.preventDefault(); /* Space reserved for other uses or no-op */ break;
-        case 'e': if (currentId && !isCmd) { e.preventDefault(); setEditingTaskId(currentId); } break;
-        case 'n': if (currentId) { e.preventDefault(); const note = prompt("Edit Note", currentTask?.notes || ""); if (note !== null) updateTask(currentId, { notes: note }); } break;
+        case 'h':
+        case 'arrowleft':
+          e.preventDefault();
+          if (currentTask) {
+            if (currentTask.isHeader && toggleGroup) {
+              // Strict: Only Collapse
+              if (expandedGroups.has(currentTask.id)) {
+                toggleGroup(currentTask.id);
+              }
+            } else if (currentTask.hasChildren && currentTask.expanded) {
+              // Strict: Only Collapse
+              toggleExpand(currentTask.id);
+            }
+          }
+          break;
+        case 'space':
+          // Optional: Toggle completion on tasks, or toggle expansion on headers
+          if (currentTask && currentTask.isHeader && toggleGroup) {
+            e.preventDefault();
+            toggleGroup(currentTask.id);
+          }
+          break;
         case 'enter':
+          if (currentTask && currentTask.isHeader && toggleGroup) {
+            e.preventDefault();
+            toggleGroup(currentTask.id);
+            return;
+          }
           if (isCmd) { if (currentId) setQuickAddOpen(true, currentId); }
           else { if (currentId) setQuickAddOpen(true, currentTask.parentId || null, 'create', currentId); else setQuickAddOpen(true); }
           break;
@@ -865,8 +941,12 @@ export const TaskList: React.FC<TaskListProps> = ({ filter }) => {
     // OR, better, use 'useTaskStore.getState().tasks' inside handler if possible? 
     // But we have 'tasks' from hook.
     // Let's add 'tasks' to a ref too to be safe?
-    // Yes, let's make a tasksRef.
-    tasks
+    // Dependencies for KeyDown
+    focusMode,
+    setFocusMode,
+    tasks,
+    expandedGroups, // FIX: Logic depends on this
+    toggleGroup     // FIX: Logic calls this
   ]);
 
   useEffect(() => {
@@ -1109,6 +1189,8 @@ export const TaskList: React.FC<TaskListProps> = ({ filter }) => {
                   attributes={attributes}
                   listeners={listeners}
                   dragState={dragStateRef.current}
+                  expandedGroups={expandedGroups}
+                  toggleGroup={toggleGroup}
                 />
               )}
             </SortableTaskItem>
