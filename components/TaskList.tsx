@@ -789,19 +789,107 @@ export const TaskList: React.FC<TaskListProps> = ({ filter }) => {
         return;
       }
 
+
       switch (key) {
         case 'arrowdown':
-        case 'j':
+        case 'j': {
           e.preventDefault();
-          if (currentIndex === -1 && currentTasks.length > 0) navigate(0);
-          else navigate(currentIndex + 1); // Logic handled in navigate with modulo
+          if (currentIndex === -1 && currentTasks.length > 0) {
+            navigate(0);
+            return;
+          }
+
+          if (isCmd && currentTask) {
+            // Reorder Down
+            const nextIndex = currentIndex + 1;
+            if (nextIndex < currentTasks.length) {
+              const nextTask = currentTasks[nextIndex];
+              // Determine Context & Order
+              const isToday = filter === 'today';
+              const context = isToday ? 'today' : 'project';
+
+              const getOrder = (t: any) => {
+                if (isToday) return t.effectiveOrder ?? t.todayOrder ?? t.order ?? 0;
+                return t.order ?? 0;
+              };
+
+              const targetOrder = getOrder(nextTask);
+              // Insert AFTER the next task
+              const newOrder = targetOrder + 5000; // Gap logic
+
+              const newParentId = isToday ? (currentTask.parentId || null) : nextTask.parentId;
+
+              moveTaskTo(currentTask.id, newParentId, newOrder, { context });
+            }
+            return;
+          }
+
+          if (isShift && currentTask) {
+            // Multi-Select Down
+            // 1. Ensure current is selected (start of range)
+            selectTask(currentTask.id);
+
+            // 2. Move Focus
+            const nextIndex = (currentIndex + 1) % currentTasks.length;
+            const nextTask = currentTasks[nextIndex];
+            navigate(nextIndex);
+
+            // 3. Select Next
+            selectTask(nextTask.id);
+            return;
+          }
+
+          navigate(currentIndex + 1);
           break;
+        }
         case 'arrowup':
-        case 'k':
+        case 'k': {
           e.preventDefault();
-          if (currentIndex === -1 && currentTasks.length > 0) navigate(currentTasks.length - 1);
-          else navigate(currentIndex - 1);
+          if (currentIndex === -1 && currentTasks.length > 0) {
+            navigate(currentTasks.length - 1);
+            return;
+          }
+
+          if (isCmd && currentTask) {
+            // Reorder Up
+            const prevIndex = currentIndex - 1;
+            if (prevIndex >= 0) {
+              const prevTask = currentTasks[prevIndex];
+              // Determine Context & Order
+              const isToday = filter === 'today';
+              const context = isToday ? 'today' : 'project';
+
+              const getOrder = (t: any) => {
+                if (isToday) return t.effectiveOrder ?? t.todayOrder ?? t.order ?? 0;
+                return t.order ?? 0;
+              };
+
+              const targetOrder = getOrder(prevTask);
+              // Insert BEFORE the prev task
+              const newOrder = targetOrder - 5000;
+
+              const newParentId = isToday ? (currentTask.parentId || null) : prevTask.parentId;
+
+              moveTaskTo(currentTask.id, newParentId, newOrder, { context });
+            }
+            return;
+          }
+
+          if (isShift && currentTask) {
+            // Multi-Select Up
+            selectTask(currentTask.id);
+
+            const prevIndex = (currentIndex - 1 + currentTasks.length) % currentTasks.length;
+            const prevTask = currentTasks[prevIndex];
+            navigate(prevIndex);
+
+            selectTask(prevTask.id);
+            return;
+          }
+
+          navigate(currentIndex - 1);
           break;
+        }
         case 'arrowright':
         case 'l':
           e.preventDefault();
@@ -904,6 +992,12 @@ export const TaskList: React.FC<TaskListProps> = ({ filter }) => {
         case 'backspace':
           if (currentSelectedIds.length > 1) { e.preventDefault(); batchDelete(); }
           else if (currentId && !editingTaskId) { e.preventDefault(); deleteTask(currentId); }
+          break;
+        case 'e':
+          if (currentId && !editingTaskIdRef.current) {
+            e.preventDefault();
+            setEditingTaskId(currentId);
+          }
           break;
         case 'd': if (currentId) { e.preventDefault(); setQuickAddOpen(true, null, 'date', currentId); } break;
         case 'o':
