@@ -827,7 +827,7 @@ export const TaskList: React.FC<TaskListProps> = ({ filter }) => {
           if (isShift && currentTask) {
             // Multi-Select Down
             // 1. Ensure current is selected (start of range)
-            selectTask(currentTask.id);
+            selectTask(currentTask.id, true);
 
             // 2. Move Focus
             const nextIndex = (currentIndex + 1) % currentTasks.length;
@@ -835,7 +835,7 @@ export const TaskList: React.FC<TaskListProps> = ({ filter }) => {
             navigate(nextIndex);
 
             // 3. Select Next
-            selectTask(nextTask.id);
+            selectTask(nextTask.id, true);
             return;
           }
 
@@ -877,13 +877,13 @@ export const TaskList: React.FC<TaskListProps> = ({ filter }) => {
 
           if (isShift && currentTask) {
             // Multi-Select Up
-            selectTask(currentTask.id);
+            selectTask(currentTask.id, true);
 
             const prevIndex = (currentIndex - 1 + currentTasks.length) % currentTasks.length;
             const prevTask = currentTasks[prevIndex];
             navigate(prevIndex);
 
-            selectTask(prevTask.id);
+            selectTask(prevTask.id, true);
             return;
           }
 
