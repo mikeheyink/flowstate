@@ -4,6 +4,7 @@ import { Task, Priority } from '../types';
 import { parseTaskInput } from '../utils/nlp';
 import { supabase } from '../utils/supabase';
 import { getSiblings } from '../utils/taskOrdering';
+import { createSelectionSlice, SelectionSlice } from './slices/selectionSlice';
 
 const generateId = () => Math.random().toString(36).substring(2, 9);
 
@@ -779,23 +780,8 @@ export const useTaskStore = create<TaskState>()(
 
       setFocusedId: (id) => set({ focusedId: id }),
 
-      // --- Selection Actions ---
-      selectTask: (id, multi) => set((state) => {
-        if (multi) {
-          if (state.selectedIds.includes(id)) return state;
-          return { selectedIds: [...state.selectedIds, id] };
-        }
-        return { selectedIds: [id] };
-      }),
-
-      toggleSelection: (id) => set((state) => {
-        if (state.selectedIds.includes(id)) {
-          return { selectedIds: state.selectedIds.filter(sid => sid !== id) };
-        }
-        return { selectedIds: [...state.selectedIds, id] };
-      }),
-
-      clearSelection: () => set({ selectedIds: [] }),
+      // --- Selection Actions (from selectionSlice) ---
+      ...createSelectionSlice(set, get, {} as any),
 
       // --- Batch Actions ---
       batchDelete: () => {
