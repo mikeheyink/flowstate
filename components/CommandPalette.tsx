@@ -1,8 +1,9 @@
 import React, { useEffect, useState } from 'react';
-import { Search, Plus, Trash2, Archive, CheckCircle, SunMoon, MessageCircle } from 'lucide-react';
+import { Search, Plus, Trash2, Archive, CheckCircle, SunMoon, MessageCircle, Calendar, Star, StarOff } from 'lucide-react';
 import { useTaskStore } from '../store/useTaskStore';
 import { useUIStore } from '../store/useUIStore';
 import { useCoachStore } from '../store/useCoachStore';
+import { getPaletteHotkeys, getHotkeyById } from '../utils/hotkeys';
 
 interface Action {
   id: string;
@@ -16,40 +17,40 @@ interface Action {
 export const CommandPalette: React.FC<{ isOpen: boolean; onClose: () => void }> = ({ isOpen, onClose }) => {
   const [query, setQuery] = useState('');
   const [selectedIndex, setSelectedIndex] = useState(0);
-  const { tasks, focusedId, toggleTask, deleteTask, archiveTask } = useTaskStore();
+  const { tasks, focusedId, toggleTask, deleteTask, archiveTask, toggleImportance, clearImportance } = useTaskStore();
   const setQuickAddOpen = useUIStore((state) => state.setQuickAddOpen);
   const setCoachOpen = useCoachStore((state) => state.setOpen);
 
-  const actions: Action[] = [
-    {
-      id: 'new-task',
-      title: 'Create New Task',
-      icon: <Plus className="w-4 h-4" />,
-      shortcut: 'N',
-      perform: () => {
-        setQuickAddOpen(true);
-      },
-      section: 'Actions'
-    },
-    {
-      id: 'review-coach',
-      title: 'Review with Coach',
-      icon: <MessageCircle className="w-4 h-4" />,
-      perform: () => {
-        setCoachOpen(true);
-      },
-      section: 'Actions'
-    },
-    {
-      id: 'toggle-theme',
-      title: 'Toggle Dark/Light Mode',
-      icon: <SunMoon className="w-4 h-4" />,
-      perform: () => document.documentElement.classList.toggle('dark'),
-      section: 'Preferences'
-    }
-  ];
+  // Build actions from registry + contextual actions
+  const actions: Action[] = [];
 
-  // Contextual Actions (based on focused task)
+  // Global actions
+  actions.push({
+    id: 'new-task',
+    title: 'Create New Task',
+    icon: <Plus className="w-4 h-4" />,
+    shortcut: getHotkeyById('new-task')?.keys,
+    perform: () => setQuickAddOpen(true),
+    section: 'Actions'
+  });
+
+  actions.push({
+    id: 'review-coach',
+    title: 'Review with Coach',
+    icon: <MessageCircle className="w-4 h-4" />,
+    perform: () => setCoachOpen(true),
+    section: 'Actions'
+  });
+
+  actions.push({
+    id: 'toggle-theme',
+    title: 'Toggle Dark/Light Mode',
+    icon: <SunMoon className="w-4 h-4" />,
+    perform: () => document.documentElement.classList.toggle('dark'),
+    section: 'Preferences'
+  });
+
+  // Contextual actions (based on focused task)
   if (focusedId) {
     const task = tasks.find(t => t.id === focusedId);
     if (task) {
@@ -57,42 +58,54 @@ export const CommandPalette: React.FC<{ isOpen: boolean; onClose: () => void }> 
         id: 'toggle-task',
         title: task.completed ? 'Mark as Incomplete' : 'Mark as Complete',
         icon: <CheckCircle className="w-4 h-4" />,
-        shortcut: 'X',
+        shortcut: getHotkeyById('complete')?.keys,
         perform: () => toggleTask(focusedId),
         section: 'Selected Task'
       });
+
       actions.unshift({
         id: 'archive-task',
         title: 'Archive Task',
         icon: <Archive className="w-4 h-4" />,
-        // shortcut: 'E', // Conflict with Edit Title
         perform: () => archiveTask(focusedId),
         section: 'Selected Task'
       });
+
       actions.unshift({
         id: 'delete-task',
         title: 'Delete Task',
         icon: <Trash2 className="w-4 h-4" />,
-        shortcut: 'Delete',
+        shortcut: getHotkeyById('delete')?.keys,
         perform: () => deleteTask(focusedId),
         section: 'Selected Task'
       });
+
+      actions.unshift({
+        id: 'set-date',
+        title: 'Set Due Date',
+        icon: <Calendar className="w-4 h-4" />,
+        shortcut: getHotkeyById('set-date')?.keys,
+        perform: () => setQuickAddOpen(true, null, 'date', focusedId),
+        section: 'Selected Task'
+      });
+
       if (task.dueDate) {
         actions.push({
           id: 'toggle-importance',
-          title: 'Mark as Important / Promote',
-          icon: <span className="font-bold">!</span>,
-          shortcut: '1',
-          perform: () => useTaskStore.getState().toggleImportance(focusedId),
+          title: 'Mark as Important',
+          icon: <Star className="w-4 h-4" />,
+          shortcut: getHotkeyById('toggle-importance')?.keys,
+          perform: () => toggleImportance(focusedId),
           section: 'Selected Task'
         });
+
         if (task.importantOrder) {
           actions.push({
             id: 'clear-importance',
             title: 'Clear Importance',
-            icon: <span className="font-bold">0</span>,
-            shortcut: '0',
-            perform: () => useTaskStore.getState().clearImportance(focusedId),
+            icon: <StarOff className="w-4 h-4" />,
+            shortcut: getHotkeyById('clear-importance')?.keys,
+            perform: () => clearImportance(focusedId),
             section: 'Selected Task'
           });
         }
@@ -166,12 +179,9 @@ export const CommandPalette: React.FC<{ isOpen: boolean; onClose: () => void }> 
                 </div>
                 <div className="flex-1 text-sm font-medium">{action.title}</div>
                 {action.shortcut && (
-                  <div className="flex items-center gap-1">
-                    <span className="text-xs text-slate-400 dark:text-slate-500 font-mono">{action.section}</span>
-                    <kbd className="px-1.5 py-0.5 text-[10px] bg-white dark:bg-slate-800 text-slate-500 dark:text-slate-400 rounded border border-slate-200 dark:border-slate-700 font-mono">
-                      {action.shortcut}
-                    </kbd>
-                  </div>
+                  <kbd className="px-1.5 py-0.5 text-[10px] bg-white dark:bg-slate-800 text-slate-500 dark:text-slate-400 rounded border border-slate-200 dark:border-slate-700 font-mono">
+                    {action.shortcut}
+                  </kbd>
                 )}
               </div>
             ))

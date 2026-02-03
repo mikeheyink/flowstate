@@ -2,6 +2,8 @@ import { useEffect, MutableRefObject } from 'react';
 import { useTaskStore } from '../../store/useTaskStore';
 import { useUIStore } from '../../store/useUIStore';
 import { VisibleTask } from './types';
+// Hotkeys are centrally defined in utils/hotkeys.ts
+// This handler implements the actual key bindings - keep in sync with registry
 
 interface UseTaskListKeyboardProps {
     visibleTasksRef: MutableRefObject<VisibleTask[]>;
@@ -87,8 +89,7 @@ export function useTaskListKeyboard({
             }
 
             switch (key) {
-                case 'arrowdown':
-                case 'j': {
+                case 'arrowdown': {
                     e.preventDefault();
                     if (currentIndex === -1 && currentTasks.length > 0) {
                         navigate(0);
@@ -120,8 +121,7 @@ export function useTaskListKeyboard({
                     navigate(currentIndex + 1);
                     break;
                 }
-                case 'arrowup':
-                case 'k': {
+                case 'arrowup': {
                     e.preventDefault();
                     if (currentIndex === -1 && currentTasks.length > 0) {
                         navigate(currentTasks.length - 1);
@@ -154,7 +154,6 @@ export function useTaskListKeyboard({
                     break;
                 }
                 case 'arrowright':
-                case 'l':
                     e.preventDefault();
                     if (currentTask) {
                         if (currentTask.isHeader && toggleGroup) {
@@ -168,7 +167,6 @@ export function useTaskListKeyboard({
                         }
                     }
                     break;
-                case 'h':
                 case 'arrowleft':
                     e.preventDefault();
                     if (currentTask) {

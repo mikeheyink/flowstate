@@ -1,4 +1,5 @@
 import React from 'react';
+import { getHotkeySections } from '../utils/hotkeys';
 
 interface Props {
   isOpen: boolean;
@@ -8,48 +9,7 @@ interface Props {
 export const ShortcutsModal: React.FC<Props> = ({ isOpen, onClose }) => {
   if (!isOpen) return null;
 
-  const sections = [
-    {
-      title: "Navigation",
-      items: [
-        { k: "↑ / ↓", d: "Move Focus Up/Down" },
-        { k: "PgUp/PgDn", d: "Sidebar Navigation" },
-        { k: "Ctrl + ↑ / ↓", d: "Move Task Up/Down" },
-        { k: "g then i", d: "Go to Inbox" },
-        { k: "g then t", d: "Go to Today" },
-        { k: "Cmd+K", d: "Command Palette" },
-      ]
-    },
-    {
-      title: "Creation",
-      items: [
-        { k: "Enter", d: "New Task" },
-        { k: "Ctrl+Cmd+Enter", d: "New Subtask" },
-        { k: "Cmd+Shift+V", d: "Batch Add from Clipboard" },
-      ]
-    },
-    {
-      title: "Organization",
-      items: [
-        { k: "x", d: "Complete Task" },
-        { k: "Delete", d: "Delete Task" },
-        { k: "Tab", d: "Indent (Make Subtask)" },
-        { k: "Shift+Tab", d: "Outdent" },
-        { k: "d", d: "Set Due Date" },
-        { k: "l", d: "Add Tags" },
-      ]
-    },
-    {
-      title: "Editing",
-      items: [
-        { k: "e", d: "Edit Title" },
-        { k: "n", d: "Edit Note" },
-        { k: "Cmd+O", d: "Open Links in Task" },
-        { k: "Cmd+Z", d: "Undo" },
-        { k: "Ctrl+Y", d: "Redo" },
-      ]
-    }
-  ];
+  const sections = getHotkeySections();
 
   return (
     <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm animate-in fade-in" onClick={onClose}>
@@ -60,13 +20,13 @@ export const ShortcutsModal: React.FC<Props> = ({ isOpen, onClose }) => {
         </div>
         <div className="p-6 grid grid-cols-2 gap-8">
           {sections.map(section => (
-            <div key={section.title}>
+            <div key={section.category}>
               <h4 className="text-xs font-semibold uppercase tracking-wider text-slate-500 mb-3">{section.title}</h4>
               <div className="space-y-2">
                 {section.items.map(item => (
-                  <div key={item.k} className="flex justify-between items-center text-sm">
-                    <span className="text-slate-700 dark:text-slate-300">{item.d}</span>
-                    <kbd className="font-mono text-xs text-primary-600 dark:text-primary-400 bg-primary-50 dark:bg-primary-900/20 px-1.5 py-0.5 rounded">{item.k}</kbd>
+                  <div key={item.id} className="flex justify-between items-center text-sm">
+                    <span className="text-slate-700 dark:text-slate-300">{item.description}</span>
+                    <kbd className="font-mono text-xs text-primary-600 dark:text-primary-400 bg-primary-50 dark:bg-primary-900/20 px-1.5 py-0.5 rounded">{item.keys}</kbd>
                   </div>
                 ))}
               </div>

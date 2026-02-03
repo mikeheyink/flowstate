@@ -1,0 +1,100 @@
+/**
+ * Centralized Hotkey Registry
+ * 
+ * Single source of truth for all keyboard shortcuts in the app.
+ * Used by ShortcutsModal, CommandPalette, and useTaskListKeyboard.
+ */
+
+export type HotkeyCategory = 'navigation' | 'creation' | 'organization' | 'editing' | 'view';
+export type HotkeyContext = 'global' | 'task-focused' | 'task-with-date';
+
+export interface Hotkey {
+    id: string;
+    keys: string;           // Display format: "Ctrl+↓" or "g then i"
+    description: string;
+    category: HotkeyCategory;
+    context?: HotkeyContext;
+    showInModal?: boolean;    // Default true
+    showInPalette?: boolean;  // Default false (only contextual actions)
+}
+
+/**
+ * All hotkeys defined in one place.
+ * Order within category determines display order in modal.
+ */
+export const HOTKEYS: Hotkey[] = [
+    // === Navigation ===
+    { id: 'nav-down', keys: '↓', description: 'Move Focus Down', category: 'navigation' },
+    { id: 'nav-up', keys: '↑', description: 'Move Focus Up', category: 'navigation' },
+    { id: 'nav-sidebar', keys: 'PgUp / PgDn', description: 'Sidebar Navigation', category: 'navigation' },
+    { id: 'move-task-down', keys: 'Ctrl+↓', description: 'Move Task Down', category: 'navigation', context: 'task-focused' },
+    { id: 'move-task-up', keys: 'Ctrl+↑', description: 'Move Task Up', category: 'navigation', context: 'task-focused' },
+    { id: 'expand', keys: '→', description: 'Expand', category: 'navigation', context: 'task-focused' },
+    { id: 'collapse', keys: '←', description: 'Collapse', category: 'navigation', context: 'task-focused' },
+    { id: 'expand-all', keys: 'Alt+Shift+→', description: 'Expand All', category: 'navigation' },
+    { id: 'collapse-all', keys: 'Alt+Shift+←', description: 'Collapse All', category: 'navigation' },
+    { id: 'cmd-palette', keys: 'Cmd+K', description: 'Command Palette', category: 'navigation' },
+
+    // === Creation ===
+    { id: 'new-task', keys: 'Enter', description: 'New Task', category: 'creation', showInPalette: true },
+    { id: 'new-subtask', keys: 'Cmd+Enter', description: 'New Subtask', category: 'creation', context: 'task-focused' },
+    { id: 'batch-add', keys: 'Cmd+Shift+V', description: 'Batch Add from Clipboard', category: 'creation' },
+
+    // === Organization ===
+    { id: 'complete', keys: 'x', description: 'Complete Task', category: 'organization', context: 'task-focused', showInPalette: true },
+    { id: 'delete', keys: 'Delete', description: 'Delete Task', category: 'organization', context: 'task-focused', showInPalette: true },
+    { id: 'indent', keys: 'Tab', description: 'Indent (Make Subtask)', category: 'organization', context: 'task-focused' },
+    { id: 'outdent', keys: 'Shift+Tab', description: 'Outdent', category: 'organization', context: 'task-focused' },
+    { id: 'set-date', keys: 'd', description: 'Set Due Date', category: 'organization', context: 'task-focused', showInPalette: true },
+    { id: 'add-tags', keys: 'l', description: 'Add Tags', category: 'organization', context: 'task-focused', showInModal: false }, // Not implemented yet
+    { id: 'toggle-importance', keys: '1', description: 'Mark as Important', category: 'organization', context: 'task-with-date', showInPalette: true },
+    { id: 'clear-importance', keys: '0', description: 'Clear Importance', category: 'organization', context: 'task-with-date', showInPalette: true },
+
+    // === Editing ===
+    { id: 'edit-title', keys: 'e', description: 'Edit Title', category: 'editing', context: 'task-focused' },
+    { id: 'edit-note', keys: 'n', description: 'Edit Note', category: 'editing', context: 'task-focused', showInModal: false }, // Not implemented yet
+    { id: 'open-links', keys: 'Cmd+O', description: 'Open Links in Task', category: 'editing', context: 'task-focused' },
+    { id: 'undo', keys: 'Cmd+Z', description: 'Undo', category: 'editing' },
+    { id: 'redo', keys: 'Cmd+Shift+Z', description: 'Redo', category: 'editing' },
+
+    // === View ===
+    { id: 'shortcuts-modal', keys: '?', description: 'Show Shortcuts', category: 'view' },
+];
+
+/**
+ * Get hotkeys filtered by category, suitable for modal sections
+ */
+export function getHotkeysByCategory(category: HotkeyCategory): Hotkey[] {
+    return HOTKEYS.filter(h => h.category === category && h.showInModal !== false);
+}
+
+/**
+ * Get all categories with their hotkeys for modal display
+ */
+export function getHotkeySections(): { title: string; category: HotkeyCategory; items: Hotkey[] }[] {
+    const categories: { title: string; category: HotkeyCategory }[] = [
+        { title: 'Navigation', category: 'navigation' },
+        { title: 'Creation', category: 'creation' },
+        { title: 'Organization', category: 'organization' },
+        { title: 'Editing', category: 'editing' },
+    ];
+
+    return categories.map(c => ({
+        ...c,
+        items: getHotkeysByCategory(c.category)
+    }));
+}
+
+/**
+ * Get hotkeys that should appear in command palette
+ */
+export function getPaletteHotkeys(): Hotkey[] {
+    return HOTKEYS.filter(h => h.showInPalette === true);
+}
+
+/**
+ * Find hotkey by ID (useful for keyboard handler references)
+ */
+export function getHotkeyById(id: string): Hotkey | undefined {
+    return HOTKEYS.find(h => h.id === id);
+}
