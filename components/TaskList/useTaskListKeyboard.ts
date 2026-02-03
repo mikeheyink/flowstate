@@ -27,12 +27,11 @@ export function useTaskListKeyboard({
     const {
         setFocusedId,
         toggleTask,
-        deleteTask,
+        archiveTask,
         toggleExpand,
         setExpandedAll,
         changeParent,
         batchChangeParent,
-        batchDelete,
         batchComplete,
         toggleImportance,
         clearImportance,
@@ -243,8 +242,13 @@ export function useTaskListKeyboard({
                     break;
                 case 'delete':
                 case 'backspace':
-                    if (currentSelectedIds.length > 1) { e.preventDefault(); batchDelete(); }
-                    else if (currentId && !editingTaskIdRef.current) { e.preventDefault(); deleteTask(currentId); }
+                    if (currentSelectedIds.length > 1) {
+                        e.preventDefault();
+                        // Archive all selected tasks (soft-delete)
+                        currentSelectedIds.forEach(id => archiveTask(id));
+                        clearSelection();
+                    }
+                    else if (currentId && !editingTaskIdRef.current) { e.preventDefault(); archiveTask(currentId); }
                     break;
                 case 'e':
                     if (currentId && !editingTaskIdRef.current) {
@@ -275,9 +279,9 @@ export function useTaskListKeyboard({
         return () => window.removeEventListener('keydown', handleKeyDown);
     }, [
         focusMode, filter, expandedGroups, tasks,
-        setFocusedId, toggleTask, deleteTask, toggleExpand, setExpandedAll,
-        changeParent, batchChangeParent, batchDelete, batchComplete,
+        setFocusedId, toggleTask, archiveTask, toggleExpand, setExpandedAll,
+        changeParent, batchChangeParent, batchComplete,
         toggleImportance, clearImportance, setFocusMode, setQuickAddOpen,
-        selectTask, setEditingTaskId
+        selectTask, clearSelection, setEditingTaskId
     ]);
 }

@@ -1,9 +1,9 @@
 import React, { useEffect, useState } from 'react';
-import { Search, Plus, Trash2, Archive, CheckCircle, SunMoon, MessageCircle, Calendar, Star, StarOff } from 'lucide-react';
+import { Search, Plus, Trash2, CheckCircle, SunMoon, MessageCircle, Calendar, Star, StarOff, Edit3, Undo, Redo } from 'lucide-react';
 import { useTaskStore } from '../store/useTaskStore';
 import { useUIStore } from '../store/useUIStore';
 import { useCoachStore } from '../store/useCoachStore';
-import { getPaletteHotkeys, getHotkeyById } from '../utils/hotkeys';
+import { getHotkeyById } from '../utils/hotkeys';
 
 interface Action {
   id: string;
@@ -17,21 +17,106 @@ interface Action {
 export const CommandPalette: React.FC<{ isOpen: boolean; onClose: () => void }> = ({ isOpen, onClose }) => {
   const [query, setQuery] = useState('');
   const [selectedIndex, setSelectedIndex] = useState(0);
-  const { tasks, focusedId, toggleTask, deleteTask, archiveTask, toggleImportance, clearImportance } = useTaskStore();
-  const setQuickAddOpen = useUIStore((state) => state.setQuickAddOpen);
+  const { tasks, focusedId, toggleTask, archiveTask, toggleImportance, clearImportance, undo, redo } = useTaskStore();
+  const { setQuickAddOpen, setEditingTaskId } = useUIStore();
   const setCoachOpen = useCoachStore((state) => state.setOpen);
 
-  // Build actions from registry + contextual actions
+  // Build actions list - contextual first, then global
   const actions: Action[] = [];
 
-  // Global actions
+  // === Contextual Actions (when task is focused) ===
+  if (focusedId) {
+    const task = tasks.find(t => t.id === focusedId);
+    if (task) {
+      // Primary task actions (most common)
+      actions.push({
+        id: 'edit-title',
+        title: 'Edit Title',
+        icon: <Edit3 className="w-4 h-4" />,
+        shortcut: getHotkeyById('edit-title')?.keys,
+        perform: () => setEditingTaskId(focusedId),
+        section: 'Task'
+      });
+
+      actions.push({
+        id: 'toggle-task',
+        title: task.completed ? 'Mark Incomplete' : 'Mark Complete',
+        icon: <CheckCircle className="w-4 h-4" />,
+        shortcut: getHotkeyById('complete')?.keys,
+        perform: () => toggleTask(focusedId),
+        section: 'Task'
+      });
+
+      actions.push({
+        id: 'set-date',
+        title: 'Set Due Date',
+        icon: <Calendar className="w-4 h-4" />,
+        shortcut: getHotkeyById('set-date')?.keys,
+        perform: () => setQuickAddOpen(true, null, 'date', focusedId),
+        section: 'Task'
+      });
+
+      // Importance (only for tasks with due dates)
+      if (task.dueDate) {
+        if (!task.importantOrder) {
+          actions.push({
+            id: 'toggle-importance',
+            title: 'Mark Important',
+            icon: <Star className="w-4 h-4" />,
+            shortcut: getHotkeyById('toggle-importance')?.keys,
+            perform: () => toggleImportance(focusedId),
+            section: 'Task'
+          });
+        } else {
+          actions.push({
+            id: 'clear-importance',
+            title: 'Unmark Important',
+            icon: <StarOff className="w-4 h-4" />,
+            shortcut: getHotkeyById('clear-importance')?.keys,
+            perform: () => clearImportance(focusedId),
+            section: 'Task'
+          });
+        }
+      }
+
+      // Destructive action last
+      actions.push({
+        id: 'delete-task',
+        title: 'Delete Task',
+        icon: <Trash2 className="w-4 h-4" />,
+        shortcut: getHotkeyById('delete')?.keys,
+        perform: () => archiveTask(focusedId),
+        section: 'Task'
+      });
+    }
+  }
+
+  // === Global Actions ===
   actions.push({
     id: 'new-task',
-    title: 'Create New Task',
+    title: 'New Task',
     icon: <Plus className="w-4 h-4" />,
     shortcut: getHotkeyById('new-task')?.keys,
     perform: () => setQuickAddOpen(true),
-    section: 'Actions'
+    section: 'Create'
+  });
+
+  actions.push({
+    id: 'undo',
+    title: 'Undo',
+    icon: <Undo className="w-4 h-4" />,
+    shortcut: getHotkeyById('undo')?.keys,
+    perform: () => undo(),
+    section: 'Edit'
+  });
+
+  actions.push({
+    id: 'redo',
+    title: 'Redo',
+    icon: <Redo className="w-4 h-4" />,
+    shortcut: getHotkeyById('redo')?.keys,
+    perform: () => redo(),
+    section: 'Edit'
   });
 
   actions.push({
@@ -39,79 +124,16 @@ export const CommandPalette: React.FC<{ isOpen: boolean; onClose: () => void }> 
     title: 'Review with Coach',
     icon: <MessageCircle className="w-4 h-4" />,
     perform: () => setCoachOpen(true),
-    section: 'Actions'
+    section: 'Tools'
   });
 
   actions.push({
     id: 'toggle-theme',
-    title: 'Toggle Dark/Light Mode',
+    title: 'Toggle Dark Mode',
     icon: <SunMoon className="w-4 h-4" />,
     perform: () => document.documentElement.classList.toggle('dark'),
-    section: 'Preferences'
+    section: 'Settings'
   });
-
-  // Contextual actions (based on focused task)
-  if (focusedId) {
-    const task = tasks.find(t => t.id === focusedId);
-    if (task) {
-      actions.unshift({
-        id: 'toggle-task',
-        title: task.completed ? 'Mark as Incomplete' : 'Mark as Complete',
-        icon: <CheckCircle className="w-4 h-4" />,
-        shortcut: getHotkeyById('complete')?.keys,
-        perform: () => toggleTask(focusedId),
-        section: 'Selected Task'
-      });
-
-      actions.unshift({
-        id: 'archive-task',
-        title: 'Archive Task',
-        icon: <Archive className="w-4 h-4" />,
-        perform: () => archiveTask(focusedId),
-        section: 'Selected Task'
-      });
-
-      actions.unshift({
-        id: 'delete-task',
-        title: 'Delete Task',
-        icon: <Trash2 className="w-4 h-4" />,
-        shortcut: getHotkeyById('delete')?.keys,
-        perform: () => deleteTask(focusedId),
-        section: 'Selected Task'
-      });
-
-      actions.unshift({
-        id: 'set-date',
-        title: 'Set Due Date',
-        icon: <Calendar className="w-4 h-4" />,
-        shortcut: getHotkeyById('set-date')?.keys,
-        perform: () => setQuickAddOpen(true, null, 'date', focusedId),
-        section: 'Selected Task'
-      });
-
-      if (task.dueDate) {
-        actions.push({
-          id: 'toggle-importance',
-          title: 'Mark as Important',
-          icon: <Star className="w-4 h-4" />,
-          shortcut: getHotkeyById('toggle-importance')?.keys,
-          perform: () => toggleImportance(focusedId),
-          section: 'Selected Task'
-        });
-
-        if (task.importantOrder) {
-          actions.push({
-            id: 'clear-importance',
-            title: 'Clear Importance',
-            icon: <StarOff className="w-4 h-4" />,
-            shortcut: getHotkeyById('clear-importance')?.keys,
-            perform: () => clearImportance(focusedId),
-            section: 'Selected Task'
-          });
-        }
-      }
-    }
-  }
 
   const filteredActions = actions.filter(action =>
     action.title.toLowerCase().includes(query.toLowerCase())
@@ -154,7 +176,7 @@ export const CommandPalette: React.FC<{ isOpen: boolean; onClose: () => void }> 
           <input
             autoFocus
             type="text"
-            placeholder="Type a command or search..."
+            placeholder="Type a command..."
             className="flex-1 bg-transparent text-slate-900 dark:text-slate-200 placeholder-slate-400 dark:placeholder-slate-500 outline-none text-base"
             value={query}
             onChange={(e) => setQuery(e.target.value)}
