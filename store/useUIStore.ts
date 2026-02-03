@@ -7,14 +7,16 @@ interface UIState {
   isCmdOpen: boolean;
   isQuickAddOpen: boolean;
   isShortcutsOpen: boolean;
-  quickAddParentId: string | null; // Context for creating subtasks
+  quickAddParentId: string | null;
   quickAddMode: QuickAddMode;
-  quickAddTaskId: string | null; // The task being modified (for date/tag mode)
-
-  editingTaskId: string | null; // ID of task currently being renamed
-
+  quickAddTaskId: string | null;
+  editingTaskId: string | null;
   filter: 'active' | 'today' | 'upcoming' | 'review';
   focusMode: FocusMode;
+
+  // UI-only expansion state for headers
+  expandedGroups: Set<string>;
+  toggleGroup: (id: string) => void;
 
   setCmdOpen: (open: boolean) => void;
   setQuickAddOpen: (open: boolean, parentId?: string | null, mode?: QuickAddMode, taskId?: string | null) => void;
@@ -32,11 +34,17 @@ export const useUIStore = create<UIState>((set) => ({
   quickAddParentId: null,
   quickAddMode: 'create',
   quickAddTaskId: null,
-
   editingTaskId: null,
+  filter: 'today',
+  focusMode: 'main',
 
-  filter: 'active',
-  focusMode: 'main', // Default focus
+  expandedGroups: new Set(['header-important', 'header-outstanding']),
+  toggleGroup: (id) => set((state) => {
+    const next = new Set(state.expandedGroups);
+    if (next.has(id)) next.delete(id);
+    else next.add(id);
+    return { expandedGroups: next };
+  }),
 
   setCmdOpen: (open) => set({ isCmdOpen: open }),
   setQuickAddOpen: (open, parentId = null, mode = 'create', taskId = null) =>

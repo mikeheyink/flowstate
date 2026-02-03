@@ -3,6 +3,7 @@ import { persist } from 'zustand/middleware';
 import { Task, Priority } from '../types';
 import { parseTaskInput } from '../utils/nlp';
 import { supabase } from '../utils/supabase';
+import { getSiblings } from '../utils/taskOrdering';
 
 const generateId = () => Math.random().toString(36).substring(2, 9);
 
@@ -463,50 +464,16 @@ export const useTaskStore = create<TaskState>()(
           // TODAY CONTEXT LOGIC
           if (task.importantOrder) {
             // Moving within Important list
-            siblings = state.tasks.filter(t => t.importantOrder).sort((a, b) => (a.importantOrder || 0) - (b.importantOrder || 0));
+            siblings = getSiblings(task, state.tasks, 'important');
             orderField = 'importantOrder';
           } else {
-            // Moving within Outstanding list
-            const startOfToday = new Date();
-            startOfToday.setHours(0, 0, 0, 0);
-            const endOfToday = new Date(startOfToday);
-            endOfToday.setDate(endOfToday.getDate() + 1);
-
-            siblings = state.tasks.filter(t => {
-              if (t.archived || t.completed || t.importantOrder) return false;
-              if (!t.dueDate) return false;
-              const d = new Date(t.dueDate);
-              // Check if due today or overdue
-              return d < endOfToday;
-            });
-
-            // Sort by todayOrder first, then priority/hierarchy fallback (simulated via existing sort or stable sort)
-            // We need a stable list to swap indices.
-            siblings.sort((a, b) => {
-              if (a.todayOrder !== undefined && b.todayOrder !== undefined && a.todayOrder !== null && b.todayOrder !== null) {
-                return a.todayOrder - b.todayOrder;
-              }
-              // Fallback: Priority then Hierarchy (simplified to order/created for now as detailed hierarchy sort is complex here)
-              // Actually we should assign todayOrder if missing during the first move!
-              // For now, let's sort by priority then generic order
-              const pDiff = a.priority - b.priority;
-              if (pDiff !== 0) return pDiff;
-              return (a.order ?? 0) - (b.order ?? 0);
-            });
+            // Moving within Outstanding list - use shared function for consistency
+            siblings = getSiblings(task, state.tasks, 'today');
             orderField = 'todayOrder';
           }
         } else {
           // DEFAULT PROJECT/PARENT CONTEXT
-          siblings = state.tasks.filter(t =>
-            t.parentId === (task.parentId || null) &&
-            t.completed === task.completed &&
-            !t.archived
-          );
-          siblings.sort((a, b) => {
-            const orderA = a.order ?? -a.createdAt;
-            const orderB = b.order ?? -b.createdAt;
-            return orderA - orderB;
-          });
+          siblings = getSiblings(task, state.tasks, 'project');
         }
 
         const currentIndex = siblings.findIndex(t => t.id === id);

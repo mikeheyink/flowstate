@@ -46,27 +46,36 @@ export function getSiblings(
 
     if (context === 'today') {
         // Tasks due today or overdue (not marked important)
+        // MUST match sortOutstandingForToday algorithm exactly for visual consistency
         const now = new Date();
+        const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate());
         const endOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1);
 
-        return allTasks
-            .filter(t => {
-                if (t.archived || t.completed || t.importantOrder) return false;
-                if (!t.dueDate) return false;
-                const d = new Date(t.dueDate);
-                return d < endOfToday;
-            })
-            .sort((a, b) => {
-                // Sort by todayOrder if available
-                if (a.todayOrder != null && b.todayOrder != null) {
-                    return a.todayOrder - b.todayOrder;
-                }
-                // Fallback: priority then order
-                const pDiff = a.priority - b.priority;
-                if (pDiff !== 0) return pDiff;
-                return (a.order ?? -a.createdAt) - (b.order ?? -b.createdAt);
-            });
+        const outstanding = allTasks.filter(t => {
+            if (t.archived || t.completed || t.importantOrder) return false;
+            if (!t.dueDate) return false;
+            const d = new Date(t.dueDate);
+            return d < endOfToday;
+        });
+
+        // Separate by todayOrder presence (matching display algorithm)
+        const hasOrder = (t: Task) => t.todayOrder != null;
+        const withOrder = outstanding.filter(hasOrder);
+        const withoutOrder = outstanding.filter(t => !hasOrder(t));
+
+        // Sort each group
+        withOrder.sort((a, b) => (a.todayOrder || 0) - (b.todayOrder || 0));
+        withoutOrder.sort((a, b) => {
+            const isOverdueA = new Date(a.dueDate!) < startOfToday;
+            const isOverdueB = new Date(b.dueDate!) < startOfToday;
+            if (isOverdueA !== isOverdueB) return isOverdueA ? -1 : 1;
+            return a.createdAt - b.createdAt;
+        });
+
+        // Ordered first, then unordered (matching display)
+        return [...withOrder, ...withoutOrder];
     }
+
 
     // Project context: same parent, same completion status
     return allTasks
