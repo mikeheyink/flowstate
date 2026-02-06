@@ -1,7 +1,8 @@
 import React, { useEffect, useState, useRef } from 'react';
-import { Layers, Inbox, Calendar as CalendarIcon, CalendarClock, ClipboardList, RefreshCw, WifiOff, UserX, Keyboard, Command } from 'lucide-react';
+import { Layers, Inbox, Calendar as CalendarIcon, CalendarClock, ClipboardList, RefreshCw, WifiOff, UserX, Keyboard, Command, BookOpen, Reply, Mail } from 'lucide-react';
 import { useUIStore } from '../store/useUIStore';
 import { useOnlineStatus } from '../store/useOnlineStatus';
+import { useMailStore } from '../store/useMailStore';
 import { useTaskStore } from '../store/useTaskStore';
 import { supabase } from '../utils/supabase';
 
@@ -14,6 +15,7 @@ interface TopNavProps {
 export function TopNav({ session, isGuest, setGuestMode }: TopNavProps) {
     const {
         filter,
+        currentView,
         setFilter,
         setFocusMode,
         setShortcutsOpen,
@@ -23,12 +25,16 @@ export function TopNav({ session, isGuest, setGuestMode }: TopNavProps) {
     const pendingCount = useTaskStore((state) => state.pendingOperations.length);
     const isOnline = useOnlineStatus();
     const isLoading = useTaskStore((state) => state.isLoading);
+    const { activeTab, setActiveTab } = useMailStore();
 
     const [isVisible, setIsVisible] = useState(true);
     const hideTimeoutRef = useRef<number | null>(null);
 
-    // Sidebar selection items
-    const menuItems = ['active', 'today', 'upcoming', 'review'] as const;
+    // Task view menu items
+    const taskMenuItems = ['active', 'today', 'upcoming', 'review'] as const;
+
+    // Mail view menu items
+    const mailMenuItems = ['inbox', 'to_read', 'to_reply', 'other'] as const;
 
     // Logic to show/hide nav
     const showNav = () => {
@@ -47,10 +53,10 @@ export function TopNav({ session, isGuest, setGuestMode }: TopNavProps) {
         };
     }, []);
 
-    // Show when filter changes
+    // Show when filter or activeTab changes
     useEffect(() => {
         showNav();
-    }, [filter]);
+    }, [filter, activeTab]);
 
     // Show on mouse move near top (optional, or just hover on the bar area)
     const handleMouseEnter = () => {
@@ -84,34 +90,64 @@ export function TopNav({ session, isGuest, setGuestMode }: TopNavProps) {
 
             {/* Center: Navigation Tabs */}
             <nav className="flex items-center gap-1 p-1 bg-slate-100 dark:bg-slate-800/50 rounded-lg">
-                {menuItems.map((item) => {
-                    const isActive = filter === item;
-                    let Icon = Inbox;
-                    let Label = 'Plan';
-                    if (item === 'today') { Icon = CalendarIcon; Label = 'Today'; }
-                    if (item === 'upcoming') { Icon = CalendarClock; Label = 'Upcoming'; }
-                    if (item === 'review') { Icon = ClipboardList; Label = 'Review'; }
+                {currentView === 'tasks' ? (
+                    // Task View Tabs
+                    taskMenuItems.map((item) => {
+                        const isActive = filter === item;
+                        let Icon = Inbox;
+                        let Label = 'Plan';
+                        if (item === 'today') { Icon = CalendarIcon; Label = 'Today'; }
+                        if (item === 'upcoming') { Icon = CalendarClock; Label = 'Upcoming'; }
+                        if (item === 'review') { Icon = ClipboardList; Label = 'Review'; }
 
-                    return (
-                        <button
-                            key={item}
-                            onClick={() => {
-                                setFilter(item);
-                                setFocusMode('main'); // Always focus main when clicking tab
-                            }}
-                            className={`
-                                flex items-center gap-2 px-3 py-1.5 rounded-md text-sm font-medium transition-all
-                                ${isActive
-                                    ? 'bg-white dark:bg-slate-700 shadow-sm text-primary-600 dark:text-primary-400'
-                                    : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200 hover:bg-white/50 dark:hover:bg-slate-700/50'
-                                }
-                            `}
-                        >
-                            <Icon className="w-4 h-4" />
-                            <span className="hidden sm:inline">{Label}</span>
-                        </button>
-                    );
-                })}
+                        return (
+                            <button
+                                key={item}
+                                onClick={() => {
+                                    setFilter(item);
+                                    setFocusMode('main');
+                                }}
+                                className={`
+                                    flex items-center gap-2 px-3 py-1.5 rounded-md text-sm font-medium transition-all
+                                    ${isActive
+                                        ? 'bg-white dark:bg-slate-700 shadow-sm text-primary-600 dark:text-primary-400'
+                                        : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200 hover:bg-white/50 dark:hover:bg-slate-700/50'
+                                    }
+                                `}
+                            >
+                                <Icon className="w-4 h-4" />
+                                <span className="hidden sm:inline">{Label}</span>
+                            </button>
+                        );
+                    })
+                ) : (
+                    // Mail View Tabs
+                    mailMenuItems.map((item) => {
+                        const isActive = activeTab === item;
+                        let Icon = Inbox;
+                        let Label = 'Inbox';
+                        if (item === 'to_read') { Icon = BookOpen; Label = 'To Read'; }
+                        if (item === 'to_reply') { Icon = Reply; Label = 'To Reply'; }
+                        if (item === 'other') { Icon = Mail; Label = 'Other'; }
+
+                        return (
+                            <button
+                                key={item}
+                                onClick={() => setActiveTab(item)}
+                                className={`
+                                    flex items-center gap-2 px-3 py-1.5 rounded-md text-sm font-medium transition-all
+                                    ${isActive
+                                        ? 'bg-white dark:bg-slate-700 shadow-sm text-primary-600 dark:text-primary-400'
+                                        : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200 hover:bg-white/50 dark:hover:bg-slate-700/50'
+                                    }
+                                `}
+                            >
+                                <Icon className="w-4 h-4" />
+                                <span className="hidden sm:inline">{Label}</span>
+                            </button>
+                        );
+                    })
+                )}
             </nav>
 
             {/* Right: Actions & Status */}
@@ -157,9 +193,14 @@ export function TopNav({ session, isGuest, setGuestMode }: TopNavProps) {
                         <span className="w-2 h-2 rounded-full bg-green-500 block lg:hidden" title={isGuest ? 'Guest' : session?.user?.email} />
                         <span className="hidden lg:block truncate max-w-[150px]">{isGuest ? 'Guest' : session?.user?.email}</span>
                         <button
-                            onClick={() => {
-                                if (isGuest) setGuestMode(false);
-                                else supabase.auth.signOut();
+                            onClick={async () => {
+                                if (isGuest) {
+                                    setGuestMode(false);
+                                } else {
+                                    await supabase.auth.signOut();
+                                    // Force reload to clear all stores and ensure clean state
+                                    window.location.reload();
+                                }
                             }}
                             className="hover:text-red-500 transition-colors"
                             title={isGuest ? 'Exit Guest Mode' : 'Sign Out'}

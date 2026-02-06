@@ -1,4 +1,5 @@
 import React, { useEffect, useState, useRef } from 'react';
+import { AnimatePresence, motion } from 'framer-motion';
 import { Command, Layers, Inbox, CheckSquare, Archive, Calendar as CalendarIcon, Keyboard, Loader2, AlertCircle, UserX, Wifi, WifiOff, RefreshCw, CalendarClock, ClipboardList } from 'lucide-react';
 import { TaskList } from './components/TaskList';
 import { WeeklyReview } from './components/WeeklyReview';
@@ -10,8 +11,10 @@ import { Toaster, toast } from './components/Toaster';
 import { Login } from './components/Login';
 import { TopNav } from './components/TopNav';
 import { InboxZero } from './components/InboxZero';
+import { MailView } from './components/Mail/MailView';
 import { useTaskStore } from './store/useTaskStore';
 import { useUIStore } from './store/useUIStore';
+import { useHotkeys } from './hooks/useHotkeys';
 import { useOnlineStatus } from './store/useOnlineStatus';
 import { supabase } from './utils/supabase';
 
@@ -25,11 +28,13 @@ function App() {
         isShortcutsOpen,
         filter,
         focusMode,
+        currentView,
         setCmdOpen,
         setQuickAddOpen,
         setShortcutsOpen,
         setFilter,
         setFocusMode,
+        setCurrentView,
         toggleCmd
     } = useUIStore();
 
@@ -79,14 +84,6 @@ function App() {
         return false;
     }, [filter, tasks, authLoading, session, isGuest]);
 
-    // Sidebar selection state
-    const menuItems = ['active', 'today', 'upcoming', 'review'] as const;
-    const [sidebarIndex, setSidebarIndex] = useState(0);
-
-    // G-chord state
-    const [gPressed, setGPressed] = useState(false);
-    const gTimeoutRef = useRef<number | null>(null);
-
     // Auth & Data Init
     useEffect(() => {
         // Check for error parameters in the URL (OAuth redirect errors)
@@ -119,21 +116,29 @@ function App() {
 
         const {
             data: { subscription },
-        } = supabase.auth.onAuthStateChange((_event, session) => {
+        } = supabase.auth.onAuthStateChange(async (event, session) => {
             setSession(session);
             if (session) fetchTasks();
-            // Ensure loading is false on change events too
             setAuthLoading(false);
+
+            // Global Handler: Capture Google Refresh Token if present (e.g. after OAuth redirect)
+            if (event === 'SIGNED_IN' && session?.provider_refresh_token) {
+                console.log('Capturing Google Refresh Token globally...');
+                const { error } = await supabase
+                    .from('google_tokens')
+                    .upsert({
+                        user_id: session.user.id,
+                        refresh_token: session.provider_refresh_token,
+                        updated_at: new Date().toISOString()
+                    });
+
+                if (error) console.error('Failed to save refresh token:', error);
+                else console.log('Refresh token saved securely.');
+            }
         });
 
         return () => subscription.unsubscribe();
     }, [fetchTasks]);
-
-    // Sync sidebar index with current filter
-    useEffect(() => {
-        const idx = menuItems.indexOf(filter);
-        if (idx !== -1) setSidebarIndex(idx);
-    }, [filter]);
 
     // Process pending operations when back online
     useEffect(() => {
@@ -142,130 +147,8 @@ function App() {
         }
     }, [isOnline, pendingCount, isGuest, processPendingOperations]);
 
-    // Keyboard Shortcuts
-    useEffect(() => {
-        if (!session && !isGuest) return;
-
-        const handleKeyDown = (e: KeyboardEvent) => {
-            // 1. Inputs Check
-            if (document.activeElement?.tagName === 'INPUT' || document.activeElement?.tagName === 'TEXTAREA') {
-                // Allow Escape to blur inputs
-                if (e.key === 'Escape') (document.activeElement as HTMLElement).blur();
-                return;
-            }
-
-            const key = e.key.toLowerCase();
-            const isCmd = e.metaKey || e.ctrlKey;
-            const isShift = e.shiftKey;
-
-            // SHORTCUTS MODAL
-            if (key === '?') {
-                setShortcutsOpen(true);
-                return;
-            }
-            if (key === 'escape' && isShortcutsOpen) {
-                setShortcutsOpen(false);
-                return;
-            }
-
-            // UNDO / REDO
-            if (isCmd && key === 'z') {
-                e.preventDefault();
-                if (isShift) {
-                    redo();
-                } else {
-                    undo();
-                }
-                return;
-            }
-            // Redo alternative (Ctrl+Y)
-            if (isCmd && key === 'y') {
-                e.preventDefault();
-                redo();
-                return;
-            }
-
-            // Cmd+Shift+V (Batch Paste)
-            if (isCmd && isShift && key === 'v') {
-                e.preventDefault();
-                navigator.clipboard.readText().then(text => {
-                    const lines = text.split(/\r?\n/).map(l => l.trim()).filter(Boolean);
-                    if (lines.length > 0) {
-                        batchAddTasks(lines);
-                        toast(`Created ${lines.length} tasks from clipboard`);
-                    }
-                });
-                return;
-            }
-
-            // Command Palette (Cmd+K)
-            if (isCmd && key === 'k') {
-                e.preventDefault();
-                toggleCmd();
-                return;
-            }
-
-            // Quick Add (New Task)
-            if (key === 'enter' && !isCmd) {
-                e.preventDefault();
-                // Check if we are focused on a task to insert after it
-                if (focusedId && focusMode === 'main') {
-                    const task = tasks.find(t => t.id === focusedId);
-                    if (task) {
-                        setQuickAddOpen(true, task.parentId || null, 'create', focusedId);
-                        return;
-                    }
-                }
-                setQuickAddOpen(true);
-                return;
-            }
-
-            // G-Chord Navigation
-            if (key === 'g' && !isCmd && !gPressed) {
-                setGPressed(true);
-                if (gTimeoutRef.current) clearTimeout(gTimeoutRef.current);
-                gTimeoutRef.current = window.setTimeout(() => setGPressed(false), 500);
-                return;
-            }
-
-            // Global Sidebar Nav (PageUp / PageDown)
-            if (key === 'pagedown') {
-                e.preventDefault();
-                const nextIndex = (sidebarIndex + 1) % menuItems.length;
-                setSidebarIndex(nextIndex);
-                setFilter(menuItems[nextIndex]);
-                return;
-            }
-            if (key === 'pageup') {
-                e.preventDefault();
-                const nextIndex = (sidebarIndex - 1 + menuItems.length) % menuItems.length;
-                setSidebarIndex(nextIndex);
-                setFilter(menuItems[nextIndex]);
-                return;
-            }
-
-            if (gPressed) {
-                if (key === 'i') { setFilter('active'); toast("Go to Inbox"); }
-                if (key === 't') { setFilter('today'); toast("Go to Today"); }
-                if (key === 'r') { setFilter('review'); toast("Go to Review"); }
-                // if (key === 'a') { setFilter('all'); } // Removed
-                setGPressed(false);
-                return;
-            }
-
-            // Sidebar Nav REPLACED by TopNav Logic (PgUp/PgDn)
-            // We keep specific logic for arrow keys if needed, but per request arrows should NOT escape tasks.
-            // So we explicitly do nothing special for arrow keys here unless we handle task list selection (which is in TaskList component usually)
-            // But we can ensure focusMode is main.
-
-            // Allow cycling sidebar with PgUp/PgDn logic (which changes filter)
-            // The existing logic for PageUp/PageDown (lines 201-215) is still valid, let's just ensure it updates focusMode
-
-        };
-
-        window.addEventListener('keydown', handleKeyDown);
-        return () => window.removeEventListener('keydown', handleKeyDown);
-    }, [session, isGuest, isCmdOpen, isQuickAddOpen, undo, redo, toggleCmd, setQuickAddOpen, focusMode, sidebarIndex, menuItems, setFilter, setFocusMode, gPressed, isShortcutsOpen, setShortcutsOpen, batchAddTasks, tasks, focusedId]);
+    // Keyboard Shortcuts (Centralized Hook)
+    useHotkeys();
 
     if (authLoading) {
         return (
@@ -337,11 +220,28 @@ function App() {
                         // Deselect if clicking whitespace
                         useTaskStore.getState().setFocusedId(null);
                     }}
-                    className="flex-1 overflow-y-auto px-4 py-6 md:px-8 scroll-smooth transition-opacity duration-200"
+                    className="flex-1 overflow-hidden relative"
                 >
-                    <div className="max-w-5xl mx-auto">
-                        {filter === 'review' ? <WeeklyReview /> : <TaskList filter={filter} />}
-                    </div>
+                    <AnimatePresence mode="wait">
+                        <motion.div
+                            key={currentView}
+                            initial={{ x: currentView === 'mail' ? '100%' : '-100%', opacity: 0 }}
+                            animate={{ x: 0, opacity: 1 }}
+                            exit={{ x: currentView === 'mail' ? '-100%' : '100%', opacity: 0 }}
+                            transition={{ type: 'spring', stiffness: 300, damping: 30 }}
+                            className="absolute inset-0 overflow-y-auto px-4 py-6 md:px-8 scroll-smooth"
+                        >
+                            {currentView === 'tasks' ? (
+                                <div className="max-w-5xl mx-auto">
+                                    {filter === 'review' ? <WeeklyReview /> : <TaskList filter={filter} />}
+                                </div>
+                            ) : (
+                                <div className="max-w-5xl mx-auto h-full">
+                                    <MailView />
+                                </div>
+                            )}
+                        </motion.div>
+                    </AnimatePresence>
                 </div>
 
                 {/* Floating Quick Add Input */}

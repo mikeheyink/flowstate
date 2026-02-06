@@ -2,6 +2,7 @@ import { create } from 'zustand';
 
 export type FocusMode = 'sidebar' | 'main';
 export type QuickAddMode = 'create' | 'date' | 'tag';
+export type CurrentView = 'tasks' | 'mail';
 
 interface UIState {
   isCmdOpen: boolean;
@@ -13,6 +14,7 @@ interface UIState {
   editingTaskId: string | null;
   filter: 'active' | 'today' | 'upcoming' | 'review';
   focusMode: FocusMode;
+  currentView: CurrentView;
 
   // UI-only expansion state for headers
   expandedGroups: Set<string>;
@@ -24,6 +26,7 @@ interface UIState {
   setEditingTaskId: (id: string | null) => void;
   setFilter: (filter: 'active' | 'today' | 'upcoming' | 'review') => void;
   setFocusMode: (mode: FocusMode) => void;
+  setCurrentView: (view: CurrentView) => void;
   toggleCmd: () => void;
 }
 
@@ -37,6 +40,7 @@ export const useUIStore = create<UIState>((set) => ({
   editingTaskId: null,
   filter: 'today',
   focusMode: 'main',
+  currentView: 'tasks',
 
   expandedGroups: new Set(['header-important', 'header-outstanding']),
   toggleGroup: (id) => set((state) => {
@@ -53,5 +57,6 @@ export const useUIStore = create<UIState>((set) => ({
   setEditingTaskId: (id) => set({ editingTaskId: id }),
   setFilter: (filter) => set({ filter }),
   setFocusMode: (mode) => set({ focusMode: mode }),
+  setCurrentView: (view) => set({ currentView: view }),
   toggleCmd: () => set((state) => ({ isCmdOpen: !state.isCmdOpen })),
 }));

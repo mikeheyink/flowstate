@@ -19,7 +19,7 @@ Flowstate consolidates the core workflows of knowledge work into a single, keybo
 | Module | Description | Integration |
 |--------|-------------|-------------|
 | **Tasks** | Hierarchical task management with AI coaching | ✅ Built |
-| **Mail** | Keyboard-first email (Superhuman-style) | Gmail OAuth |
+| **Mail** | Keyboard-first email (Superhuman-style) | 🏗️ Researching |
 | **Calendar** | Focus-aware scheduling and time blocking | Google Calendar |
 | **Chat** | Unified messaging without notification chaos | Google Chat |
 | **Workspace** | Focus-optimized browser for research, not tab sprawl | Custom tabs |
@@ -60,13 +60,13 @@ Flowstate consolidates the core workflows of knowledge work into a single, keybo
 
 | Feature | Description | Key Files |
 |---------|-------------|-----------|
-| Hierarchical Tasks | Tasks can have subtasks (unlimited depth) | `types.ts`, `useTaskStore.ts` |
-| Priorities (P1-P4) | Visual flags, affects sort order | `TaskList.tsx` |
-| Due Dates | Natural language parsing ("tomorrow", "next Friday") | `utils/nlp.ts` |
+| Hierarchical Tasks | Tasks can have subtasks (unlimited depth) | `src/types.ts`, `src/store/useTaskStore.ts` |
+| Priorities (P1-P4) | Visual flags, affects sort order | `src/components/TaskList/TaskItem.tsx` |
+| Due Dates | Natural language parsing ("tomorrow", "next Friday") | `src/utils/nlp.ts` |
 | Tags | #project, @context style tagging | Parsed from task title |
 | Notes | Markdown notes for task details | `Task.notes` field |
-| Drag & Drop | Reorder tasks within and across hierarchies | `TaskList.tsx` |
-| Multi-select | Shift+Arrow to select multiple tasks | `TaskList.tsx` |
+| Drag & Drop | Reorder tasks within and across hierarchies | `src/components/TaskList/useTaskListDnd.ts` |
+| Multi-select | Shift+Arrow to select multiple tasks | `src/components/TaskList/useTaskListKeyboard.ts` |
 
 ### 2. Smart Views
 
@@ -103,7 +103,7 @@ Multi-select:
 - **Weekly Review Companion**: Chat about completed tasks
 - **Calendar Context**: Paste calendar screenshots for analysis
 - **Personalized Advice**: Stores user profile/goals for relevant feedback
-- **Implementation**: `components/CoachChat.tsx`, `utils/gemini.ts`
+- **Implementation**: `src/components/CoachChat.tsx`, `src/utils/gemini.ts`
 
 ### 5. Technical Features
 
@@ -168,19 +168,21 @@ Multi-select:
 
 ## Focus OS Roadmap
 
-### Phase 0: Architecture Foundation (Current)
-Refactor existing codebase to support modular feature development.
-- Split monolithic stores and components
-- Establish testing infrastructure
-- Create reusable patterns for new modules
+### Phase 0: Architecture Foundation (Completed)
+Refactored codebase to support modular feature development.
+- ✅ Moved core logic to `src/` directory
+- ✅ Split `TaskList` component into focused hooks and sub-components
+- ✅ Established testing infrastructure (Vitest)
+- ✅ Extracted ordering logic from store
 
-### Phase 1: Mail Module
+### Phase 1: Mail Module (In Progress)
 Keyboard-first email client modeled after Superhuman:
-- Gmail OAuth integration
-- "To Read" and "To Reply" label workflows
-- Full conversation threading
-- Keyboard triage (e/h/l for archive, snooze, label)
-- Inline reply with rich text
+- [x] Product research and specification (`docs/SUPERHUMAN_SPEC.md`)
+- [ ] Gmail OAuth integration
+- [ ] "To Read" and "To Reply" label workflows
+- [ ] Full conversation threading
+- [ ] Keyboard triage (e/h/l for archive, snooze, label)
+- [ ] Inline reply with rich text
 
 ### Phase 2: Calendar Module  
 Focus-aware scheduling:
@@ -210,27 +212,25 @@ Focus-optimized browser for research:
 
 ## Technical Architecture Summary
 
-```
-┌─────────────────────────────────────────────────────────┐
-│                     React 19 + TypeScript               │
-├─────────────────────────────────────────────────────────┤
-│  Components/       │  Store/              │  Utils/     │
-│  ├─ TaskList       │  ├─ useTaskStore     │  ├─ supabase│
-│  ├─ WeeklyReview   │  ├─ useUIStore       │  ├─ gemini  │
-│  ├─ CoachChat      │  └─ useCoachStore    │  └─ nlp     │
-│  ├─ QuickAdd       │                      │             │
-│  └─ CommandPalette │                      │             │
-├─────────────────────────────────────────────────────────┤
-│                  Zustand (State Management)             │
-│           Offline queue, Undo/Redo, Persistence         │
-├─────────────────────────────────────────────────────────┤
-│                       Supabase                          │
-│         Auth (Google OAuth) • PostgreSQL • RLS          │
-├─────────────────────────────────────────────────────────┤
-│                     Google Gemini API                   │
-│              AI Coach for weekly reflections            │
-└─────────────────────────────────────────────────────────┘
-```
+┌─────────────────────────────────────────────────────────────┐
+│                       React 19 + TypeScript                 │
+├─────────────────────────────────────────────────────────────┤
+│  src/components/       │  src/store/          │  src/utils/ │
+│  ├─ TaskList/          │  ├─ useTaskStore     │  ├─ supabase│
+│  ├─ WeeklyReview       │  ├─ useUIStore       │  ├─ gemini  │
+│  ├─ CoachChat          │  └─ useCoachStore    │  └─ nlp     │
+│  ├─ QuickAdd           │                      │             │
+│  └─ CommandPalette     │                      │             │
+├─────────────────────────────────────────────────────────────┤
+│                    Zustand (State Management)               │
+│             Offline queue, Undo/Redo, Persistence           │
+├─────────────────────────────────────────────────────────────┤
+│                         Supabase                            │
+│           Auth (Google OAuth) • PostgreSQL • RLS            │
+├─────────────────────────────────────────────────────────────┤
+│                       Google Gemini API                     │
+│                AI Coach for weekly reflections              │
+└─────────────────────────────────────────────────────────────┘
 
 ---
 

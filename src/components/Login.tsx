@@ -19,6 +19,12 @@ export const Login = () => {
       provider: 'google',
       options: {
         redirectTo: window.location.origin,
+        // Request Gmail permissions. Note: User will see a consent screen.
+        scopes: 'https://www.googleapis.com/auth/gmail.modify',
+        queryParams: {
+          access_type: 'offline', // Request a refresh token so we can work in background
+          prompt: 'consent', // Force consent screen to ensure we get a refresh token
+        },
       }
     });
 
@@ -27,6 +33,27 @@ export const Login = () => {
       setLoading(false);
     }
   };
+
+  useEffect(() => {
+    // Listen for auth changes to capture the Google Refresh Token
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
+      if (event === 'SIGNED_IN' && session?.provider_refresh_token) {
+        console.log('Capturing Google Refresh Token...');
+        const { error } = await supabase
+          .from('google_tokens')
+          .upsert({
+            user_id: session.user.id,
+            refresh_token: session.provider_refresh_token,
+            updated_at: new Date().toISOString()
+          });
+
+        if (error) console.error('Failed to save refresh token:', error);
+        else console.log('Refresh token saved securely.');
+      }
+    });
+
+    return () => subscription.unsubscribe();
+  }, []);
 
   const handleGuestLogin = () => {
     setGuestMode(true);

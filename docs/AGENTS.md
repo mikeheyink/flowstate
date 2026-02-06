@@ -20,22 +20,27 @@
 
 ```
 flowstate/
-├── App.tsx              # Main app component, global keyboard handlers
-├── components/          # React components
-│   ├── TaskList.tsx     # Core task list (largest component)
-│   ├── CoachChat.tsx    # AI coaching interface
-│   ├── CommandPalette.tsx
-│   ├── QuickAdd.tsx     # Quick task entry
-│   └── ...
-├── store/               # Zustand state management
-│   ├── useTaskStore.ts  # Task CRUD, sorting, Supabase sync
-│   ├── useUIStore.ts    # UI state (modals, views)
-│   └── useCoachStore.ts # AI coach state
-├── utils/
-│   ├── supabase.ts      # Supabase client
-│   ├── gemini.ts        # Gemini API integration
-│   └── nlp.ts           # Natural language parsing
-└── types.ts             # TypeScript interfaces
+├── docs/                # Project documentation (Product briefs, Specs)
+├── src/                 # Source code
+│   ├── App.tsx          # Main app component, global keyboard handlers
+│   ├── components/      # React components
+│   │   ├── TaskList/    # Split task list module
+│   │   │   ├── TaskItem.tsx
+│   │   │   ├── useTaskListKeyboard.ts
+│   │   │   └── ...
+│   │   ├── CoachChat.tsx
+│   │   ├── CommandPalette.tsx
+│   │   └── ...
+│   ├── store/           # Zustand state management
+│   │   ├── useTaskStore.ts
+│   │   ├── useUIStore.ts
+│   │   └── useCoachStore.ts
+│   ├── utils/
+│   │   ├── supabase.ts
+│   │   ├── gemini.ts
+│   │   └── nlp.ts
+│   └── types.ts         # TypeScript interfaces
+└── ...
 ```
 
 ---
@@ -88,9 +93,9 @@ grep -r "functionName" --include="*.ts" --include="*.tsx"
 ```
 
 **Examples of code that already exists:**
-- Task CRUD operations → `useTaskStore.ts`
-- Date parsing → `utils/nlp.ts` (uses chrono-node)
-- Supabase queries → `useTaskStore.ts`
+- Task CRUD operations → `src/store/useTaskStore.ts`
+- Date parsing → `src/utils/nlp.ts` (uses chrono-node)
+- Supabase queries → `src/store/useTaskStore.ts`
 
 ### 2. Feature Bloat
 - Focus ONLY on the requested feature
@@ -163,12 +168,12 @@ npm run build
 
 | When working on... | Check these files first |
 |-------------------|------------------------|
-| Task operations | `store/useTaskStore.ts`, `types.ts` |
-| UI components | `components/TaskList.tsx` for patterns |
-| Keyboard shortcuts | `App.tsx` (handleKeyDown function) |
-| Styling | `index.css` (design tokens at top) |
-| Database queries | `store/useTaskStore.ts` |
-| Authentication | `components/Login.tsx`, `App.tsx` |
+| Task operations | `src/store/useTaskStore.ts`, `src/types.ts` |
+| UI components | `src/components/TaskList/` for patterns |
+| Keyboard shortcuts | `src/App.tsx` (handleKeyDown function) |
+| Styling | `src/index.css` (design tokens at top) |
+| Database queries | `src/store/useTaskStore.ts` |
+| Authentication | `src/components/Login.tsx`, `src/App.tsx` |
 
 ---
 
