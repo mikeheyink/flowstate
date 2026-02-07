@@ -46,8 +46,10 @@ interface MailState {
     setFocusedIndex: (index: number) => void;
     setActiveTab: (tab: MailTab) => void;
     archiveEmail: (id: string) => void;
+    trashEmail: (id: string) => void;
     setEmailStatus: (id: string, status: Email['status']) => void;
     markAsRead: (id: string) => void;
+    markAsUnread: (id: string) => void;
     addLabel: (id: string, label: string) => void; // New
     navigateEmail: (index: number, id: string) => void;
     fetchEmails: () => Promise<void>;
@@ -159,6 +161,34 @@ export const useMailStore = create<MailState>()(
                 }
             },
 
+            trashEmail: async (id) => {
+                const previous = get().emails.find(e => e.id === id);
+                set((state) => ({
+                    emails: state.emails.map((email) =>
+                        email.id === id ? { ...email, status: 'trash' as const } : email
+                    ),
+                }));
+                try {
+                    if (previous) {
+                        await GmailService.trash(previous.gmailId);
+                        await supabase
+                            .from('emails')
+                            .update({ status: 'trash' })
+                            .eq('id', id);
+                    }
+                } catch (error) {
+                    if (previous) {
+                        set((state) => ({
+                            emails: state.emails.map((email) =>
+                                email.id === id ? previous : email
+                            ),
+                        }));
+                    }
+                    toast('Failed to trash email');
+                    console.error('trashEmail failed:', error);
+                }
+            },
+
             setEmailStatus: (id, status) =>
                 set((state) => ({
                     emails: state.emails.map((email) =>
@@ -191,6 +221,34 @@ export const useMailStore = create<MailState>()(
                     }
                     toast('Failed to mark email as read');
                     console.error('markAsRead failed:', error);
+                }
+            },
+
+            markAsUnread: async (id) => {
+                const previous = get().emails.find(e => e.id === id);
+                set((state) => ({
+                    emails: state.emails.map((email) =>
+                        email.id === id ? { ...email, isRead: false } : email
+                    ),
+                }));
+                try {
+                    if (previous) {
+                        await GmailService.markAsUnread(previous.gmailId);
+                        await supabase
+                            .from('emails')
+                            .update({ is_read: false })
+                            .eq('id', id);
+                    }
+                } catch (error) {
+                    if (previous) {
+                        set((state) => ({
+                            emails: state.emails.map((email) =>
+                                email.id === id ? previous : email
+                            ),
+                        }));
+                    }
+                    toast('Failed to mark email as unread');
+                    console.error('markAsUnread failed:', error);
                 }
             },
 

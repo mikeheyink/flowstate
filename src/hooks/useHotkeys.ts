@@ -295,6 +295,43 @@ export function useHotkeys() {
                     }
                 }
 
+                // Trash (#)
+                if (key === '#' || (isShift && key === '3')) {
+                    e.preventDefault();
+                    if (mailState.selectedId) {
+                        const filtered = filterEmails(mailState.emails, mailState.activeTab);
+                        const currentIdx = mailState.focusedIndex;
+
+                        mailState.trashEmail(mailState.selectedId);
+
+                        // Auto-advance
+                        const remaining = filtered.filter(em => em.id !== mailState.selectedId);
+                        if (remaining.length > 0) {
+                            const nextIdx = Math.min(currentIdx, remaining.length - 1);
+                            mailState.navigateEmail(nextIdx, remaining[nextIdx].id);
+                        }
+                        toast('Trashed');
+                    }
+                }
+
+                // Mark unread (u)
+                if (key === 'u' && !isCmd && !isShift) {
+                    e.preventDefault();
+                    if (mailState.selectedId) {
+                        mailState.markAsUnread(mailState.selectedId);
+                        toast('Marked as unread');
+                    }
+                }
+
+                // Mark read (Shift+I)
+                if (key === 'i' && isShift && !isCmd) {
+                    e.preventDefault();
+                    if (mailState.selectedId) {
+                        mailState.markAsRead(mailState.selectedId);
+                        toast('Marked as read');
+                    }
+                }
+
             }
 
         };
