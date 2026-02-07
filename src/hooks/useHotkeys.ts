@@ -73,9 +73,15 @@ export function useHotkeys() {
                 return;
             }
             if (key === 'escape') {
-                if (uiState.isShortcutsOpen) setShortcutsOpen(false);
-                if (uiState.isCmdOpen) setCmdOpen(false);
-                if (uiState.isQuickAddOpen) setQuickAddOpen(false);
+                if (uiState.isShortcutsOpen) { setShortcutsOpen(false); return; }
+                if (uiState.isCmdOpen) { setCmdOpen(false); return; }
+                if (uiState.isQuickAddOpen) { setQuickAddOpen(false); return; }
+
+                // Mail Reading Pane Escape
+                if (uiState.currentView === 'mail' && mailState.isReadingPaneOpen) {
+                    mailState.setReadingPaneOpen(false);
+                    return;
+                }
                 return;
             }
 
@@ -224,6 +230,15 @@ export function useHotkeys() {
                     }
                     return;
                 }
+
+                // Open Reading Pane (Enter)
+                if (key === 'enter' && !isCmd && !isAlt && !isShift) {
+                    e.preventDefault();
+                    if (mailState.selectedId) {
+                        mailState.setReadingPaneOpen(true);
+                    }
+                    return;
+                }
                 if (key === 'arrowup') {
                     e.preventDefault();
                     // Logic: If index > 0, decrement.
@@ -240,19 +255,35 @@ export function useHotkeys() {
                 }
 
                 // Actions
-                if (key === 'x') {
+                if (key === 'e' || key === 'x') {
                     e.preventDefault();
-                    console.log('Archive action triggered (Hook)');
-                    // if (mailState.selectedId) archiveEmail(mailState.selectedId);
+                    if (mailState.selectedId) {
+                        mailState.archiveEmail(mailState.selectedId);
+                        toast('Archived');
+                    }
                 }
-                if (key === 'r' && !isCmd) {
+
+                if (key === 'c') {
                     e.preventDefault();
-                    console.log('Mark Read (Hook)');
+                    useUIStore.getState().setComposeOpen(true);
                 }
-                if (key === 'y') {
+
+                if (key === 'r' && isShift) {
                     e.preventDefault();
-                    console.log('Mark Reply (Hook)');
+                    if (mailState.selectedId) {
+                        mailState.addLabel(mailState.selectedId, 'FLOWSTATE/ToRead');
+                        toast('Marked for Later Reading');
+                    }
                 }
+
+                if (key === 'y' && isShift) {
+                    e.preventDefault();
+                    if (mailState.selectedId) {
+                        mailState.addLabel(mailState.selectedId, 'FLOWSTATE/ToReply');
+                        toast('Marked to Reply');
+                    }
+                }
+
             }
 
         };
