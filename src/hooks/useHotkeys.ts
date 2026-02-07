@@ -325,10 +325,13 @@ export function useHotkeys() {
                     }
                 }
 
-                // Mark unread (u)
+                // Mark unread (u) — closes reading pane to prevent auto-mark-read conflict
                 if (key === 'u' && !isCmd && !isShift) {
                     e.preventDefault();
                     if (mailState.selectedId) {
+                        if (mailState.isReadingPaneOpen) {
+                            mailState.setReadingPaneOpen(false);
+                        }
                         mailState.markAsUnread(mailState.selectedId);
                         toast('Marked as unread');
                     }
