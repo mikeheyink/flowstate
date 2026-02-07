@@ -73,6 +73,7 @@ export function useHotkeys() {
                 return;
             }
             if (key === 'escape') {
+                if (uiState.isComposeOpen) { useUIStore.getState().setComposeOpen(false); return; }
                 if (uiState.isShortcutsOpen) { setShortcutsOpen(false); return; }
                 if (uiState.isCmdOpen) { setCmdOpen(false); return; }
                 if (uiState.isQuickAddOpen) { setQuickAddOpen(false); return; }

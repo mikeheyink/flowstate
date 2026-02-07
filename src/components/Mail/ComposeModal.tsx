@@ -41,10 +41,22 @@ export const ComposeModal = ({ isOpen, onClose }: { isOpen: boolean; onClose: ()
         }
     };
 
+    const handleKeyDown = (e: React.KeyboardEvent) => {
+        if ((e.metaKey || e.ctrlKey) && e.key === 'Enter') {
+            e.preventDefault();
+            handleSend();
+        }
+        if (e.key === 'Escape') {
+            e.preventDefault();
+            e.stopPropagation();
+            onClose();
+        }
+    };
+
     if (!isOpen) return null;
 
     return (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm" onKeyDown={handleKeyDown}>
             <div className="bg-white dark:bg-slate-900 w-full max-w-2xl rounded-xl shadow-2xl flex flex-col overflow-hidden border border-slate-200 dark:border-slate-800 animate-in fade-in zoom-in duration-200">
                 {/* Header */}
                 <div className="px-4 py-3 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between bg-slate-50 dark:bg-slate-900/50">
@@ -91,6 +103,7 @@ export const ComposeModal = ({ isOpen, onClose }: { isOpen: boolean; onClose: ()
                 {/* Footer */}
                 <div className="px-4 py-3 border-t border-slate-100 dark:border-slate-800 flex items-center justify-end bg-slate-50 dark:bg-slate-900/50">
                     <div className="flex items-center gap-3">
+                        <span className="text-xs text-slate-400 hidden sm:inline">Cmd + Enter to send</span>
                         <button
                             onClick={handleSend}
                             disabled={isSending}
