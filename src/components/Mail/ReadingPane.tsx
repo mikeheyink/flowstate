@@ -10,11 +10,12 @@ export const ReadingPane = () => {
     const email = emails.find(e => e.id === selectedId);
 
     // Auto-mark as read when viewing an email in the reading pane
+    // The guard inside markAsRead prevents redundant calls
     useEffect(() => {
-        if (selectedId && email && !email.isRead) {
+        if (selectedId) {
             markAsRead(selectedId);
         }
-    }, [selectedId, email?.isRead, markAsRead]);
+    }, [selectedId, markAsRead]);
 
     if (!selectedId || !email) {
         return (

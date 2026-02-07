@@ -198,6 +198,7 @@ export const useMailStore = create<MailState>()(
 
             markAsRead: async (id) => {
                 const previous = get().emails.find(e => e.id === id);
+                if (!previous || previous.isRead) return;
                 set((state) => ({
                     emails: state.emails.map((email) =>
                         email.id === id ? { ...email, isRead: true } : email
@@ -226,6 +227,7 @@ export const useMailStore = create<MailState>()(
 
             markAsUnread: async (id) => {
                 const previous = get().emails.find(e => e.id === id);
+                if (!previous || !previous.isRead) return;
                 set((state) => ({
                     emails: state.emails.map((email) =>
                         email.id === id ? { ...email, isRead: false } : email
