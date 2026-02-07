@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useMailStore } from '../../store/useMailStore';
+import { marked } from 'marked';
 import { X, Send, Minimize2 } from 'lucide-react';
 import { toast } from '../Toaster';
 
@@ -29,7 +30,8 @@ export const ComposeModal = ({ isOpen, onClose }: { isOpen: boolean; onClose: ()
 
         setIsSending(true);
         try {
-            await sendEmail({ to, cc: cc || undefined, bcc: bcc || undefined, subject, body });
+            const htmlBody = await marked.parse(body);
+            await sendEmail({ to, cc: cc || undefined, bcc: bcc || undefined, subject, body: htmlBody });
             toast('Email sent!');
             onClose();
             // Reset form
