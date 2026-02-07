@@ -1,5 +1,8 @@
 import { create } from 'zustand';
 import { devtools } from 'zustand/middleware';
+import { GmailService } from '../services/gmail';
+import { supabase } from '../utils/supabase';
+import { toast } from '../components/Toaster';
 
 // Email interface
 export interface Email {
@@ -22,17 +25,8 @@ export interface Email {
 
 export type MailTab = 'inbox' | 'to_read' | 'to_reply' | 'other';
 
-export const filterEmails = (emails: Email[], tab: MailTab) => {
-    switch (tab) {
-        case 'inbox':
-            // Inbox = Status 'inbox' AND (Has CATEGORY_PERSONAL OR No Category Label)
-            return emails.filter((e) => e.status === 'inbox' && (e.labels?.includes('CATEGORY_PERSONAL') || !e.labels?.some(l => l.startsWith('CATEGORY_'))));
 
-        case 'to_read': return emails.filter((e) => e.status === 'to_read');
-        case 'to_reply': return emails.filter((e) => e.status === 'to_reply');
-        case 'other': default: return emails;
-    }
-};
+
 
 // Store state
 interface MailState {
@@ -43,19 +37,45 @@ interface MailState {
     tabHistory: Record<string, string>;
     isLoading: boolean;
     error: string | null;
+    isReadingPaneOpen: boolean; // New
 
     // Actions
     setEmails: (emails: Email[]) => void;
     setSelectedId: (id: string | null) => void;
+    setReadingPaneOpen: (isOpen: boolean) => void; // New
     setFocusedIndex: (index: number) => void;
     setActiveTab: (tab: MailTab) => void;
     archiveEmail: (id: string) => void;
     setEmailStatus: (id: string, status: Email['status']) => void;
     markAsRead: (id: string) => void;
+    addLabel: (id: string, label: string) => void; // New
     navigateEmail: (index: number, id: string) => void;
     fetchEmails: () => Promise<void>;
     syncEmails: () => Promise<void>;
+    sendEmail: (payload: { to: string; subject: string; body: string; threadId?: string; replyToMessageId?: string }) => Promise<void>; // New
 }
+
+export const filterEmails = (emails: Email[], tab: MailTab) => {
+    switch (tab) {
+        case 'inbox':
+            // Inbox = Status 'inbox' AND (Has CATEGORY_PERSONAL OR No Category Label)
+            return emails.filter((e) => e.status === 'inbox' && (e.labels?.includes('CATEGORY_PERSONAL') || !e.labels?.some(l => l.startsWith('CATEGORY_'))));
+
+        case 'to_read':
+            // Filter by Label: FLOWSTATE/ToRead
+            return emails.filter((e) => e.labels?.includes('FLOWSTATE/ToRead'));
+
+        case 'to_reply':
+            // Filter by Label: FLOWSTATE/ToReply
+            return emails.filter((e) => e.labels?.includes('FLOWSTATE/ToReply'));
+
+        case 'other':
+            // Other = Status 'inbox' AND NOT Primary
+            return emails.filter((e) => e.status === 'inbox' && !e.labels?.includes('CATEGORY_PERSONAL') && e.labels?.some(l => l.startsWith('CATEGORY_')));
+
+        default: return emails;
+    }
+};
 
 export const useMailStore = create<MailState>()(
     devtools(
@@ -67,6 +87,7 @@ export const useMailStore = create<MailState>()(
             tabHistory: {},
             isLoading: false,
             error: null,
+            isReadingPaneOpen: false,
 
             setEmails: (emails) => set({ emails }),
 
@@ -74,6 +95,8 @@ export const useMailStore = create<MailState>()(
                 selectedId: id,
                 tabHistory: id ? { ...state.tabHistory, [state.activeTab]: id } : state.tabHistory
             })),
+
+            setReadingPaneOpen: (isOpen) => set({ isReadingPaneOpen: isOpen }),
 
             setFocusedIndex: (index) => set({ focusedIndex: index }),
 
@@ -103,22 +126,31 @@ export const useMailStore = create<MailState>()(
                 return {
                     activeTab: tab,
                     focusedIndex: nextIndex,
-                    selectedId: nextId
+                    selectedId: nextId,
+                    isReadingPaneOpen: false // Reset on tab switch
                 };
             }),
 
-            archiveEmail: (id) => {
-                // Optimistic Update
+            archiveEmail: async (id) => {
+                const previous = get().emails.find(e => e.id === id);
                 set((state) => ({
                     emails: state.emails.map((email) =>
-                        email.id === id ? { ...email, status: 'done' } : email
+                        email.id === id ? { ...email, status: 'done' as const } : email
                     ),
                 }));
-                // Async Background Action
-                import('../services/gmail').then(({ GmailService }) => {
-                    const email = get().emails.find(e => e.id === id);
-                    if (email) GmailService.archive(email.gmailId);
-                });
+                try {
+                    if (previous) await GmailService.archive(previous.gmailId);
+                } catch (error) {
+                    if (previous) {
+                        set((state) => ({
+                            emails: state.emails.map((email) =>
+                                email.id === id ? previous : email
+                            ),
+                        }));
+                    }
+                    toast('Failed to archive email');
+                    console.error('archiveEmail failed:', error);
+                }
             },
 
             setEmailStatus: (id, status) =>
@@ -128,16 +160,51 @@ export const useMailStore = create<MailState>()(
                     ),
                 })),
 
-            markAsRead: (id) => {
+            markAsRead: async (id) => {
+                const previous = get().emails.find(e => e.id === id);
                 set((state) => ({
                     emails: state.emails.map((email) =>
                         email.id === id ? { ...email, isRead: true } : email
                     ),
                 }));
-                import('../services/gmail').then(({ GmailService }) => {
-                    const email = get().emails.find(e => e.id === id);
-                    if (email) GmailService.markAsRead(email.gmailId);
-                });
+                try {
+                    if (previous) await GmailService.markAsRead(previous.gmailId);
+                } catch (error) {
+                    if (previous) {
+                        set((state) => ({
+                            emails: state.emails.map((email) =>
+                                email.id === id ? previous : email
+                            ),
+                        }));
+                    }
+                    toast('Failed to mark email as read');
+                    console.error('markAsRead failed:', error);
+                }
+            },
+
+            addLabel: async (id, label) => {
+                const previous = get().emails.find(e => e.id === id);
+                set((state) => ({
+                    emails: state.emails.map((email) =>
+                        email.id === id ? {
+                            ...email,
+                            labels: [...(email.labels || []), label]
+                        } : email
+                    ),
+                }));
+                try {
+                    if (previous) await GmailService.modify(previous.gmailId, [label], []);
+                } catch (error) {
+                    if (previous) {
+                        set((state) => ({
+                            emails: state.emails.map((email) =>
+                                email.id === id ? previous : email
+                            ),
+                        }));
+                    }
+                    toast('Failed to add label');
+                    console.error('addLabel failed:', error);
+                }
             },
 
             navigateEmail: (index, id) =>
@@ -148,25 +215,23 @@ export const useMailStore = create<MailState>()(
                 })),
 
             syncEmails: async () => {
-                // Trigger Background Sync (Edge Function)
-                // This function uses the stored refresh token on the server.
-                import('../services/gmail').then(async ({ GmailService }) => {
-                    console.log('Starting background sync...');
+                try {
                     const res = await GmailService.sync();
-                    console.log('Sync result:', res);
-
                     if (res.success && res.count && res.count > 0) {
-                        // Re-fetch to show new emails
                         get().fetchEmails();
                     }
-                });
+                } catch (error) {
+                    console.error('syncEmails failed:', error);
+                }
+            },
+
+            sendEmail: async (payload) => {
+                await GmailService.sendEmail(payload);
             },
 
             fetchEmails: async () => {
                 set({ isLoading: true, error: null });
                 try {
-                    // 1. Fetch from Supabase DB (Cache)
-                    const { supabase } = await import('../utils/supabase');
                     const { data, error } = await supabase
                         .from('emails')
                         .select('*')
@@ -189,7 +254,8 @@ export const useMailStore = create<MailState>()(
                         isRead: e.is_read,
                         labels: e.labels || [], // Map labels
                         createdAt: e.created_at,
-                        updatedAt: e.updated_at
+                        updatedAt: e.updated_at,
+                        payload: e.payload // Includes body
                     }));
 
                     set({ emails: mappedEmails, isLoading: false });
