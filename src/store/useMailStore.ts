@@ -139,7 +139,13 @@ export const useMailStore = create<MailState>()(
                     ),
                 }));
                 try {
-                    if (previous) await GmailService.archive(previous.gmailId);
+                    if (previous) {
+                        await GmailService.archive(previous.gmailId);
+                        await supabase
+                            .from('emails')
+                            .update({ status: 'done' })
+                            .eq('id', id);
+                    }
                 } catch (error) {
                     if (previous) {
                         set((state) => ({
@@ -168,7 +174,13 @@ export const useMailStore = create<MailState>()(
                     ),
                 }));
                 try {
-                    if (previous) await GmailService.markAsRead(previous.gmailId);
+                    if (previous) {
+                        await GmailService.markAsRead(previous.gmailId);
+                        await supabase
+                            .from('emails')
+                            .update({ is_read: true })
+                            .eq('id', id);
+                    }
                 } catch (error) {
                     if (previous) {
                         set((state) => ({
@@ -184,16 +196,23 @@ export const useMailStore = create<MailState>()(
 
             addLabel: async (id, label) => {
                 const previous = get().emails.find(e => e.id === id);
+                const updatedLabels = [...(previous?.labels || []), label];
                 set((state) => ({
                     emails: state.emails.map((email) =>
                         email.id === id ? {
                             ...email,
-                            labels: [...(email.labels || []), label]
+                            labels: updatedLabels
                         } : email
                     ),
                 }));
                 try {
-                    if (previous) await GmailService.modify(previous.gmailId, [label], []);
+                    if (previous) {
+                        await GmailService.modify(previous.gmailId, [label], []);
+                        await supabase
+                            .from('emails')
+                            .update({ labels: updatedLabels })
+                            .eq('id', id);
+                    }
                 } catch (error) {
                     if (previous) {
                         set((state) => ({

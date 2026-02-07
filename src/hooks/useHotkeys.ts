@@ -259,7 +259,17 @@ export function useHotkeys() {
                 if (key === 'e' || key === 'x') {
                     e.preventDefault();
                     if (mailState.selectedId) {
+                        const filtered = filterEmails(mailState.emails, mailState.activeTab);
+                        const currentIdx = mailState.focusedIndex;
+
                         mailState.archiveEmail(mailState.selectedId);
+
+                        // Auto-advance: pick next email, or previous if at end
+                        const remaining = filtered.filter(em => em.id !== mailState.selectedId);
+                        if (remaining.length > 0) {
+                            const nextIdx = Math.min(currentIdx, remaining.length - 1);
+                            mailState.navigateEmail(nextIdx, remaining[nextIdx].id);
+                        }
                         toast('Archived');
                     }
                 }
