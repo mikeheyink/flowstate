@@ -135,25 +135,36 @@ export function useHotkeys() {
             }
 
             // ----------------------------------------------------------------
+            // G-CHORD NAVIGATION (Global)
+            // ----------------------------------------------------------------
+            if (key === 'g' && !isCmd && !gPressed) {
+                setGPressed(true);
+                if (gTimeoutRef.current) clearTimeout(gTimeoutRef.current);
+                gTimeoutRef.current = window.setTimeout(() => setGPressed(false), 500);
+                return;
+            }
+
+            if (gPressed) {
+                // Cross-view navigation
+                if (key === 'm') { setCurrentView('mail'); setActiveTab('inbox'); toast('Go to Mail'); }
+                if (key === 't' && uiState.currentView !== 'tasks') { setCurrentView('tasks'); toast('Go to Tasks'); }
+
+                // Task filters (only when in tasks view, or switch to tasks)
+                if (key === 'i') {
+                    if (uiState.currentView !== 'tasks') setCurrentView('tasks');
+                    setFilter('active'); toast('Go to Inbox');
+                }
+                if (key === 't' && uiState.currentView === 'tasks') { setFilter('today'); toast('Go to Today'); }
+                if (key === 'r') { setFilter('review'); toast('Go to Review'); }
+
+                setGPressed(false);
+                return;
+            }
+
+            // ----------------------------------------------------------------
             // TASK VIEW HOTKEYS
             // ----------------------------------------------------------------
             if (uiState.currentView === 'tasks') {
-
-                // G-Chord Navigation
-                if (key === 'g' && !isCmd && !gPressed) {
-                    setGPressed(true);
-                    if (gTimeoutRef.current) clearTimeout(gTimeoutRef.current);
-                    gTimeoutRef.current = window.setTimeout(() => setGPressed(false), 500);
-                    return;
-                }
-
-                if (gPressed) {
-                    if (key === 'i') { setFilter('active'); toast("Go to Inbox"); }
-                    if (key === 't') { setFilter('today'); toast("Go to Today"); }
-                    if (key === 'r') { setFilter('review'); toast("Go to Review"); }
-                    setGPressed(false);
-                    return;
-                }
 
                 // Quick Add
                 if (key === 'enter' && !isCmd && !isAlt && !isShift) {
