@@ -1,13 +1,20 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import { useMailStore } from '../../store/useMailStore';
 import { Archive } from 'lucide-react';
 import DOMPurify from 'isomorphic-dompurify';
 import { format } from 'date-fns';
 
 export const ReadingPane = () => {
-    const { emails, selectedId, archiveEmail, setReadingPaneOpen } = useMailStore();
+    const { emails, selectedId, archiveEmail, markAsRead, setReadingPaneOpen } = useMailStore();
 
     const email = emails.find(e => e.id === selectedId);
+
+    // Auto-mark as read when viewing an email in the reading pane
+    useEffect(() => {
+        if (selectedId && email && !email.isRead) {
+            markAsRead(selectedId);
+        }
+    }, [selectedId, email?.isRead, markAsRead]);
 
     if (!selectedId || !email) {
         return (
