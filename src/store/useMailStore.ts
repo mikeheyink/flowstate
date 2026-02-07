@@ -54,7 +54,7 @@ interface MailState {
     navigateEmail: (index: number, id: string) => void;
     fetchEmails: () => Promise<void>;
     syncEmails: () => Promise<void>;
-    sendEmail: (payload: { to: string; subject: string; body: string; threadId?: string; replyToMessageId?: string }) => Promise<void>; // New
+    sendEmail: (payload: { to: string; cc?: string; bcc?: string; subject: string; body: string; threadId?: string; replyToMessageId?: string }) => Promise<void>;
 }
 
 export const filterEmails = (emails: Email[], tab: MailTab) => {

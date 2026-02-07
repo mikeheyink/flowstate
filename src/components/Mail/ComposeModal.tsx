@@ -6,6 +6,9 @@ import { toast } from '../Toaster';
 export const ComposeModal = ({ isOpen, onClose }: { isOpen: boolean; onClose: () => void }) => {
     const { sendEmail } = useMailStore();
     const [to, setTo] = useState('');
+    const [cc, setCc] = useState('');
+    const [bcc, setBcc] = useState('');
+    const [showCcBcc, setShowCcBcc] = useState(false);
     const [subject, setSubject] = useState('');
     const [body, setBody] = useState('');
     const [isSending, setIsSending] = useState(false);
@@ -26,11 +29,14 @@ export const ComposeModal = ({ isOpen, onClose }: { isOpen: boolean; onClose: ()
 
         setIsSending(true);
         try {
-            await sendEmail({ to, subject, body });
+            await sendEmail({ to, cc: cc || undefined, bcc: bcc || undefined, subject, body });
             toast('Email sent!');
             onClose();
             // Reset form
             setTo('');
+            setCc('');
+            setBcc('');
+            setShowCcBcc(false);
             setSubject('');
             setBody('');
         } catch (error) {
@@ -82,7 +88,37 @@ export const ComposeModal = ({ isOpen, onClose }: { isOpen: boolean; onClose: ()
                             className="flex-1 bg-transparent outline-none text-slate-900 dark:text-slate-100 placeholder:text-slate-400"
                             placeholder="recipient@example.com"
                         />
+                        {!showCcBcc && (
+                            <button
+                                onClick={() => setShowCcBcc(true)}
+                                className="text-xs text-slate-400 hover:text-slate-600 dark:hover:text-slate-300 shrink-0"
+                            >
+                                Cc/Bcc
+                            </button>
+                        )}
                     </div>
+                    {showCcBcc && (
+                        <>
+                            <div className="flex items-center gap-3 border-b border-slate-100 dark:border-slate-800 pb-2">
+                                <span className="text-sm font-medium text-slate-500 w-12 shrink-0">Cc:</span>
+                                <input
+                                    value={cc}
+                                    onChange={e => setCc(e.target.value)}
+                                    className="flex-1 bg-transparent outline-none text-slate-900 dark:text-slate-100 placeholder:text-slate-400"
+                                    placeholder="cc@example.com"
+                                />
+                            </div>
+                            <div className="flex items-center gap-3 border-b border-slate-100 dark:border-slate-800 pb-2">
+                                <span className="text-sm font-medium text-slate-500 w-12 shrink-0">Bcc:</span>
+                                <input
+                                    value={bcc}
+                                    onChange={e => setBcc(e.target.value)}
+                                    className="flex-1 bg-transparent outline-none text-slate-900 dark:text-slate-100 placeholder:text-slate-400"
+                                    placeholder="bcc@example.com"
+                                />
+                            </div>
+                        </>
+                    )}
                     <div className="flex items-center gap-3 border-b border-slate-100 dark:border-slate-800 pb-2">
                         <span className="text-sm font-medium text-slate-500 w-12 shrink-0">Subject:</span>
                         <input

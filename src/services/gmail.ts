@@ -100,7 +100,7 @@ export const GmailService = {
     /**
      * Sends a new email or reply.
      */
-    async sendEmail(payload: { to: string; subject: string; body: string; threadId?: string; replyToMessageId?: string }): Promise<SyncResponse> {
+    async sendEmail(payload: { to: string; cc?: string; bcc?: string; subject: string; body: string; threadId?: string; replyToMessageId?: string }): Promise<SyncResponse> {
         const { data, error } = await supabase.functions.invoke('gmail-sync', {
             body: {
                 action: 'send-email',
