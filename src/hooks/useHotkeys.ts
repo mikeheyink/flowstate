@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { useUIStore } from '../store/useUIStore';
 import { useTaskStore } from '../store/useTaskStore';
 import { useMailStore, filterEmails } from '../store/useMailStore';
+import { groupByThread } from '../utils/threadUtils';
 import { toast } from '../components/Toaster';
 
 export function useHotkeys() {
@@ -44,10 +45,11 @@ export function useHotkeys() {
 
     useEffect(() => {
         const handleKeyDown = (e: KeyboardEvent) => {
-            // 1. Global Ignore Rules
+            // 1. Global Ignore Rules — don't intercept keys when a form element or button is focused
             if (
                 document.activeElement?.tagName === 'INPUT' ||
-                document.activeElement?.tagName === 'TEXTAREA'
+                document.activeElement?.tagName === 'TEXTAREA' ||
+                document.activeElement?.tagName === 'BUTTON'
             ) {
                 if (e.key === 'Escape') (document.activeElement as HTMLElement).blur();
                 return;
@@ -63,6 +65,12 @@ export function useHotkeys() {
             const taskState = useTaskStore.getState();
             const mailState = useMailStore.getState();
 
+            // 2. Modal override — compose modal manages its own keyboard events
+            if (uiState.isComposeOpen) return;
+
+            // 3. Inline reply override — reply textarea manages its own keyboard events
+            if (uiState.replyMode !== 'none') return;
+
             // ----------------------------------------------------------------
             // GLOBAL HOTKEYS (Application-wide)
             // ----------------------------------------------------------------
@@ -73,7 +81,6 @@ export function useHotkeys() {
                 return;
             }
             if (key === 'escape') {
-                if (uiState.isComposeOpen) { useUIStore.getState().setComposeOpen(false); return; }
                 if (uiState.isShortcutsOpen) { setShortcutsOpen(false); return; }
                 if (uiState.isCmdOpen) { setCmdOpen(false); return; }
                 if (uiState.isQuickAddOpen) { setQuickAddOpen(false); return; }
@@ -227,18 +234,15 @@ export function useHotkeys() {
                     return;
                 }
 
-                // Navigation (Arrows) - Strict Logic
+                // Navigation (Arrows) - Thread-aware
                 if (key === 'arrowdown') {
                     e.preventDefault();
-                    const filtered = filterEmails(mailState.emails, mailState.activeTab);
-                    if (filtered.length === 0) return;
+                    const threads = groupByThread(filterEmails(mailState.emails, mailState.activeTab));
+                    if (threads.length === 0) return;
 
-                    const nextIndex = Math.min(mailState.focusedIndex + 1, filtered.length - 1);
-
-                    // Atomic update
-                    if (filtered[nextIndex]) {
-                        // Direct store call, no closure staleness
-                        mailState.navigateEmail(nextIndex, filtered[nextIndex].id);
+                    const nextIndex = Math.min(mailState.focusedIndex + 1, threads.length - 1);
+                    if (threads[nextIndex]) {
+                        mailState.navigateEmail(nextIndex, threads[nextIndex].latestEmail.id);
                     }
                     return;
                 }
@@ -253,15 +257,12 @@ export function useHotkeys() {
                 }
                 if (key === 'arrowup') {
                     e.preventDefault();
-                    // Logic: If index > 0, decrement.
-                    // If index is 0, stay at 0.
-                    const filtered = filterEmails(mailState.emails, mailState.activeTab);
-                    if (filtered.length === 0) return;
+                    const threads = groupByThread(filterEmails(mailState.emails, mailState.activeTab));
+                    if (threads.length === 0) return;
 
                     const prevIndex = Math.max(mailState.focusedIndex - 1, 0);
-
-                    if (filtered[prevIndex]) {
-                        mailState.navigateEmail(prevIndex, filtered[prevIndex].id);
+                    if (threads[prevIndex]) {
+                        mailState.navigateEmail(prevIndex, threads[prevIndex].latestEmail.id);
                     }
                     return;
                 }
@@ -270,16 +271,17 @@ export function useHotkeys() {
                 if (key === 'e' || key === 'x') {
                     e.preventDefault();
                     if (mailState.selectedId) {
-                        const filtered = filterEmails(mailState.emails, mailState.activeTab);
+                        const threads = groupByThread(filterEmails(mailState.emails, mailState.activeTab));
                         const currentIdx = mailState.focusedIndex;
+                        const currentThread = threads.find(t => t.emails.some(em => em.id === mailState.selectedId));
 
                         mailState.archiveEmail(mailState.selectedId);
 
-                        // Auto-advance: pick next email, or previous if at end
-                        const remaining = filtered.filter(em => em.id !== mailState.selectedId);
+                        // Auto-advance: pick next thread, or previous if at end
+                        const remaining = threads.filter(t => t.threadId !== currentThread?.threadId);
                         if (remaining.length > 0) {
                             const nextIdx = Math.min(currentIdx, remaining.length - 1);
-                            mailState.navigateEmail(nextIdx, remaining[nextIdx].id);
+                            mailState.navigateEmail(nextIdx, remaining[nextIdx].latestEmail.id);
                         }
                         toast('Archived');
                     }
@@ -288,6 +290,48 @@ export function useHotkeys() {
                 if (key === 'c') {
                     e.preventDefault();
                     useUIStore.getState().setComposeOpen(true);
+                }
+
+                // Reply (r)
+                if (key === 'r' && !isShift && !isCmd) {
+                    e.preventDefault();
+                    if (mailState.selectedId) {
+                        if (!mailState.isReadingPaneOpen) {
+                            mailState.setReadingPaneOpen(true);
+                        }
+                        useUIStore.getState().setReplyMode('reply');
+                    }
+                    return;
+                }
+
+                // Reply All (a)
+                if (key === 'a' && !isShift && !isCmd) {
+                    e.preventDefault();
+                    if (mailState.selectedId) {
+                        if (!mailState.isReadingPaneOpen) {
+                            mailState.setReadingPaneOpen(true);
+                        }
+                        useUIStore.getState().setReplyMode('replyAll');
+                    }
+                    return;
+                }
+
+                // Forward (f)
+                if (key === 'f' && !isShift && !isCmd) {
+                    e.preventDefault();
+                    if (mailState.selectedId) {
+                        const email = mailState.emails.find(em => em.id === mailState.selectedId);
+                        if (email) {
+                            useUIStore.getState().setForwardContext({
+                                to: '',
+                                subject: email.subject,
+                                body: email.payload?.body ?? email.snippet,
+                                threadId: email.threadId,
+                            });
+                            useUIStore.getState().setComposeOpen(true);
+                        }
+                    }
+                    return;
                 }
 
                 if (key === 'r' && isShift) {
@@ -310,16 +354,17 @@ export function useHotkeys() {
                 if (key === '#' || (isShift && key === '3')) {
                     e.preventDefault();
                     if (mailState.selectedId) {
-                        const filtered = filterEmails(mailState.emails, mailState.activeTab);
+                        const threads = groupByThread(filterEmails(mailState.emails, mailState.activeTab));
                         const currentIdx = mailState.focusedIndex;
+                        const currentThread = threads.find(t => t.emails.some(em => em.id === mailState.selectedId));
 
                         mailState.trashEmail(mailState.selectedId);
 
                         // Auto-advance
-                        const remaining = filtered.filter(em => em.id !== mailState.selectedId);
+                        const remaining = threads.filter(t => t.threadId !== currentThread?.threadId);
                         if (remaining.length > 0) {
                             const nextIdx = Math.min(currentIdx, remaining.length - 1);
-                            mailState.navigateEmail(nextIdx, remaining[nextIdx].id);
+                            mailState.navigateEmail(nextIdx, remaining[nextIdx].latestEmail.id);
                         }
                         toast('Trashed');
                     }

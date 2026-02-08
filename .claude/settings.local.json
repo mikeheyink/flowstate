@@ -1,0 +1,14 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(git add:*)",
+      "Bash(git commit -m \"$\\(cat <<''EOF''\nfix: add rollback to optimistic updates, replace dynamic imports\n\n- archiveEmail/markAsRead/addLabel now capture previous state and\n  rollback on API failure with user-facing error toast\n- Replace all dynamic import\\(\\) calls with top-level imports for\n  GmailService, supabase, and toast\n- syncEmails/sendEmail use proper async/await with try/catch\n- Remove debug console.log statements\n\nCo-Authored-By: Claude Opus 4.6 <noreply@anthropic.com>\nEOF\n\\)\")",
+      "Bash(npx tsc:*)",
+      "Bash(git commit:*)",
+      "Bash(findstr:*)",
+      "Bash(npm install:*)",
+      "Bash(grep:*)",
+      "Bash(git grep:*)"
+    ]
+  }
+}

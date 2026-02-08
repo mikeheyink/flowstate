@@ -1,23 +1,52 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, useState, useMemo, useCallback } from 'react';
 import { useMailStore } from '../../store/useMailStore';
+import { useUIStore } from '../../store/useUIStore';
 import { Archive } from 'lucide-react';
-import DOMPurify from 'isomorphic-dompurify';
-import { format } from 'date-fns';
+import { ThreadMessage } from './ThreadMessage';
+import { InlineReply } from './InlineReply';
 
 export const ReadingPane = () => {
-    const { emails, selectedId, archiveEmail, markAsRead, setReadingPaneOpen } = useMailStore();
+    const emails = useMailStore((state) => state.emails);
+    const selectedId = useMailStore((state) => state.selectedId);
+    const archiveEmail = useMailStore((state) => state.archiveEmail);
+    const markAsRead = useMailStore((state) => state.markAsRead);
+    const setReadingPaneOpen = useMailStore((state) => state.setReadingPaneOpen);
+    const replyMode = useUIStore((state) => state.replyMode);
+    const setReplyMode = useUIStore((state) => state.setReplyMode);
 
-    const email = emails.find(e => e.id === selectedId);
+    const [expandedIds, setExpandedIds] = useState<Set<string>>(new Set());
 
-    // Auto-mark as read when viewing an email in the reading pane
-    // The guard inside markAsRead prevents redundant calls
+    const selectedEmail = emails.find(e => e.id === selectedId);
+
+    const threadEmails = useMemo(() => {
+        if (!selectedEmail) return [];
+        return emails
+            .filter(e => e.threadId === selectedEmail.threadId)
+            .sort((a, b) => a.internalDate - b.internalDate);
+    }, [emails, selectedEmail]);
+
+    const latestEmail = threadEmails[threadEmails.length - 1];
+
     useEffect(() => {
         if (selectedId) {
             markAsRead(selectedId);
         }
     }, [selectedId, markAsRead]);
 
-    if (!selectedId || !email) {
+    useEffect(() => {
+        setExpandedIds(new Set());
+    }, [selectedEmail?.threadId]);
+
+    const toggleMessage = useCallback((id: string) => {
+        setExpandedIds(prev => {
+            const next = new Set(prev);
+            if (next.has(id)) next.delete(id);
+            else next.add(id);
+            return next;
+        });
+    }, []);
+
+    if (!selectedId || !selectedEmail) {
         return (
             <div className="flex-1 flex flex-col items-center justify-center bg-white dark:bg-slate-950 text-slate-400">
                 <div className="p-4 rounded-full bg-slate-50 dark:bg-slate-900 mb-4">
@@ -30,23 +59,20 @@ export const ReadingPane = () => {
         );
     }
 
-    const cleanHtml = DOMPurify.sanitize(email.payload?.body || '', {
-        USE_PROFILES: { html: true },
-        ADD_TAGS: ['style'], // Allow styles for email rendering
-        ADD_ATTR: ['target'] // Allow links to open in new tab
-    });
-
     return (
         <div className="flex-1 flex flex-col h-full bg-white dark:bg-slate-950 overflow-hidden relative">
-            {/* Header / Meta */}
+            {/* Thread Header */}
             <div className="px-8 py-6 border-b border-slate-100 dark:border-slate-800 shrink-0">
-                <div className="flex items-start justify-between mb-4 gap-4">
+                <div className="flex items-start justify-between mb-2 gap-4">
                     <h1 className="text-xl font-bold text-slate-900 dark:text-slate-100 leading-tight flex-1">
-                        {email.subject}
+                        {selectedEmail.subject}
                     </h1>
                     <div className="flex items-center gap-1">
+                        {threadEmails.length > 1 && (
+                            <span className="text-xs text-slate-400 mr-2">{threadEmails.length} messages</span>
+                        )}
                         <button
-                            onClick={() => archiveEmail(email.id)}
+                            onClick={() => archiveEmail(selectedEmail.id)}
                             className="p-2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-md transition-colors"
                             title="Archive (e)"
                         >
@@ -64,39 +90,28 @@ export const ReadingPane = () => {
                         </button>
                     </div>
                 </div>
-
-                <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-3">
-                        <div className="w-10 h-10 rounded-full bg-indigo-100 dark:bg-indigo-900/30 flex items-center justify-center text-indigo-600 dark:text-indigo-400 font-semibold text-sm">
-                            {(email.senderName || '?').charAt(0).toUpperCase()}
-                        </div>
-                        <div>
-                            <div className="flex items-baseline gap-2">
-                                <span className="font-semibold text-slate-900 dark:text-slate-200 text-sm">{email.senderName}</span>
-                                <span className="text-xs text-slate-500 dark:text-slate-500 text-sm hidden sm:inline">&lt;{email.senderEmail}&gt;</span>
-                            </div>
-                            <div className="text-xs text-slate-500 mt-0.5">
-                                to me
-                            </div>
-                        </div>
-                    </div>
-
-                    <div className="text-xs text-slate-400">
-                        {format(email.internalDate, 'MMM d, yyyy, h:mm a')}
-                    </div>
-                </div>
             </div>
 
-            {/* Email Body */}
-            <div className="flex-1 overflow-y-auto p-8 custom-scrollbar">
-                <div
-                    className="email-content prose prose-slate dark:prose-invert max-w-none prose-sm sm:prose-base focus:outline-none"
-                    // Important: Email HTML often needs specific overrides to look good in dark mode
-                    // We might need a Shadow DOM wrapper eventually.
-                    dangerouslySetInnerHTML={{ __html: cleanHtml }}
+            {/* Thread Messages */}
+            <div className="flex-1 overflow-y-auto custom-scrollbar">
+                {threadEmails.map((email) => (
+                    <ThreadMessage
+                        key={email.id}
+                        email={email}
+                        isLatest={email.id === latestEmail?.id}
+                        isExpanded={expandedIds.has(email.id)}
+                        onToggle={() => toggleMessage(email.id)}
+                    />
+                ))}
+            </div>
+
+            {replyMode !== 'none' && latestEmail && (
+                <InlineReply
+                    email={latestEmail}
+                    mode={replyMode}
+                    onClose={() => setReplyMode('none')}
                 />
-            </div>
-
+            )}
         </div>
     );
 };

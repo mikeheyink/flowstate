@@ -3,11 +3,22 @@ import { create } from 'zustand';
 export type FocusMode = 'sidebar' | 'main';
 export type QuickAddMode = 'create' | 'date' | 'tag';
 export type CurrentView = 'tasks' | 'mail';
+export type ReplyMode = 'none' | 'reply' | 'replyAll';
+
+interface ForwardContext {
+  to: string;
+  subject: string;
+  body: string;
+  threadId: string;
+}
 
 interface UIState {
   isCmdOpen: boolean;
   isQuickAddOpen: boolean;
   isShortcutsOpen: boolean;
+  isComposeOpen: boolean;
+  replyMode: ReplyMode;
+  forwardContext: ForwardContext | null;
   quickAddParentId: string | null;
   quickAddMode: QuickAddMode;
   quickAddTaskId: string | null;
@@ -23,6 +34,9 @@ interface UIState {
   setCmdOpen: (open: boolean) => void;
   setQuickAddOpen: (open: boolean, parentId?: string | null, mode?: QuickAddMode, taskId?: string | null) => void;
   setShortcutsOpen: (open: boolean) => void;
+  setComposeOpen: (open: boolean) => void;
+  setReplyMode: (mode: ReplyMode) => void;
+  setForwardContext: (ctx: ForwardContext | null) => void;
   setEditingTaskId: (id: string | null) => void;
   setFilter: (filter: 'active' | 'today' | 'upcoming' | 'review') => void;
   setFocusMode: (mode: FocusMode) => void;
@@ -32,6 +46,9 @@ interface UIState {
 
 export const useUIStore = create<UIState>((set) => ({
   isCmdOpen: false,
+  isComposeOpen: false,
+  replyMode: 'none',
+  forwardContext: null,
   isQuickAddOpen: false,
   isShortcutsOpen: false,
   quickAddParentId: null,
@@ -54,6 +71,9 @@ export const useUIStore = create<UIState>((set) => ({
   setQuickAddOpen: (open, parentId = null, mode = 'create', taskId = null) =>
     set({ isQuickAddOpen: open, quickAddParentId: parentId, quickAddMode: mode, quickAddTaskId: taskId }),
   setShortcutsOpen: (open) => set({ isShortcutsOpen: open }),
+  setComposeOpen: (open) => set(open ? { isComposeOpen: true } : { isComposeOpen: false, forwardContext: null }),
+  setReplyMode: (mode) => set({ replyMode: mode }),
+  setForwardContext: (ctx) => set({ forwardContext: ctx }),
   setEditingTaskId: (id) => set({ editingTaskId: id }),
   setFilter: (filter) => set({ filter }),
   setFocusMode: (mode) => set({ focusMode: mode }),

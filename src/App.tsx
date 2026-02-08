@@ -12,6 +12,7 @@ import { Login } from './components/Login';
 import { TopNav } from './components/TopNav';
 import { InboxZero } from './components/InboxZero';
 import { MailView } from './components/Mail/MailView';
+import { ComposeModal } from './components/Mail/ComposeModal'; // New
 import { useTaskStore } from './store/useTaskStore';
 import { useUIStore } from './store/useUIStore';
 import { useHotkeys } from './hooks/useHotkeys';
@@ -26,12 +27,14 @@ function App() {
         isCmdOpen,
         isQuickAddOpen,
         isShortcutsOpen,
+        isComposeOpen, // Moved here
         filter,
         focusMode,
         currentView,
         setCmdOpen,
         setQuickAddOpen,
         setShortcutsOpen,
+        setComposeOpen, // Moved here
         setFilter,
         setFocusMode,
         setCurrentView,
@@ -236,7 +239,7 @@ function App() {
                                     {filter === 'review' ? <WeeklyReview /> : <TaskList filter={filter} />}
                                 </div>
                             ) : (
-                                <div className="max-w-5xl mx-auto h-full">
+                                <div className="w-full h-full">
                                     <MailView />
                                 </div>
                             )}
@@ -272,6 +275,7 @@ function App() {
             <InboxZero show={showInboxZero} />
             <CommandPalette isOpen={isCmdOpen} onClose={() => setCmdOpen(false)} />
             <ShortcutsModal isOpen={isShortcutsOpen} onClose={() => setShortcutsOpen(false)} />
+            <ComposeModal isOpen={isComposeOpen} onClose={() => setComposeOpen(false)} />
             <CoachChat />
             <Toaster />
         </div>

@@ -315,7 +315,10 @@ function transformEmail(gmailData: any, userId: string) {
         labels: gmailData.labelIds || [], // Store all labels (CATEGORY_*, etc)
         payload: {
             mimeType: gmailData.payload.mimeType,
-            body: body // CAUTION: Storing full body might be heavy? For now, yes, for Reading Pane.
+            body: body,
+            to: getHeader('To'),
+            cc: getHeader('Cc'),
+            messageId: getHeader('Message-ID'),
         }
     }
 }
