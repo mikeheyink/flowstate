@@ -18,9 +18,10 @@ import { useUIStore } from './store/useUIStore';
 import { useHotkeys } from './hooks/useHotkeys';
 import { useOnlineStatus } from './store/useOnlineStatus';
 import { supabase } from './utils/supabase';
+import type { Session } from '@supabase/supabase-js';
 
 function App() {
-    const [session, setSession] = useState<any>(null);
+    const [session, setSession] = useState<Session | null>(null);
     const [authLoading, setAuthLoading] = useState(true);
 
     const {

@@ -1,8 +1,8 @@
 import React from 'react';
 import { Email } from '../../store/useMailStore';
 import { ChevronRight } from 'lucide-react';
-import DOMPurify from 'isomorphic-dompurify';
 import { format } from 'date-fns';
+import { EmailContent } from './EmailContent';
 
 interface ThreadMessageProps {
     email: Email;
@@ -14,13 +14,7 @@ interface ThreadMessageProps {
 export const ThreadMessage = ({ email, isExpanded, onToggle, isLatest }: ThreadMessageProps) => {
     const showBody = isLatest || isExpanded;
 
-    const cleanHtml = showBody
-        ? DOMPurify.sanitize(email.payload?.body || '', {
-            USE_PROFILES: { html: true },
-            ADD_TAGS: ['style'],
-            ADD_ATTR: ['target'],
-        })
-        : '';
+    const rawHtml = showBody ? (email.payload?.body || '') : '';
 
     if (!showBody) {
         return (
@@ -71,10 +65,7 @@ export const ThreadMessage = ({ email, isExpanded, onToggle, isLatest }: ThreadM
                 </div>
             </div>
             <div className="px-8 pb-6">
-                <div
-                    className="email-content prose prose-slate dark:prose-invert max-w-none prose-sm sm:prose-base focus:outline-none"
-                    dangerouslySetInnerHTML={{ __html: cleanHtml }}
-                />
+                <EmailContent html={rawHtml} />
             </div>
         </div>
     );

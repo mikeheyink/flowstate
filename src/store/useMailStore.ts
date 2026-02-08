@@ -4,7 +4,35 @@ import { GmailService } from '../services/gmail';
 import { supabase } from '../utils/supabase';
 import { toast } from '../components/Toaster';
 
-// Email interface
+// Email payload shape (from Gmail via Edge Function)
+export interface EmailPayload {
+    mimeType: string;
+    body: string;
+    to?: string;
+    cc?: string;
+    messageId?: string;
+}
+
+// Database row shape (snake_case)
+interface DbEmail {
+    id: string;
+    gmail_id: string;
+    thread_id: string;
+    history_id?: string;
+    internal_date: number;
+    subject: string;
+    snippet: string;
+    sender_name: string;
+    sender_email: string;
+    payload?: EmailPayload;
+    status: string;
+    is_read: boolean;
+    labels?: string[];
+    created_at: string;
+    updated_at: string;
+}
+
+// Client-side email model (camelCase)
 export interface Email {
     id: string;
     gmailId: string;
@@ -15,7 +43,7 @@ export interface Email {
     snippet: string;
     senderName: string;
     senderEmail: string;
-    payload?: any;
+    payload?: EmailPayload;
     status: 'inbox' | 'to_read' | 'to_reply' | 'done' | 'trash';
     isRead: boolean;
     labels?: string[];
@@ -142,7 +170,8 @@ export const useMailStore = create<MailState>()(
                 }));
                 try {
                     if (previous) {
-                        await GmailService.archive(previous.gmailId);
+                        const result = await GmailService.archive(previous.gmailId);
+                        if (!result.success) throw new Error(result.error || 'Archive failed');
                         await supabase
                             .from('emails')
                             .update({ status: 'done' })
@@ -170,7 +199,8 @@ export const useMailStore = create<MailState>()(
                 }));
                 try {
                     if (previous) {
-                        await GmailService.trash(previous.gmailId);
+                        const result = await GmailService.trash(previous.gmailId);
+                        if (!result.success) throw new Error(result.error || 'Trash failed');
                         await supabase
                             .from('emails')
                             .update({ status: 'trash' })
@@ -206,7 +236,8 @@ export const useMailStore = create<MailState>()(
                 }));
                 try {
                     if (previous) {
-                        await GmailService.markAsRead(previous.gmailId);
+                        const result = await GmailService.markAsRead(previous.gmailId);
+                        if (!result.success) throw new Error(result.error || 'Mark as read failed');
                         await supabase
                             .from('emails')
                             .update({ is_read: true })
@@ -235,7 +266,8 @@ export const useMailStore = create<MailState>()(
                 }));
                 try {
                     if (previous) {
-                        await GmailService.markAsUnread(previous.gmailId);
+                        const result = await GmailService.markAsUnread(previous.gmailId);
+                        if (!result.success) throw new Error(result.error || 'Mark as unread failed');
                         await supabase
                             .from('emails')
                             .update({ is_read: false })
@@ -267,7 +299,8 @@ export const useMailStore = create<MailState>()(
                 }));
                 try {
                     if (previous) {
-                        await GmailService.modify(previous.gmailId, [label], []);
+                        const result = await GmailService.modify(previous.gmailId, [label], []);
+                        if (!result.success) throw new Error(result.error || 'Label update failed');
                         await supabase
                             .from('emails')
                             .update({ labels: updatedLabels })
@@ -305,7 +338,10 @@ export const useMailStore = create<MailState>()(
             },
 
             sendEmail: async (payload) => {
-                await GmailService.sendEmail(payload);
+                const result = await GmailService.sendEmail(payload);
+                if (!result.success) {
+                    throw new Error(result.error || 'Failed to send email');
+                }
             },
 
             fetchEmails: async () => {
@@ -318,8 +354,8 @@ export const useMailStore = create<MailState>()(
 
                     if (error) throw error;
 
-                    // Map DB keys to CamelCase for Store
-                    const mappedEmails: Email[] = (data || []).map((e: any) => ({
+                    // Map DB keys (snake_case) to client model (camelCase)
+                    const mappedEmails: Email[] = (data || []).map((e: DbEmail) => ({
                         id: e.id,
                         gmailId: e.gmail_id,
                         threadId: e.thread_id,
@@ -329,12 +365,12 @@ export const useMailStore = create<MailState>()(
                         snippet: e.snippet || '',
                         senderName: e.sender_name || 'Unknown',
                         senderEmail: e.sender_email || '',
-                        status: e.status as any,
+                        status: e.status as Email['status'],
                         isRead: e.is_read,
-                        labels: e.labels || [], // Map labels
+                        labels: e.labels || [],
                         createdAt: e.created_at,
                         updatedAt: e.updated_at,
-                        payload: e.payload // Includes body
+                        payload: e.payload,
                     }));
 
                     set({ emails: mappedEmails, isLoading: false });

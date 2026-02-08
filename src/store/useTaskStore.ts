@@ -5,6 +5,7 @@ import { parseTaskInput } from '../utils/nlp';
 import { supabase } from '../utils/supabase';
 import { getSiblings } from '../utils/taskOrdering';
 import { createSelectionSlice, SelectionSlice } from './slices/selectionSlice';
+import { toast } from '../components/Toaster';
 
 const generateId = () => Math.random().toString(36).substring(2, 9);
 
@@ -13,7 +14,7 @@ interface PendingOperation {
   id: string;
   type: 'insert' | 'update' | 'delete';
   table: string;
-  data?: any;
+  data?: Record<string, unknown>;
   taskId?: string;
 }
 
@@ -91,7 +92,26 @@ interface TaskState {
   getPendingCount: () => number;
 }
 
-const mapFromDb = (dbTask: any): Task => ({
+interface DbTask {
+  id: string;
+  parent_id: string | null;
+  title: string;
+  notes: string | null;
+  completed: boolean;
+  completed_at: string | null;
+  priority: number;
+  tags: string[];
+  due_date: string | null;
+  created_at: string;
+  order: string;
+  expanded: boolean;
+  archived: boolean;
+  important_order: string | null;
+  today_order: string | null;
+  user_id: string;
+}
+
+const mapFromDb = (dbTask: DbTask): Task => ({
   id: dbTask.id,
   parentId: dbTask.parent_id,
   title: dbTask.title,
@@ -110,7 +130,7 @@ const mapFromDb = (dbTask: any): Task => ({
 });
 
 const mapToDb = (task: Partial<Task>) => {
-  const dbObj: any = {};
+  const dbObj: Record<string, unknown> = {};
   if (task.id !== undefined) dbObj.id = task.id;
   if (task.parentId !== undefined) dbObj.parent_id = task.parentId;
   if (task.title !== undefined) dbObj.title = task.title;
@@ -131,10 +151,10 @@ const mapToDb = (task: Partial<Task>) => {
 
 // Helper to queue operations when offline
 const queueOperation = async (
-  set: any,
-  get: any,
+  set: (partial: Partial<TaskState>) => void,
+  get: () => TaskState,
   operation: Omit<PendingOperation, 'id'>,
-  executeOnline: () => Promise<any>
+  executeOnline: () => Promise<void>
 ) => {
   const state = get();
   if (state.guestMode) return; // No sync in guest mode
@@ -316,39 +336,44 @@ export const useTaskStore = create<TaskState>()(
         }
 
         // 4. DB Sync
-        if (state.guestMode) return; // No sync in guest mode
+        if (state.guestMode) return;
 
         const { data: userData } = await supabase.auth.getUser();
-        if (!userData.user) return; // Should handle error
+        if (!userData.user) return;
 
-        // Insert new task
-        await supabase.from('tasks').insert({
-          ...mapToDb(finalNewTask),
-          user_id: userData.user.id
-        });
+        try {
+          await supabase.from('tasks').insert({
+            ...mapToDb(finalNewTask),
+            user_id: userData.user.id
+          });
 
-        // Update siblings order
-        // In a real app we'd batch this or make it smarter, but for MVP loop is okay
-        // Or simply only update the ones that changed.
-        for (const t of activeSiblings) {
-          if (updates[t.id] !== undefined && updates[t.id] !== t.order) {
-            await supabase.from('tasks').update({ order: updates[t.id] }).eq('id', t.id);
+          for (const t of activeSiblings) {
+            if (updates[t.id] !== undefined && updates[t.id] !== t.order) {
+              await supabase.from('tasks').update({ order: updates[t.id] }).eq('id', t.id);
+            }
           }
+        } catch (error) {
+          console.error('addTask failed:', error);
+          set((s) => ({ tasks: s.tasks.filter(t => t.id !== finalNewTask.id) }));
+          toast('Failed to save task');
         }
       },
 
       restoreTask: async (task, options = {}) => {
-        // Used by Undo/Redo to re-insert a specific task definition
         const state = get();
-        // Just append for now, assuming order is self-contained or acceptable
         set({ tasks: [...state.tasks, task] });
-
-        // No History push here as it is CALLED by history (or skipHistory passed)
 
         if (state.guestMode) return;
         const { data: userData } = await supabase.auth.getUser();
         if (!userData.user) return;
-        await supabase.from('tasks').insert({ ...mapToDb(task), user_id: userData.user.id });
+
+        try {
+          await supabase.from('tasks').insert({ ...mapToDb(task), user_id: userData.user.id });
+        } catch (error) {
+          console.error('restoreTask failed:', error);
+          set((s) => ({ tasks: s.tasks.filter(t => t.id !== task.id) }));
+          toast('Failed to restore task');
+        }
       },
 
       batchAddTasks: async (rawInputs) => {
@@ -402,7 +427,14 @@ export const useTaskStore = create<TaskState>()(
           user_id: userData.user!.id
         }));
 
-        await supabase.from('tasks').insert(dbTasks);
+        try {
+          await supabase.from('tasks').insert(dbTasks);
+        } catch (error) {
+          console.error('batchAddTasks failed:', error);
+          const newIds = new Set(newTasks.map(t => t.id));
+          set((s) => ({ tasks: s.tasks.filter(t => !newIds.has(t.id)) }));
+          toast('Failed to save tasks');
+        }
       },
 
       updateTask: async (id, updates, options = {}) => {
@@ -431,13 +463,20 @@ export const useTaskStore = create<TaskState>()(
           });
         }
 
+        const previous = { ...task };
         set((state) => ({
           tasks: state.tasks.map(t => t.id === id ? { ...t, ...updates } : t),
         }));
 
         if (state.guestMode) return;
 
-        await supabase.from('tasks').update(mapToDb(updates)).eq('id', id);
+        try {
+          await supabase.from('tasks').update(mapToDb(updates)).eq('id', id);
+        } catch (error) {
+          console.error('updateTask failed:', error);
+          set((s) => ({ tasks: s.tasks.map(t => t.id === id ? previous : t) }));
+          toast('Failed to update task');
+        }
       },
 
       moveTask: async (id: string, direction: 'up' | 'down', options = {}) => {
@@ -509,15 +548,22 @@ export const useTaskStore = create<TaskState>()(
         updates[id2] = val1;
 
         // Apply
+        const previousTasks = state.tasks;
         set((state) => ({
           tasks: state.tasks.map(t => updates[t.id] !== undefined ? { ...t, [orderField]: updates[t.id] } : t)
         }));
 
         if (state.guestMode) return;
 
-        const dbField = orderField === 'importantOrder' ? 'important_order' : (orderField === 'todayOrder' ? 'today_order' : 'order');
-        await supabase.from('tasks').update({ [dbField]: updates[id1] }).eq('id', id1);
-        await supabase.from('tasks').update({ [dbField]: updates[id2] }).eq('id', id2);
+        try {
+          const dbField = orderField === 'importantOrder' ? 'important_order' : (orderField === 'todayOrder' ? 'today_order' : 'order');
+          await supabase.from('tasks').update({ [dbField]: updates[id1] }).eq('id', id1);
+          await supabase.from('tasks').update({ [dbField]: updates[id2] }).eq('id', id2);
+        } catch (error) {
+          console.error('moveTask failed:', error);
+          set({ tasks: previousTasks });
+          toast('Failed to reorder task');
+        }
       },
 
       toggleImportance: async (id, options = {}) => {
@@ -547,35 +593,41 @@ export const useTaskStore = create<TaskState>()(
           });
         }
 
+        const previousTasks = state.tasks;
+
         if (task.importantOrder) {
-          // Already Important
-          if (task.importantOrder === 1) {
-            // Already #1, do nothing
-            return;
-          }
-          // Promote to #1
+          if (task.importantOrder === 1) return;
+
           const updates: Record<string, number> = {};
           updates[task.id] = 1;
-
           let counter = 2;
           importantTasks.forEach(t => {
-            if (t.id !== task.id) {
-              updates[t.id] = counter++;
-            }
+            if (t.id !== task.id) updates[t.id] = counter++;
           });
 
           set(s => ({ tasks: s.tasks.map(t => updates[t.id] ? { ...t, importantOrder: updates[t.id] } : t) }));
           if (!state.guestMode) {
-            for (const [tid, ord] of Object.entries(updates)) {
-              await supabase.from('tasks').update({ important_order: ord }).eq('id', tid);
+            try {
+              for (const [tid, ord] of Object.entries(updates)) {
+                await supabase.from('tasks').update({ important_order: ord }).eq('id', tid);
+              }
+            } catch (error) {
+              console.error('toggleImportance (promote) failed:', error);
+              set({ tasks: previousTasks });
+              toast('Failed to update importance');
             }
           }
         } else {
-          // Make Important (Append)
           const newOrder = importantTasks.length > 0 ? (importantTasks[importantTasks.length - 1].importantOrder || 0) + 1 : 1;
           set(s => ({ tasks: s.tasks.map(t => t.id === id ? { ...t, importantOrder: newOrder } : t) }));
           if (!state.guestMode) {
-            await supabase.from('tasks').update({ important_order: newOrder }).eq('id', id);
+            try {
+              await supabase.from('tasks').update({ important_order: newOrder }).eq('id', id);
+            } catch (error) {
+              console.error('toggleImportance (append) failed:', error);
+              set({ tasks: previousTasks });
+              toast('Failed to update importance');
+            }
           }
         }
       },
@@ -605,9 +657,15 @@ export const useTaskStore = create<TaskState>()(
         }));
 
         if (!state.guestMode) {
-          await supabase.from('tasks').update({ important_order: null }).eq('id', id);
-          for (const [tid, ord] of Object.entries(updates)) {
-            await supabase.from('tasks').update({ important_order: ord }).eq('id', tid);
+          try {
+            await supabase.from('tasks').update({ important_order: null }).eq('id', id);
+            for (const [tid, ord] of Object.entries(updates)) {
+              await supabase.from('tasks').update({ important_order: ord }).eq('id', tid);
+            }
+          } catch (error) {
+            console.error('clearImportance failed:', error);
+            set({ tasks: state.tasks });
+            toast('Failed to clear importance');
           }
         }
       },
@@ -630,13 +688,20 @@ export const useTaskStore = create<TaskState>()(
           });
         }
 
+        const oldParent = task.parentId;
         set((state) => ({
           tasks: state.tasks.map(t => t.id === id ? { ...t, parentId: newParentId } : t)
         }));
 
         if (state.guestMode) return;
 
-        await supabase.from('tasks').update({ parent_id: newParentId }).eq('id', id);
+        try {
+          await supabase.from('tasks').update({ parent_id: newParentId }).eq('id', id);
+        } catch (error) {
+          console.error('changeParent failed:', error);
+          set((s) => ({ tasks: s.tasks.map(t => t.id === id ? { ...t, parentId: oldParent } : t) }));
+          toast('Failed to change parent');
+        }
       },
 
       moveTaskTo: async (id: string, newParentId: string | null, newOrder: number, options?: { context?: 'today' | 'project' }) => {
@@ -652,21 +717,30 @@ export const useTaskStore = create<TaskState>()(
         // Plan says: "Today view sorting fix... separate task sorting order... decoupling from parent hierarchy or implementing flat sort for Today".
         // So we likely just update 'todayOrder' and ignore parentId changes or keep them same.
 
-        const update: any = { [field]: newOrder };
-        if (field === 'order') update.parent_id = newParentId; // Only sync parent if standard order
+        const update: Record<string, unknown> = { [field]: newOrder };
+        if (field === 'order') update.parent_id = newParentId;
 
         set((state) => ({
           tasks: state.tasks.map(t => t.id === id ? { ...t, ...update, ...(field === 'order' ? { parentId: newParentId } : {}) } : t)
         }));
 
-        const state = get();
-        if (state.guestMode) return;
+        const currentState = get();
+        if (currentState.guestMode) return;
 
-        const dbUpdate: any = { ...update };
+        const dbUpdate: Record<string, unknown> = { ...update };
         if (field === 'todayOrder') delete dbUpdate.parent_id;
         if (field === 'todayOrder') dbUpdate.today_order = newOrder;
 
-        await supabase.from('tasks').update(dbUpdate).eq('id', id);
+        try {
+          await supabase.from('tasks').update(dbUpdate).eq('id', id);
+        } catch (error) {
+          console.error('moveTaskTo failed:', error);
+          const taskBefore = currentState.tasks.find(t => t.id === id);
+          if (taskBefore) {
+            set((s) => ({ tasks: s.tasks.map(t => t.id === id ? taskBefore : t) }));
+          }
+          toast('Failed to move task');
+        }
       },
 
       toggleTask: async (id, options = {}) => {
@@ -695,7 +769,16 @@ export const useTaskStore = create<TaskState>()(
         });
 
         if (state.guestMode) return;
-        await supabase.from('tasks').update({ completed: newVal, completed_at: completedAt }).eq('id', id);
+
+        try {
+          await supabase.from('tasks').update({ completed: newVal, completed_at: completedAt }).eq('id', id);
+        } catch (error) {
+          console.error('toggleTask failed:', error);
+          set((s) => ({
+            tasks: s.tasks.map(t => t.id === id ? { ...t, completed: task.completed, completedAt: task.completedAt } : t),
+          }));
+          toast('Failed to update task');
+        }
       },
 
       deleteTask: async (id, options = {}) => {
@@ -715,14 +798,20 @@ export const useTaskStore = create<TaskState>()(
         }
 
         // Simple optimistic delete
+        const deletedTasks = state.tasks.filter(t => t.id === id || t.parentId === id);
         set((state) => ({
           tasks: state.tasks.filter((t) => t.id !== id && t.parentId !== id),
         }));
 
         if (state.guestMode) return;
 
-        await supabase.from('tasks').delete().eq('id', id);
-        // Supabase cascade delete handles children if configured, but here we do simple
+        try {
+          await supabase.from('tasks').delete().eq('id', id);
+        } catch (error) {
+          console.error('deleteTask failed:', error);
+          set((s) => ({ tasks: [...s.tasks, ...deletedTasks] }));
+          toast('Failed to delete task');
+        }
       },
 
       archiveTask: async (id, options = {}) => {
@@ -748,7 +837,13 @@ export const useTaskStore = create<TaskState>()(
 
         if (state.guestMode) return;
 
-        await supabase.from('tasks').update({ archived: true }).eq('id', id);
+        try {
+          await supabase.from('tasks').update({ archived: true }).eq('id', id);
+        } catch (error) {
+          console.error('archiveTask failed:', error);
+          set((s) => ({ tasks: s.tasks.map(t => t.id === id ? { ...t, archived: false } : t) }));
+          toast('Failed to archive task');
+        }
       },
 
       setPriority: async (id, priority, options = {}) => {
@@ -775,13 +870,19 @@ export const useTaskStore = create<TaskState>()(
 
         if (state.guestMode) return;
 
-        await supabase.from('tasks').update({ priority }).eq('id', id);
+        try {
+          await supabase.from('tasks').update({ priority }).eq('id', id);
+        } catch (error) {
+          console.error('setPriority failed:', error);
+          set((s) => ({ tasks: s.tasks.map(t => t.id === id ? { ...t, priority: task.priority } : t) }));
+          toast('Failed to set priority');
+        }
       },
 
       setFocusedId: (id) => set({ focusedId: id }),
 
       // --- Selection Actions (from selectionSlice) ---
-      ...createSelectionSlice(set, get, {} as any),
+      ...createSelectionSlice(set as Parameters<typeof createSelectionSlice>[0], get as Parameters<typeof createSelectionSlice>[1], {} as Parameters<typeof createSelectionSlice>[2]),
 
       // --- Batch Actions ---
       batchDelete: () => {
@@ -1026,7 +1127,12 @@ export const useTaskStore = create<TaskState>()(
 
         if (state.guestMode) return;
 
-        await supabase.from('tasks').update({ expanded: !task.expanded }).eq('id', id);
+        try {
+          await supabase.from('tasks').update({ expanded: !task.expanded }).eq('id', id);
+        } catch (error) {
+          console.error('toggleExpand failed:', error);
+          set((s) => ({ tasks: s.tasks.map(t => t.id === id ? { ...t, expanded: task.expanded } : t) }));
+        }
       },
 
       setExpandedAll: (expanded) => {
@@ -1038,28 +1144,17 @@ export const useTaskStore = create<TaskState>()(
 
       undo: async () => {
         const state = get();
-        const command = state.history.pop();
-        if (!command) return;
+        if (state.history.length === 0) return;
+
+        const history = [...state.history];
+        const command = history.pop()!;
 
         await command.undo();
 
-        set((s) => ({
-          history: [...state.history], // Updated by pop() already? No, React state array mutations are tricky.
-          // Better: state.history is mutated by pop() locally? No, zustand state is immutable usually unless we clone.
-          // Wait, state.history.pop() mutates the array retrieved from get(). 
-          // Correct pattern: slice.
-        }));
-        // Actually, let's redo the pop cleanly.
-        const undoHistory = [...state.history]; // copy
-        const cmd = undoHistory.pop(); // mutate copy
-
-        if (cmd) {
-          await cmd.undo();
-          set((s) => ({
-            history: undoHistory,
-            future: [cmd, ...s.future] // Add to future
-          }));
-        }
+        set({
+          history,
+          future: [command, ...state.future],
+        });
       },
 
       redo: async () => {

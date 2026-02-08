@@ -157,11 +157,25 @@ async function handleSync(supabase: any, userId: string, token: string) {
         .filter(d => d)
         .map(email => transformEmail(email, userId))
 
-    const { error } = await supabase
+    // Insert new emails (ignore conflicts — existing rows are untouched)
+    const { error: insertError } = await supabase
         .from('emails')
-        .upsert(upsertRows, { onConflict: 'gmail_id' })
+        .upsert(upsertRows, { onConflict: 'gmail_id', ignoreDuplicates: true })
 
-    if (error) throw error
+    if (insertError) throw insertError
+
+    // Update existing emails: refresh content but preserve client-managed `status`
+    for (const row of upsertRows) {
+        const { status, ...fieldsToUpdate } = row
+        const { error: updateError } = await supabase
+            .from('emails')
+            .update(fieldsToUpdate)
+            .eq('gmail_id', row.gmail_id)
+            .eq('user_id', userId)
+        if (updateError) {
+            console.error(`Failed to update email ${row.gmail_id}:`, updateError)
+        }
+    }
 
     return new Response(
         JSON.stringify({ success: true, count: upsertRows.length }),
