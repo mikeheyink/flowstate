@@ -8,7 +8,9 @@
       "Bash(findstr:*)",
       "Bash(npm install:*)",
       "Bash(grep:*)",
-      "Bash(git grep:*)"
+      "Bash(git grep:*)",
+      "Bash(git push:*)",
+      "Bash(npx vite build)"
     ]
   }
 }

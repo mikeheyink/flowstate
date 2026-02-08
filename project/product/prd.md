@@ -2,7 +2,7 @@
 
 > **Version**: 1.0
 > **Last updated**: 2026-02-08
-> **Next Feature ID**: FEATURE-00008
+> **Next Feature ID**: FEATURE-00009
 
 ---
 
@@ -79,6 +79,7 @@ These are explicitly out of scope for FlowState:
 | FEATURE-00005 | [Mail Client — Reading & Triage](#feature-00005-mail-client--reading--triage) | Mail | Partially Implemented |
 | FEATURE-00006 | [Mail Client — Compose & Reply](#feature-00006-mail-client--compose--reply) | Mail | Partially Implemented |
 | FEATURE-00007 | [Offline Support & Data Reliability](#feature-00007-offline-support--data-reliability) | Core | Implemented |
+| FEATURE-00008 | [Platform Reliability & Data Integrity](features/feature-00008.md) | Core | Implemented |
 
 ---
 
@@ -261,7 +262,7 @@ These are explicitly out of scope for FlowState:
 - Guest mode with local-only storage, no Supabase required
 - Optimistic updates with rollback on API failure for all store actions
 
-**Status**: Implemented
+**Status**: Implemented (Tasks only — mail actions do not queue offline. See P3 in [Architecture Alignment Review](../architecture/architecture-alignment-review.md). Accepted limitation for now.)
 
 ---
 

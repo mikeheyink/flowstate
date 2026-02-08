@@ -421,9 +421,12 @@ When adding future modules (Calendar, Chat, Workspace), follow these established
 
 - Create `useXxxStore` with Zustand
 - Use `persist` middleware if data should survive page reload; `devtools` for debugging
-- Define a typed interface for all state + actions
-- Implement boundary mapping functions (`mapFromDb` / `mapToDb`) for any DB-backed entities
+- Define a typed interface for all state + actions — no `any` types
+- Implement boundary mapping functions (`mapFromDb` / `mapToDb`) for any DB-backed entities, with fully typed parameters and return values
 - Follow the optimistic update + rollback pattern for all mutations
+- **Every async action must have try/catch** — on failure: rollback optimistic state, show a user-facing toast, log to console with context. No silent failures.
+- When calling a service that returns `{ success, error }`, always check `result.success` and rollback on `false`
+- State arrays must never be mutated directly (no `.push()`, `.pop()`, `.splice()`) — always create new array references
 
 ### 10.2 Service Pattern
 
@@ -437,6 +440,7 @@ When adding future modules (Calendar, Chat, Workspace), follow these established
 - Entry point component named `ModuleNameView.tsx`
 - Keep components under 150 lines; extract hooks for data fetching and keyboard handling
 - Handle all four states: loading, error, empty, loaded
+- **Untrusted HTML** (email content, external data) must be rendered inside a Shadow DOM to prevent style leakage. See [ADR-0001](adrs/adr-0001-email-css-isolation.md). DOMPurify sanitization is required before injection into the shadow root.
 
 ### 10.4 Keyboard Pattern
 
@@ -450,6 +454,15 @@ When adding future modules (Calendar, Chat, Workspace), follow these established
 - All tables must have RLS enabled with `auth.uid() = user_id` policy
 - Use `snake_case` for columns; map to `camelCase` at the boundary
 - Use upsert with unique constraints for external data (e.g., `gmail_id` for emails)
+- **Upserts from sync must not overwrite client-managed columns.** When syncing external data (e.g., Gmail messages), the upsert should only set client-managed fields (like `status`) on INSERT, not on UPDATE (conflict). Use `ON CONFLICT ... DO UPDATE SET` with an explicit column list that excludes client-owned state.
+
+---
+
+## ADR Index
+
+| ADR | Title | Status |
+|-----|-------|--------|
+| [ADR-0001](adrs/adr-0001-email-css-isolation.md) | Email CSS Isolation via Shadow DOM | Accepted |
 
 ---
 

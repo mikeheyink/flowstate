@@ -299,4 +299,51 @@ No try/catch. No optimistic "Sending..." state. No rollback. No toast on failure
 
 ---
 
-*This review should be used as input for sprint planning. P0 items represent data integrity risks and should be addressed before new feature development.*
+## Remediation Approach by Priority
+
+### P0 — Data Integrity (Immediate Fix)
+
+**Approach**: Direct engineering fix within the current phase. No architectural redesign required — these are bugs and missing error handling in existing code paths.
+
+**Workflow**: Product Owner adds reliability acceptance criteria to PRD → Task Planner decomposes into tasks → Engineer implements → QA verifies.
+
+- **4.1 Task store missing try/catch**: Wrap all task store DB operations in `queueOperation` (which already handles try/catch, rollback, and offline queueing). This is a pattern that already exists in the codebase — it just needs to be applied consistently.
+- **1.3 Undo double-execution bug**: Fix the `undo` method to use immutable array operations instead of `.pop()`. Single-file fix in `useTaskStore.ts`.
+- **3.2 Email status overwritten on sync**: Modify the Edge Function upsert to only set `status = 'inbox'` on INSERT, not on UPDATE. Single-file fix in `gmail-sync/index.ts`.
+
+### P1 — Error Handling & Type Safety (Next Sprint)
+
+**Approach**: Targeted fixes that improve resilience without restructuring. Each issue is scoped to 1-2 files and follows patterns already established elsewhere in the codebase.
+
+**Workflow**: System Architect updates constraints if needed → Product Manager scopes into a phase → Task Planner → Engineer → QA.
+
+- **2.3 GmailService errors not handled**: Add `result.success` checks after every `GmailService` call in `useMailStore`, with rollback on failure. Follows the same optimistic-update-with-rollback pattern the mail store already uses for archive/trash.
+- **6.2 Email CSS breaks app layout**: Render email HTML inside a Shadow DOM or `<iframe srcdoc>` to isolate styles. Remove `'style'` from DOMPurify `ADD_TAGS` until scoping is in place. Requires an ADR since it changes the rendering approach.
+- **4.2 sendEmail no error handling**: Add try/catch with toast feedback to `sendEmail` in `useMailStore`. Small, isolated fix.
+- **1.2 `any` types throughout stores**: Define `DbTask`, `DbEmail`, `SupabaseSession` interfaces and replace `any` casts. Incremental — can be done file-by-file without coordination.
+
+### P2 — Structural Refactoring (Planned Phase)
+
+**Approach**: Architectural improvements that require ADRs and careful planning. These are not bugs — they are structural issues that increase maintenance cost over time. Each requires the full canonical workflow since they span multiple files and change established patterns.
+
+**Workflow**: Product Owner acknowledges scope → System Architect writes ADRs → Senior Designer reviews UI impact → Product Manager creates a dedicated phase → Task Planner → Engineer → QA.
+
+- **1.1 God Store splitting**: Requires an ADR defining the slice boundaries and migration strategy. High effort — must not break existing functionality. Slices: `taskCrudSlice`, `taskHistorySlice`, `taskOfflineSlice`, `taskBatchSlice`, `taskOrderingSlice`.
+- **2.1 TaskService abstraction**: Extract a `TaskService` mirroring `GmailService`. All 15+ direct Supabase calls in `useTaskStore` get routed through it. Requires an ADR.
+- **7.1 useHotkeys splitting**: Split into `useGlobalHotkeys`, `useTaskHotkeys`, `useMailHotkeys`. Each hook registers its own listener. Requires coordination to avoid duplicate key handling.
+- **3.1 Email boundary mapping**: Extract `mapEmailFromDb`/`mapEmailToDb` functions. Low risk, follows existing task mapping pattern.
+- **1.4 Compose state in wrong store**: Move `isComposeOpen`, `replyMode`, `forwardContext` from `useUIStore` to `useMailStore`. Requires updating all consumers.
+- **7.2 App.tsx over-subscribing**: Extract `useAuth` hook, push modal subscriptions down to leaf components. Incremental — can be done one extraction at a time.
+
+### P3 — Deferred / Accepted Risk
+
+**Approach**: These items are acknowledged but deferred. They represent either high-effort/low-impact work, accepted trade-offs, or issues that only matter at larger scale. They will be revisited when the product reaches a stage where they become blocking.
+
+**Workflow**: Document as known limitations. Revisit during future architecture reviews.
+
+- **5.1 Mail offline queue**: High effort. Accepted limitation — mail actions require connectivity. Will revisit if user feedback indicates this is a pain point.
+- **2.2 Edge Function monolith**: Acceptable at current scale (~325 lines). Will split when adding new actions (search, attachments, calendar).
+- **5.2 Naive offline detection**: `navigator.onLine` is sufficient for now. Heartbeat detection adds complexity for marginal benefit.
+- **6.1 Gemini API key billing risk**: Accepted trade-off — key has no access to user data. Will add rate-limiting if abuse is detected.
+- **3.3 Decoded HTML stored in DB**: Low risk. Re-syncing from Gmail is always possible if re-sanitization is needed.
+- **4.3 Coach store error handling**: Non-critical feature. Will address when coach functionality is expanded.
