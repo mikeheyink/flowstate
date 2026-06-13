@@ -87,26 +87,6 @@ export function useHotkeys() {
                 return;
             }
 
-            // View Switching ([ and ] cycle through Tasks → Mail → Habits)
-            if ((key === '[' || key === ']') && !isCmd && !isShift && !isAlt) {
-                e.preventDefault();
-                const views = ['tasks', 'mail', 'habits'] as const;
-                const currentIdx = views.indexOf(uiState.currentView as any);
-                let nextIdx: number;
-
-                if (key === ']') {
-                    nextIdx = (currentIdx + 1) % views.length;
-                } else {
-                    nextIdx = (currentIdx - 1 + views.length) % views.length;
-                }
-
-                const nextView = views[nextIdx];
-                setCurrentView(nextView);
-                const labels = { tasks: 'Tasks', mail: 'Mail', habits: 'Habits' };
-                toast(`Switch to ${labels[nextView]}`);
-                return;
-            }
-
             // Undo/Redo
             if (isCmd && key === 'z') {
                 e.preventDefault();
@@ -141,12 +121,38 @@ export function useHotkeys() {
                 return;
             }
 
+            // G-chord resolves: jump to any section (and a specific tab for Tasks).
+            // This is the ONE way to move between sections — always two keys, always
+            // the same verb ("go to"), so it never collides with [ / ] tab cycling.
             if (gPressed) {
-                if (key === 'i' && uiState.currentView === 'tasks') { setFilter('active'); toast("Go to Inbox"); setGPressed(false); return; }
-                if (key === 't' && uiState.currentView === 'tasks') { setFilter('today'); toast("Go to Today"); setGPressed(false); return; }
-                if (key === 'r' && uiState.currentView === 'tasks') { setFilter('review'); toast("Go to Review"); setGPressed(false); return; }
-                if (key === 'h') { setCurrentView(uiState.currentView === 'habits' ? 'tasks' : 'habits'); toast(uiState.currentView === 'habits' ? 'Back to Tasks' : 'Go to Habits'); setGPressed(false); return; }
                 setGPressed(false);
+                if (key === 'i') { setCurrentView('tasks'); setFilter('active'); toast('Tasks · Plan'); }
+                else if (key === 't') { setCurrentView('tasks'); setFilter('today'); toast('Tasks · Today'); }
+                else if (key === 'u') { setCurrentView('tasks'); setFilter('upcoming'); toast('Tasks · Upcoming'); }
+                else if (key === 'r') { setCurrentView('tasks'); setFilter('review'); toast('Tasks · Review'); }
+                else if (key === 'm') { setCurrentView('mail'); toast('Mail'); }
+                else if (key === 'h') { setCurrentView('habits'); toast('Habits'); }
+                return;
+            }
+
+            // Tab cycling WITHIN the current section ([ / ] — PageUp/PageDown alias).
+            // One consistent meaning everywhere: Tasks filters, Mail folders, Habit views.
+            if (key === '[' || key === ']' || key === 'pageup' || key === 'pagedown') {
+                e.preventDefault();
+                const back = key === '[' || key === 'pageup';
+                if (uiState.currentView === 'tasks') {
+                    const items = ['active', 'today', 'upcoming', 'review'] as const;
+                    const idx = items.indexOf(uiState.filter as any);
+                    const next = (idx + (back ? -1 : 1) + items.length) % items.length;
+                    setFilter(items[next]);
+                } else if (uiState.currentView === 'mail') {
+                    const items = ['inbox', 'to_read', 'to_reply', 'other'] as const;
+                    const idx = items.indexOf(mailState.activeTab);
+                    const next = (idx + (back ? -1 : 1) + items.length) % items.length;
+                    setActiveTab(items[next]);
+                } else if (uiState.currentView === 'habits') {
+                    uiState.cycleHabitView(back ? 'prev' : 'next');
+                }
                 return;
             }
 
@@ -169,60 +175,19 @@ export function useHotkeys() {
                     setQuickAddOpen(true);
                     return;
                 }
-
-                // Sidebar Cycle (PageUp/Down) - TASKS
-                if (key === 'pagedown' || key === ']') {
-                    e.preventDefault();
-                    const currentFilter = uiState.filter;
-                    const items = ['active', 'today', 'upcoming', 'review'] as const;
-                    const idx = items.indexOf(currentFilter as any);
-                    const nextIndex = (idx + 1) % items.length;
-                    setFilter(items[nextIndex]);
-                    return;
-                }
-                if (key === 'pageup' || key === '[') {
-                    e.preventDefault();
-                    const currentFilter = uiState.filter;
-                    const items = ['active', 'today', 'upcoming', 'review'] as const;
-                    const idx = items.indexOf(currentFilter as any);
-                    const nextIndex = (idx - 1 + items.length) % items.length;
-                    setFilter(items[nextIndex]);
-                    return;
-                }
             }
 
             // ----------------------------------------------------------------
             // HABITS VIEW HOTKEYS
             // ----------------------------------------------------------------
-            if (uiState.currentView === 'habits') {
-                // View cycling is handled by the HabitsView component
-                // Hotkeys here are for global actions
-            }
+            // Grid/Checklist internal navigation (arrows, space, e, del, week nav)
+            // is owned by the Habits components themselves, which hold the focus
+            // and week state. Section + tab navigation is handled globally above.
 
             // ----------------------------------------------------------------
             // MAIL VIEW HOTKEYS
             // ----------------------------------------------------------------
             if (uiState.currentView === 'mail') {
-
-                // Sidebar Cycle (PageUp/Down) - MAIL
-                if (key === 'pagedown' || key === ']') {
-                    e.preventDefault();
-                    const currentTab = mailState.activeTab;
-                    const items = ['inbox', 'to_read', 'to_reply', 'other'] as const;
-                    const idx = items.indexOf(currentTab);
-                    const nextIndex = (idx + 1) % items.length;
-                    setActiveTab(items[nextIndex]);
-                    return;
-                }
-                if (key === 'pageup' || key === '[') {
-                    e.preventDefault();
-                    const currentTab = mailState.activeTab;
-                    const items = ['inbox', 'to_read', 'to_reply', 'other'] as const;
-                    const idx = items.indexOf(currentTab);
-                    const nextIndex = (idx - 1 + items.length) % items.length;
-                    setActiveTab(items[nextIndex]);
-                    return;
-                }
 
                 // Navigation (Arrows) - Strict Logic
                 if (key === 'arrowdown') {

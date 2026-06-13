@@ -1,6 +1,7 @@
 import React, { useMemo } from 'react';
 import { useHabitStore } from '../../store/useHabitStore';
 import { useUIStore } from '../../store/useUIStore';
+import { getISOWeek, shiftWeek } from '../../utils/habitDates';
 
 interface WeekStat {
   week: string;
@@ -9,43 +10,30 @@ interface WeekStat {
   total: number;
 }
 
-function getWeekStats(weekStr: string, getWeekStats: any): WeekStat {
-  const stats = getWeekStats(weekStr);
-  return {
-    week: weekStr,
-    percentage: stats.percentage,
-    completed: stats.totalCompleted,
-    total: stats.totalApplicableDays,
-  };
-}
-
+// The last `count` ISO weeks ending with the current one, oldest first.
 function getPreviousWeeks(count: number = 12): string[] {
-  const weeks: string[] = [];
-  let currentDate = new Date();
-
-  for (let i = 0; i < count; i++) {
-    const d = new Date(Date.UTC(currentDate.getFullYear(), currentDate.getMonth(), currentDate.getDate()));
-    const dayNum = d.getUTCDay() || 7;
-    d.setUTCDate(d.getUTCDate() + 4 - dayNum);
-    const yearStart = new Date(Date.UTC(d.getUTCFullYear(), 0, 1));
-    const weekNum = Math.ceil(((d.getTime() - yearStart.getTime()) / 86400000 + 1) / 7);
-    weeks.unshift(`${d.getUTCFullYear()}-W${String(weekNum).padStart(2, '0')}`);
-    currentDate.setDate(currentDate.getDate() - 7);
-  }
-
-  return weeks;
+  const thisWeek = getISOWeek(new Date());
+  return Array.from({ length: count }, (_, i) => shiftWeek(thisWeek, -(count - 1 - i)));
 }
 
 export function HabitAnalyticsView() {
   const getWeekStatsFunc = useHabitStore((state) => state.getWeekStats);
-  const habits = useHabitStore((state) => state.habits.filter((h) => !h.archivedAt));
+  // Select the stable array reference, then derive — selecting `.filter(...)`
+  // returns a fresh array each render and sends zustand into an infinite loop.
+  const allHabits = useHabitStore((state) => state.habits);
+  const habits = useMemo(() => allHabits.filter((h) => !h.archivedAt), [allHabits]);
   const getLogsForHabitInWeek = useHabitStore((state) => state.getLogsForHabitInWeek);
+  // Subscribe to logs so analytics recompute when a day is toggled.
+  const habitLogs = useHabitStore((state) => state.habitLogs);
   const globalHabitGoal = useUIStore((state) => state.globalHabitGoal);
 
   const weeks = useMemo(() => getPreviousWeeks(12), []);
-  const weekStats = useMemo(
-    () => weeks.map((w) => getWeekStatsFunc(w)),
-    [weeks, getWeekStatsFunc]
+  const weekStats = useMemo<WeekStat[]>(
+    () => weeks.map((w) => {
+      const s = getWeekStatsFunc(w);
+      return { week: w, percentage: s.percentage, completed: s.totalCompleted, total: s.totalApplicableDays };
+    }),
+    [weeks, getWeekStatsFunc, allHabits, habitLogs]
   );
 
   // Calculate streaks
@@ -76,7 +64,7 @@ export function HabitAnalyticsView() {
     }
 
     return streaksByHabit;
-  }, [habits, weeks, getLogsForHabitInWeek, getWeekStatsFunc]);
+  }, [habits, weeks, getLogsForHabitInWeek, getWeekStatsFunc, habitLogs]);
 
   // Find problem habits (lowest completion rate)
   const problemHabits = useMemo(() => {
@@ -99,7 +87,7 @@ export function HabitAnalyticsView() {
     }
 
     return habitStats.sort((a, b) => a.avgCompletion - b.avgCompletion).slice(0, 5);
-  }, [habits, weeks, getLogsForHabitInWeek]);
+  }, [habits, weeks, getLogsForHabitInWeek, habitLogs]);
 
   const currentStreak = useMemo(() => {
     let streak = 0;
@@ -112,7 +100,7 @@ export function HabitAnalyticsView() {
       }
     }
     return streak;
-  }, [weeks, getWeekStatsFunc, globalHabitGoal]);
+  }, [weeks, getWeekStatsFunc, globalHabitGoal, allHabits, habitLogs]);
 
   const overallCompletion = useMemo(() => {
     const totalStats = weekStats.reduce(

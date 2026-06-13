@@ -2,7 +2,7 @@ import React, { useState, useMemo, useEffect } from 'react';
 import { ChevronLeft, ChevronRight, Plus, Edit2, Trash2 } from 'lucide-react';
 import { useHabitStore } from '../../store/useHabitStore';
 import { useUIStore } from '../../store/useUIStore';
-import { toast } from '../Toaster';
+import { getISOWeek, getWeekDates, shiftWeek, toLocalISO } from '../../utils/habitDates';
 
 interface HabitGridViewProps {
   onAddHabit?: () => void;
@@ -13,34 +13,6 @@ interface HabitGridViewProps {
 const DAYS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
 const DAY_INDICES = [0, 1, 2, 3, 4, 5, 6]; // 0=Monday, 6=Sunday
 
-function getISOWeek(date: Date): string {
-  const d = new Date(Date.UTC(date.getFullYear(), date.getMonth(), date.getDate()));
-  const dayNum = d.getUTCDay() || 7;
-  d.setUTCDate(d.getUTCDate() + 4 - dayNum);
-  const yearStart = new Date(Date.UTC(d.getUTCFullYear(), 0, 1));
-  const weekNum = Math.ceil(((d.getTime() - yearStart.getTime()) / 86400000 + 1) / 7);
-  return `${d.getUTCFullYear()}-W${String(weekNum).padStart(2, '0')}`;
-}
-
-function getWeekDates(weekStr: string): Date[] {
-  const year = parseInt(weekStr.substring(0, 4));
-  const week = parseInt(weekStr.substring(6, 8));
-
-  const jan4 = new Date(year, 0, 4);
-  const weekStart = new Date(jan4);
-  weekStart.setDate(weekStart.getDate() - weekStart.getDay() + 1); // Monday of week 1
-  const daysOffset = (week - 1) * 7;
-  weekStart.setDate(weekStart.getDate() + daysOffset);
-
-  const dates = [];
-  for (let i = 0; i < 7; i++) {
-    const d = new Date(weekStart);
-    d.setDate(d.getDate() + i);
-    dates.push(d);
-  }
-  return dates;
-}
-
 export function HabitGridView({ onAddHabit, onEditHabit, onDeleteHabit }: HabitGridViewProps) {
   const [currentWeek, setCurrentWeek] = useState(() => getISOWeek(new Date()));
 
@@ -48,11 +20,15 @@ export function HabitGridView({ onAddHabit, onEditHabit, onDeleteHabit }: HabitG
   const getLogsForHabitInWeek = useHabitStore((state) => state.getLogsForHabitInWeek);
   const logHabit = useHabitStore((state) => state.logHabit);
   const getWeekStats = useHabitStore((state) => state.getWeekStats);
+  // Subscribe to the raw data so the grid re-renders (and the memos recompute)
+  // whenever a habit is added/edited or a day is toggled.
+  const allHabits = useHabitStore((state) => state.habits);
+  const habitLogs = useHabitStore((state) => state.habitLogs);
   const globalHabitGoal = useUIStore((state) => state.globalHabitGoal);
 
-  const habits = useMemo(() => getHabitsForWeek(currentWeek), [currentWeek]);
+  const habits = useMemo(() => getHabitsForWeek(currentWeek), [currentWeek, allHabits]);
   const weekDates = useMemo(() => getWeekDates(currentWeek), [currentWeek]);
-  const stats = useMemo(() => getWeekStats(currentWeek), [currentWeek]);
+  const stats = useMemo(() => getWeekStats(currentWeek), [currentWeek, allHabits, habitLogs]);
 
   const goalMet = stats.percentage >= globalHabitGoal;
 
@@ -84,7 +60,7 @@ export function HabitGridView({ onAddHabit, onEditHabit, onDeleteHabit }: HabitG
       } else if (key === ' ' || key === 'x') {
         e.preventDefault();
         if (habits[focusedHabitIdx]) {
-          const dateStr = weekDates[focusedDayIdx].toISOString().split('T')[0];
+          const dateStr = toLocalISO(weekDates[focusedDayIdx]);
           const habit = habits[focusedHabitIdx];
           if (habit.daysOfWeek.includes(focusedDayIdx)) {
             handleToggleHabit(habit.id, dateStr);
@@ -103,10 +79,12 @@ export function HabitGridView({ onAddHabit, onEditHabit, onDeleteHabit }: HabitG
         if (habits[focusedHabitIdx]) {
           onDeleteHabit?.(habits[focusedHabitIdx].id);
         }
-      } else if (key === ']') {
+      } else if (key === '.') {
+        // Next week. ([ / ] are reserved for cycling habit views.)
         e.preventDefault();
         handleNextWeek();
-      } else if (key === '[') {
+      } else if (key === ',') {
+        // Previous week.
         e.preventDefault();
         handlePrevWeek();
       }
@@ -116,27 +94,8 @@ export function HabitGridView({ onAddHabit, onEditHabit, onDeleteHabit }: HabitG
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [focusedHabitIdx, focusedDayIdx, habits, weekDates, currentWeek, onAddHabit, onEditHabit, onDeleteHabit]);
 
-  const handlePrevWeek = () => {
-    const [year, weekNum] = currentWeek.split('-W').map(Number);
-    let newWeek = weekNum - 1;
-    let newYear = year;
-    if (newWeek < 1) {
-      newYear--;
-      newWeek = 52; // Rough approximation; could be 53 in some years
-    }
-    setCurrentWeek(`${newYear}-W${String(newWeek).padStart(2, '0')}`);
-  };
-
-  const handleNextWeek = () => {
-    const [year, weekNum] = currentWeek.split('-W').map(Number);
-    let newWeek = weekNum + 1;
-    let newYear = year;
-    if (newWeek > 52) {
-      newYear++;
-      newWeek = 1;
-    }
-    setCurrentWeek(`${newYear}-W${String(newWeek).padStart(2, '0')}`);
-  };
+  const handlePrevWeek = () => setCurrentWeek((w) => shiftWeek(w, -1));
+  const handleNextWeek = () => setCurrentWeek((w) => shiftWeek(w, 1));
 
   const handleToggleHabit = (habitId: string, dateStr: string) => {
     const logs = getLogsForHabitInWeek(habitId, currentWeek);
@@ -164,7 +123,7 @@ export function HabitGridView({ onAddHabit, onEditHabit, onDeleteHabit }: HabitG
         <button
           onClick={handlePrevWeek}
           className="p-2 hover:bg-slate-100 rounded-lg transition-colors"
-          title="Previous Week ([)"
+          title="Previous week (,)"
         >
           <ChevronLeft className="w-5 h-5" />
         </button>
@@ -174,7 +133,7 @@ export function HabitGridView({ onAddHabit, onEditHabit, onDeleteHabit }: HabitG
         <button
           onClick={handleNextWeek}
           className="p-2 hover:bg-slate-100 rounded-lg transition-colors"
-          title="Next Week (])"
+          title="Next week (.)"
         >
           <ChevronRight className="w-5 h-5" />
         </button>
@@ -241,7 +200,7 @@ export function HabitGridView({ onAddHabit, onEditHabit, onDeleteHabit }: HabitG
                       <div className="text-xs text-slate-500">{habit.type === 'do' ? '✓ Do' : '✗ Avoid'}</div>
                     </td>
                     {DAY_INDICES.map((dayIdx) => {
-                      const dateStr = weekDates[dayIdx].toISOString().split('T')[0];
+                      const dateStr = toLocalISO(weekDates[dayIdx]);
                       const applicable = habit.daysOfWeek.includes(dayIdx);
                       const log = logs.find((l) => l.date === dateStr);
 

@@ -1,41 +1,13 @@
 import React, { useState, useMemo } from 'react';
 import { ChevronLeft, ChevronRight, Plus } from 'lucide-react';
 import { useHabitStore } from '../../store/useHabitStore';
-import { useUIStore } from '../../store/useUIStore';
+import { getISOWeek, getWeekDates, toLocalISO } from '../../utils/habitDates';
 
 interface HabitChecklistViewProps {
   onAddHabit?: () => void;
 }
 
 const DAYS = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
-
-function getISOWeek(date: Date): string {
-  const d = new Date(Date.UTC(date.getFullYear(), date.getMonth(), date.getDate()));
-  const dayNum = d.getUTCDay() || 7;
-  d.setUTCDate(d.getUTCDate() + 4 - dayNum);
-  const yearStart = new Date(Date.UTC(d.getUTCFullYear(), 0, 1));
-  const weekNum = Math.ceil(((d.getTime() - yearStart.getTime()) / 86400000 + 1) / 7);
-  return `${d.getUTCFullYear()}-W${String(weekNum).padStart(2, '0')}`;
-}
-
-function getWeekDates(weekStr: string): Date[] {
-  const year = parseInt(weekStr.substring(0, 4));
-  const week = parseInt(weekStr.substring(6, 8));
-
-  const jan4 = new Date(year, 0, 4);
-  const weekStart = new Date(jan4);
-  weekStart.setDate(weekStart.getDate() - weekStart.getDay() + 1);
-  const daysOffset = (week - 1) * 7;
-  weekStart.setDate(weekStart.getDate() + daysOffset);
-
-  const dates = [];
-  for (let i = 0; i < 7; i++) {
-    const d = new Date(weekStart);
-    d.setDate(d.getDate() + i);
-    dates.push(d);
-  }
-  return dates;
-}
 
 export function HabitChecklistView({ onAddHabit }: HabitChecklistViewProps) {
   const [currentWeek, setCurrentWeek] = useState(() => getISOWeek(new Date()));
@@ -44,11 +16,14 @@ export function HabitChecklistView({ onAddHabit }: HabitChecklistViewProps) {
   const getHabitsForWeek = useHabitStore((state) => state.getHabitsForWeek);
   const getLogsForHabitInWeek = useHabitStore((state) => state.getLogsForHabitInWeek);
   const logHabit = useHabitStore((state) => state.logHabit);
+  // Subscribe to raw data so the list reflects adds/edits/toggles immediately.
+  const allHabits = useHabitStore((state) => state.habits);
+  const habitLogs = useHabitStore((state) => state.habitLogs);
 
-  const habits = useMemo(() => getHabitsForWeek(currentWeek), [currentWeek]);
+  const habits = useMemo(() => getHabitsForWeek(currentWeek), [currentWeek, allHabits]);
   const weekDates = useMemo(() => getWeekDates(currentWeek), [currentWeek]);
   const focusedDate = weekDates[focusedDayIndex];
-  const focusedDateStr = focusedDate.toISOString().split('T')[0];
+  const focusedDateStr = toLocalISO(focusedDate);
 
   const habitsForFocusedDay = useMemo(() => {
     return habits
@@ -58,7 +33,7 @@ export function HabitChecklistView({ onAddHabit }: HabitChecklistViewProps) {
         const log = logs.find((l) => l.date === focusedDateStr);
         return { habit, completed: log?.completed || false };
       });
-  }, [habits, focusedDayIndex, focusedDateStr, currentWeek]);
+  }, [habits, focusedDayIndex, focusedDateStr, currentWeek, habitLogs]);
 
   const handleToggleHabit = (habitId: string) => {
     const logs = getLogsForHabitInWeek(habitId, currentWeek);
@@ -158,7 +133,7 @@ export function HabitChecklistView({ onAddHabit }: HabitChecklistViewProps) {
             const dayHabits = habits.filter((h) => h.daysOfWeek.includes(idx));
             const logs = dayHabits.flatMap((h) => {
               const hLogs = getLogsForHabitInWeek(h.id, currentWeek);
-              return hLogs.filter((l) => l.date === weekDates[idx].toISOString().split('T')[0]);
+              return hLogs.filter((l) => l.date === toLocalISO(weekDates[idx]));
             });
             const completed = logs.filter((l) => l.completed).length;
             const total = dayHabits.length;

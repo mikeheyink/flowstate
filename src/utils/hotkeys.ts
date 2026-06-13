@@ -26,7 +26,9 @@ export const HOTKEYS: Hotkey[] = [
     // === Navigation ===
     { id: 'nav-down', keys: '↓', description: 'Move Focus Down', category: 'navigation' },
     { id: 'nav-up', keys: '↑', description: 'Move Focus Up', category: 'navigation' },
-    { id: 'nav-sidebar', keys: '[ / ]', description: 'Previous / Next View', category: 'navigation' },
+    { id: 'nav-sidebar', keys: '[ / ]', description: 'Previous / Next Tab', category: 'navigation' },
+    { id: 'go-tasks', keys: 'g then t', description: 'Go to Tasks', category: 'navigation' },
+    { id: 'go-mail', keys: 'g then m', description: 'Go to Mail', category: 'navigation' },
     { id: 'move-task-down', keys: '⌥↓', description: 'Move Task Down', category: 'navigation', context: 'task-focused' },
     { id: 'move-task-up', keys: '⌥↑', description: 'Move Task Up', category: 'navigation', context: 'task-focused' },
     { id: 'expand', keys: '→', description: 'Expand', category: 'navigation', context: 'task-focused' },
@@ -63,13 +65,12 @@ export const HOTKEYS: Hotkey[] = [
     { id: 'shortcuts-modal', keys: '?', description: 'Show Shortcuts', category: 'view' },
 
     // === Habits ===
-    { id: 'habit-toggle-view', keys: 'g then h', description: 'Cycle Habit Views', category: 'habits', context: 'global', showInModal: false },
-    { id: 'habit-toggle', keys: 'Space / X', description: 'Mark Habit Complete', category: 'habits', context: 'global', showInModal: false },
-    { id: 'habit-add', keys: 'A', description: 'Add Habit', category: 'habits', context: 'global', showInModal: false },
-    { id: 'habit-edit', keys: 'E', description: 'Edit Habit', category: 'habits', context: 'global', showInModal: false },
-    { id: 'habit-delete', keys: '⌫', description: 'Delete Habit', category: 'habits', context: 'global', showInModal: false },
-    { id: 'habit-prev-week', keys: '[', description: 'Previous Week', category: 'habits', context: 'global', showInModal: false },
-    { id: 'habit-next-week', keys: ']', description: 'Next Week', category: 'habits', context: 'global', showInModal: false },
+    { id: 'habit-toggle', keys: 'Space / X', description: 'Mark / unmark habit', category: 'habits', context: 'global', showInModal: false },
+    { id: 'habit-nav', keys: '↑ ↓ ← →', description: 'Move around the grid', category: 'habits', context: 'global', showInModal: false },
+    { id: 'habit-add', keys: 'A', description: 'Add habit', category: 'habits', context: 'global', showInModal: false },
+    { id: 'habit-edit', keys: 'E', description: 'Edit habit', category: 'habits', context: 'global', showInModal: false },
+    { id: 'habit-delete', keys: '⌫', description: 'Delete habit', category: 'habits', context: 'global', showInModal: false },
+    { id: 'habit-week', keys: ', / .', description: 'Previous / next week', category: 'habits', context: 'global', showInModal: false },
 ];
 
 /**
@@ -137,51 +138,41 @@ export function getHotkeyModalGroupsByView(view: 'tasks' | 'mail' | 'habits'): {
     const groups: { title: string; ids: string[] }[] = [
         { title: 'Most used', ids: ['new-task', 'complete', 'nav-down', 'nav-up', 'edit-title', 'set-date', 'delete', 'cmd-palette'] },
         { title: 'Organize', ids: ['indent', 'outdent', 'move-task-up', 'move-task-down', 'toggle-importance', 'clear-importance', 'push-tomorrow'] },
-        { title: 'Navigate', ids: ['nav-sidebar', 'expand', 'collapse', 'expand-all', 'collapse-all'] },
+        { title: 'Get around', ids: ['go-tasks', 'go-mail', 'go-habits', 'nav-sidebar', 'expand', 'collapse'] },
         { title: 'Create & history', ids: ['new-subtask', 'batch-add', 'open-links', 'undo', 'redo', 'shortcuts-modal'] },
     ];
 
+    const resolve = (ids: string[]) => ids
+        .map(getHotkeyById)
+        .filter((h): h is Hotkey => !!h);
+
+    // The "Get around" group is identical everywhere — it teaches the two-tier
+    // model (g-chord = jump section, [ / ] = cycle tabs) in every section.
+    const getAround = {
+        title: 'Get around',
+        items: resolve(['go-tasks', 'go-mail', 'go-habits', 'nav-sidebar', 'cmd-palette']),
+    };
+
     if (view === 'habits') {
         return [
+            getAround,
             {
-                title: 'Navigation',
-                items: [
-                    getHotkeyById('go-habits'),
-                    getHotkeyById('nav-down'),
-                    getHotkeyById('nav-up'),
-                    getHotkeyById('nav-sidebar'),
-                ].filter((h): h is Hotkey => !!h)
+                title: 'Track habits',
+                items: resolve(['habit-toggle', 'habit-nav', 'habit-week']),
             },
             {
-                title: 'Habits',
-                items: [
-                    getHotkeyById('habit-toggle'),
-                    getHotkeyById('habit-add'),
-                    getHotkeyById('habit-edit'),
-                    getHotkeyById('habit-delete'),
-                    getHotkeyById('habit-prev-week'),
-                    getHotkeyById('habit-next-week'),
-                ].filter((h): h is Hotkey => !!h)
+                title: 'Manage & history',
+                items: resolve(['habit-add', 'habit-edit', 'habit-delete', 'undo', 'redo', 'shortcuts-modal']),
             },
-            {
-                title: 'Edit',
-                items: [
-                    getHotkeyById('undo'),
-                    getHotkeyById('redo'),
-                ].filter((h): h is Hotkey => !!h)
-            }
         ];
     }
 
     if (view === 'mail') {
         return [
+            getAround,
             {
-                title: 'Navigation',
-                items: [
-                    getHotkeyById('nav-down'),
-                    getHotkeyById('nav-up'),
-                    getHotkeyById('nav-sidebar'),
-                ].filter((h): h is Hotkey => !!h)
+                title: 'Triage',
+                items: resolve(['nav-down', 'nav-up', 'undo', 'redo']),
             },
         ];
     }

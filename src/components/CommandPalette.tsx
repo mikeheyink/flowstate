@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { Search, Plus, Trash2, CheckCircle, SunMoon, MessageCircle, Calendar, CalendarClock, Star, StarOff, Edit3, Undo, Redo, AlertCircle } from 'lucide-react';
+import { Search, Plus, Trash2, CheckCircle, SunMoon, MessageCircle, Calendar, CalendarClock, Star, StarOff, Edit3, Undo, Redo, ClipboardList, Mail, Flame } from 'lucide-react';
 import { useTaskStore } from '../store/useTaskStore';
 import { useHabitStore } from '../store/useHabitStore';
 import { useUIStore } from '../store/useUIStore';
@@ -19,10 +19,8 @@ interface Action {
 export const CommandPalette: React.FC<{ isOpen: boolean; onClose: () => void }> = ({ isOpen, onClose }) => {
   const [query, setQuery] = useState('');
   const [selectedIndex, setSelectedIndex] = useState(0);
-  const { currentView } = useUIStore();
-  const { tasks, focusedId, toggleTask, archiveTask, toggleImportance, clearImportance, undo, redo, pushTodayToTomorrow, filter } = useTaskStore();
-  const { setQuickAddOpen, setEditingTaskId } = useUIStore();
-  const { habits } = useHabitStore();
+  const { currentView, filter, setCurrentView, setQuickAddOpen, setEditingTaskId, requestNewHabit } = useUIStore();
+  const { tasks, focusedId, toggleTask, archiveTask, toggleImportance, clearImportance, undo, redo, pushTodayToTomorrow } = useTaskStore();
   const setCoachOpen = useCoachStore((state) => state.setOpen);
 
   // Build actions list - context-dependent
@@ -135,30 +133,40 @@ export const CommandPalette: React.FC<{ isOpen: boolean; onClose: () => void }> 
       title: 'Add Habit',
       icon: <Plus className="w-4 h-4" />,
       shortcut: getHotkeyById('habit-add')?.keys,
-      perform: () => {
-        // This will trigger in HabitsView via the button
-        toast('Press A to add a habit');
-      },
+      perform: () => requestNewHabit(),
       section: 'Habits'
     });
+  }
 
-    if (habits.length > 0) {
-      actions.push({
-        id: 'habit-info',
-        title: 'View habit information: navigate grid (arrows), toggle complete (Space), edit (E), delete (Del)',
-        icon: <AlertCircle className="w-4 h-4" />,
-        perform: () => {},
-        section: 'Info'
-      });
-    }
-  } else if (currentView === 'mail') {
-    // === MAIL VIEW ACTIONS ===
+  // === GO TO (all views) — section navigation, the current one omitted ===
+  if (currentView !== 'tasks') {
     actions.push({
-      id: 'mail-info',
-      title: 'Mail actions: navigate (arrows), cycle tabs ([ / ]), archive (X)',
-      icon: <AlertCircle className="w-4 h-4" />,
-      perform: () => {},
-      section: 'Info'
+      id: 'go-tasks',
+      title: 'Go to Tasks',
+      icon: <ClipboardList className="w-4 h-4" />,
+      shortcut: getHotkeyById('go-tasks')?.keys,
+      perform: () => setCurrentView('tasks'),
+      section: 'Go to'
+    });
+  }
+  if (currentView !== 'mail') {
+    actions.push({
+      id: 'go-mail',
+      title: 'Go to Mail',
+      icon: <Mail className="w-4 h-4" />,
+      shortcut: getHotkeyById('go-mail')?.keys,
+      perform: () => setCurrentView('mail'),
+      section: 'Go to'
+    });
+  }
+  if (currentView !== 'habits') {
+    actions.push({
+      id: 'go-habits',
+      title: 'Go to Habits',
+      icon: <Flame className="w-4 h-4" />,
+      shortcut: getHotkeyById('go-habits')?.keys,
+      perform: () => setCurrentView('habits'),
+      section: 'Go to'
     });
   }
 

@@ -19,6 +19,10 @@ interface UIState {
   habitView: HabitView;
   globalHabitGoal: number; // percentage, e.g., 80 for 80%
 
+  // Signal counter: bump to ask HabitsView to open the "new habit" form
+  // (lets the command palette / hotkeys trigger it from outside the component).
+  habitFormSignal: number;
+
   // UI-only expansion state for headers
   expandedGroups: Set<string>;
   toggleGroup: (id: string) => void;
@@ -33,7 +37,8 @@ interface UIState {
   setHabitView: (view: HabitView) => void;
   setGlobalHabitGoal: (goal: number) => void;
   toggleCmd: () => void;
-  cycleHabitView: () => void;
+  cycleHabitView: (dir?: 'next' | 'prev') => void;
+  requestNewHabit: () => void;
 }
 
 export const useUIStore = create<UIState>((set) => ({
@@ -49,6 +54,7 @@ export const useUIStore = create<UIState>((set) => ({
   currentView: 'tasks',
   habitView: 'grid',
   globalHabitGoal: 80,
+  habitFormSignal: 0,
 
   expandedGroups: new Set(['header-important', 'header-outstanding']),
   toggleGroup: (id) => set((state) => {
@@ -69,10 +75,12 @@ export const useUIStore = create<UIState>((set) => ({
   setHabitView: (view) => set({ habitView: view }),
   setGlobalHabitGoal: (goal) => set({ globalHabitGoal: goal }),
   toggleCmd: () => set((state) => ({ isCmdOpen: !state.isCmdOpen })),
-  cycleHabitView: () => set((state) => {
+  cycleHabitView: (dir = 'next') => set((state) => {
     const views: HabitView[] = ['grid', 'checklist', 'analytics'];
     const currentIndex = views.indexOf(state.habitView);
-    const nextIndex = (currentIndex + 1) % views.length;
+    const delta = dir === 'next' ? 1 : -1;
+    const nextIndex = (currentIndex + delta + views.length) % views.length;
     return { habitView: views[nextIndex] };
   }),
+  requestNewHabit: () => set((state) => ({ habitFormSignal: state.habitFormSignal + 1 })),
 }));

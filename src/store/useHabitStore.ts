@@ -2,6 +2,7 @@ import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 import { Habit, HabitLog } from '../types';
 import { supabase } from '../utils/supabase';
+import { getWeekRange, getWeekStart, toLocalISO } from '../utils/habitDates';
 
 const generateId = () => Math.random().toString(36).substring(2, 9);
 
@@ -241,23 +242,10 @@ export const useHabitStore = create<HabitState>()(
       },
 
       getLogsForWeek: (weekStr) => {
-        const year = parseInt(weekStr.substring(0, 4));
-        const week = parseInt(weekStr.substring(6, 8));
-
-        // Calculate start and end dates of ISO week
-        const jan4 = new Date(year, 0, 4);
-        const weekStart = new Date(jan4);
-        weekStart.setDate(weekStart.getDate() - weekStart.getDay() + 1); // Monday of week 1
-        const daysOffset = (week - 1) * 7;
-        weekStart.setDate(weekStart.getDate() + daysOffset);
-
-        const weekEnd = new Date(weekStart);
-        weekEnd.setDate(weekEnd.getDate() + 6); // Sunday of that week
-
-        return get().habitLogs.filter((log) => {
-          const logDate = new Date(log.date);
-          return logDate >= weekStart && logDate <= weekEnd;
-        });
+        // Compare 'YYYY-MM-DD' strings directly — lexicographic order matches
+        // chronological order for ISO dates, and avoids any UTC/local drift.
+        const { startStr, endStr } = getWeekRange(weekStr);
+        return get().habitLogs.filter((log) => log.date >= startStr && log.date <= endStr);
       },
 
       getLogsForHabitInWeek: (habitId, weekStr) => {
@@ -267,35 +255,22 @@ export const useHabitStore = create<HabitState>()(
       getWeekStats: (weekStr) => {
         const habitsInWeek = get().getHabitsForWeek(weekStr);
         const logsInWeek = get().getLogsForWeek(weekStr);
+        const weekStart = getWeekStart(weekStr);
 
-        // Calculate applicable days: for each habit, count how many of its applicable days are in this week
         let totalApplicableDays = 0;
         let totalCompleted = 0;
 
-        for (const habit of habitsInWeek) {
-          // Count days of week for this habit in this week
-          const year = parseInt(weekStr.substring(0, 4));
-          const week = parseInt(weekStr.substring(6, 8));
+        // weekStart is Monday, so index i (0..6) already maps to day-of-week i.
+        for (let i = 0; i < 7; i++) {
+          const currentDate = new Date(weekStart);
+          currentDate.setDate(currentDate.getDate() + i);
+          const dateStr = toLocalISO(currentDate);
 
-          const jan4 = new Date(year, 0, 4);
-          const weekStart = new Date(jan4);
-          weekStart.setDate(weekStart.getDate() - weekStart.getDay() + 1);
-          const daysOffset = (week - 1) * 7;
-          weekStart.setDate(weekStart.getDate() + daysOffset);
-
-          for (let i = 0; i < 7; i++) {
-            const currentDate = new Date(weekStart);
-            currentDate.setDate(currentDate.getDate() + i);
-            const dayOfWeek = (currentDate.getDay() + 6) % 7; // Convert to 0=Monday
-
-            if (habit.daysOfWeek.includes(dayOfWeek)) {
-              totalApplicableDays++;
-              const dateStr = currentDate.toISOString().split('T')[0];
-              const log = logsInWeek.find((l) => l.habitId === habit.id && l.date === dateStr);
-              if (log?.completed) {
-                totalCompleted++;
-              }
-            }
+          for (const habit of habitsInWeek) {
+            if (!habit.daysOfWeek.includes(i)) continue;
+            totalApplicableDays++;
+            const log = logsInWeek.find((l) => l.habitId === habit.id && l.date === dateStr);
+            if (log?.completed) totalCompleted++;
           }
         }
 

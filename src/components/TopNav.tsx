@@ -1,6 +1,6 @@
 import React, { useEffect, useState, useRef, useMemo } from 'react';
-import { Layers, Inbox, Calendar as CalendarIcon, CalendarClock, ClipboardList, RefreshCw, WifiOff, UserX, Keyboard, Command, BookOpen, Reply, Mail, CheckCircle } from 'lucide-react';
-import { useUIStore } from '../store/useUIStore';
+import { Layers, Inbox, Calendar as CalendarIcon, CalendarClock, ClipboardList, RefreshCw, WifiOff, UserX, Keyboard, Command, BookOpen, Reply, Mail, LayoutGrid, ListChecks, BarChart3, Flame } from 'lucide-react';
+import { useUIStore, CurrentView } from '../store/useUIStore';
 import { useOnlineStatus } from '../store/useOnlineStatus';
 import { useMailStore } from '../store/useMailStore';
 import { useTaskStore } from '../store/useTaskStore';
@@ -12,15 +12,24 @@ interface TopNavProps {
     setGuestMode: (mode: boolean) => void;
 }
 
+// Top-level sections — the persistent anchor. Order matches the keyboard "go to" chords.
+const SECTIONS: { id: CurrentView; label: string; Icon: React.ComponentType<any>; chord: string }[] = [
+    { id: 'tasks', label: 'Tasks', Icon: ClipboardList, chord: 'g t' },
+    { id: 'mail', label: 'Mail', Icon: Mail, chord: 'g m' },
+    { id: 'habits', label: 'Habits', Icon: Flame, chord: 'g h' },
+];
+
 export function TopNav({ session, isGuest, setGuestMode }: TopNavProps) {
     const {
         filter,
         currentView,
+        habitView,
         setFilter,
         setFocusMode,
         setShortcutsOpen,
         setCmdOpen,
-        setCurrentView
+        setCurrentView,
+        setHabitView,
     } = useUIStore();
 
     const pendingCount = useTaskStore((state) => state.pendingOperations.length);
@@ -60,6 +69,13 @@ export function TopNav({ session, isGuest, setGuestMode }: TopNavProps) {
     // Mail view menu items
     const mailMenuItems = ['inbox', 'to_read', 'to_reply', 'other'] as const;
 
+    // Habit view menu items (tabs within the Habits section)
+    const habitMenuItems = [
+        { id: 'grid' as const, Label: 'Grid', Icon: LayoutGrid },
+        { id: 'checklist' as const, Label: 'Checklist', Icon: ListChecks },
+        { id: 'analytics' as const, Label: 'Analytics', Icon: BarChart3 },
+    ];
+
     // Logic to show/hide nav
     const showNav = () => {
         setIsVisible(true);
@@ -77,10 +93,10 @@ export function TopNav({ session, isGuest, setGuestMode }: TopNavProps) {
         };
     }, []);
 
-    // Show when filter or activeTab changes
+    // Show when the section, filter, or active tab changes
     useEffect(() => {
         showNav();
-    }, [filter, activeTab]);
+    }, [filter, activeTab, currentView, habitView]);
 
     // Show on mouse move near top (optional, or just hover on the bar area)
     const handleMouseEnter = () => {
@@ -106,72 +122,106 @@ export function TopNav({ session, isGuest, setGuestMode }: TopNavProps) {
             onMouseEnter={handleMouseEnter}
             onMouseLeave={handleMouseLeave}
         >
-            {/* Left: Logo & Title */}
+            {/* Left: Logo + persistent Section switcher (the anchor — never moves) */}
             <div className="flex items-center gap-3">
-                <Layers className="w-5 h-5 text-primary-600 dark:text-primary-500" />
-                <h1 className="text-lg font-bold tracking-tight text-slate-900 dark:text-slate-100 hidden sm:block">FlowState</h1>
+                <Layers className="w-5 h-5 text-primary-600 dark:text-primary-500 shrink-0" />
+                <nav className="flex items-center gap-0.5 p-1 bg-slate-100 dark:bg-slate-800/50 rounded-lg">
+                    {SECTIONS.map(({ id, label, Icon, chord }) => {
+                        const isActive = currentView === id;
+                        return (
+                            <button
+                                key={id}
+                                onClick={() => { setCurrentView(id); setFocusMode('main'); }}
+                                title={`${label} (${chord})`}
+                                className={`
+                                    flex items-center gap-2 px-3 py-1.5 rounded-md text-sm font-semibold transition-all
+                                    ${isActive
+                                        ? 'bg-white dark:bg-slate-700 shadow-sm text-primary-600 dark:text-primary-400'
+                                        : 'text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200 hover:bg-white/50 dark:hover:bg-slate-700/50'
+                                    }
+                                `}
+                            >
+                                <Icon className="w-4 h-4" />
+                                <span className="hidden md:inline">{label}</span>
+                            </button>
+                        );
+                    })}
+                </nav>
             </div>
 
-            {/* Center: Context-aware Tabs */}
+            {/* Center: tabs for the CURRENT section (consistent placement for all sections) */}
             <nav className="flex items-center gap-1 p-1 bg-slate-100 dark:bg-slate-800/50 rounded-lg">
-                {currentView === 'tasks' ? (
-                    // Task View Tabs
-                    taskMenuItems.map((item) => {
-                        const isActive = filter === item;
-                        let Icon = Inbox;
-                        let Label = 'Plan';
-                        if (item === 'today') { Icon = CalendarIcon; Label = 'Today'; }
-                        if (item === 'upcoming') { Icon = CalendarClock; Label = 'Upcoming'; }
-                        if (item === 'review') { Icon = ClipboardList; Label = 'Review'; }
+                {currentView === 'tasks' && taskMenuItems.map((item) => {
+                    const isActive = filter === item;
+                    let Icon = Inbox;
+                    let Label = 'Plan';
+                    if (item === 'today') { Icon = CalendarIcon; Label = 'Today'; }
+                    if (item === 'upcoming') { Icon = CalendarClock; Label = 'Upcoming'; }
+                    if (item === 'review') { Icon = ClipboardList; Label = 'Review'; }
 
-                        return (
-                            <button
-                                key={item}
-                                onClick={() => {
-                                    setFilter(item);
-                                    setFocusMode('main');
-                                }}
-                                className={`
-                                    flex items-center gap-2 px-3 py-1.5 rounded-md text-sm font-medium transition-all
-                                    ${isActive
-                                        ? 'bg-white dark:bg-slate-700 shadow-sm text-primary-600 dark:text-primary-400'
-                                        : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200 hover:bg-white/50 dark:hover:bg-slate-700/50'
-                                    }
-                                `}
-                            >
-                                <Icon className="w-4 h-4" />
-                                <span className="hidden sm:inline">{Label}</span>
-                            </button>
-                        );
-                    })
-                ) : (
-                    // Mail View Tabs
-                    mailMenuItems.map((item) => {
-                        const isActive = activeTab === item;
-                        let Icon = Inbox;
-                        let Label = 'Inbox';
-                        if (item === 'to_read') { Icon = BookOpen; Label = 'To Read'; }
-                        if (item === 'to_reply') { Icon = Reply; Label = 'To Reply'; }
-                        if (item === 'other') { Icon = Mail; Label = 'Other'; }
+                    return (
+                        <button
+                            key={item}
+                            onClick={() => { setFilter(item); setFocusMode('main'); }}
+                            className={`
+                                flex items-center gap-2 px-3 py-1.5 rounded-md text-sm font-medium transition-all
+                                ${isActive
+                                    ? 'bg-white dark:bg-slate-700 shadow-sm text-primary-600 dark:text-primary-400'
+                                    : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200 hover:bg-white/50 dark:hover:bg-slate-700/50'
+                                }
+                            `}
+                        >
+                            <Icon className="w-4 h-4" />
+                            <span className="hidden sm:inline">{Label}</span>
+                        </button>
+                    );
+                })}
 
-                        return (
-                            <button
-                                key={item}
-                                onClick={() => setActiveTab(item)}
-                                className={`
-                                    flex items-center gap-2 px-3 py-1.5 rounded-md text-sm font-medium transition-all
-                                    ${isActive
-                                        ? 'bg-white dark:bg-slate-700 shadow-sm text-primary-600 dark:text-primary-400'
-                                        : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200 hover:bg-white/50 dark:hover:bg-slate-700/50'
-                                    }
-                                `}
-                            >
-                                <Icon className="w-4 h-4" />
-                                <span className="hidden sm:inline">{Label}</span>
-                            </button>
-                        );
-                    })
-                )}
+                {currentView === 'mail' && mailMenuItems.map((item) => {
+                    const isActive = activeTab === item;
+                    let Icon = Inbox;
+                    let Label = 'Inbox';
+                    if (item === 'to_read') { Icon = BookOpen; Label = 'To Read'; }
+                    if (item === 'to_reply') { Icon = Reply; Label = 'To Reply'; }
+                    if (item === 'other') { Icon = Mail; Label = 'Other'; }
+
+                    return (
+                        <button
+                            key={item}
+                            onClick={() => setActiveTab(item)}
+                            className={`
+                                flex items-center gap-2 px-3 py-1.5 rounded-md text-sm font-medium transition-all
+                                ${isActive
+                                    ? 'bg-white dark:bg-slate-700 shadow-sm text-primary-600 dark:text-primary-400'
+                                    : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200 hover:bg-white/50 dark:hover:bg-slate-700/50'
+                                }
+                            `}
+                        >
+                            <Icon className="w-4 h-4" />
+                            <span className="hidden sm:inline">{Label}</span>
+                        </button>
+                    );
+                })}
+
+                {currentView === 'habits' && habitMenuItems.map(({ id, Label, Icon }) => {
+                    const isActive = habitView === id;
+                    return (
+                        <button
+                            key={id}
+                            onClick={() => setHabitView(id)}
+                            className={`
+                                flex items-center gap-2 px-3 py-1.5 rounded-md text-sm font-medium transition-all
+                                ${isActive
+                                    ? 'bg-white dark:bg-slate-700 shadow-sm text-primary-600 dark:text-primary-400'
+                                    : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200 hover:bg-white/50 dark:hover:bg-slate-700/50'
+                                }
+                            `}
+                        >
+                            <Icon className="w-4 h-4" />
+                            <span className="hidden sm:inline">{Label}</span>
+                        </button>
+                    );
+                })}
             </nav>
 
             {/* Right: Actions & Status */}
