@@ -1,7 +1,8 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { ChevronLeft, ChevronRight, Plus, Edit2, Trash2 } from 'lucide-react';
 import { useHabitStore } from '../../store/useHabitStore';
 import { useUIStore } from '../../store/useUIStore';
+import { toast } from '../Toaster';
 
 interface HabitGridViewProps {
   onAddHabit?: () => void;
@@ -54,6 +55,66 @@ export function HabitGridView({ onAddHabit, onEditHabit, onDeleteHabit }: HabitG
   const stats = useMemo(() => getWeekStats(currentWeek), [currentWeek]);
 
   const goalMet = stats.percentage >= globalHabitGoal;
+
+  const [focusedHabitIdx, setFocusedHabitIdx] = useState(0);
+  const [focusedDayIdx, setFocusedDayIdx] = useState(0);
+
+  // Keyboard navigation
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      // Ignore if typing in input
+      if (document.activeElement?.tagName === 'INPUT' || document.activeElement?.tagName === 'TEXTAREA') {
+        return;
+      }
+
+      const key = e.key.toLowerCase();
+
+      if (key === 'arrowdown') {
+        e.preventDefault();
+        setFocusedHabitIdx((prev) => Math.min(prev + 1, habits.length - 1));
+      } else if (key === 'arrowup') {
+        e.preventDefault();
+        setFocusedHabitIdx((prev) => Math.max(prev - 1, 0));
+      } else if (key === 'arrowright') {
+        e.preventDefault();
+        setFocusedDayIdx((prev) => Math.min(prev + 1, 6));
+      } else if (key === 'arrowleft') {
+        e.preventDefault();
+        setFocusedDayIdx((prev) => Math.max(prev - 1, 0));
+      } else if (key === ' ' || key === 'x') {
+        e.preventDefault();
+        if (habits[focusedHabitIdx]) {
+          const dateStr = weekDates[focusedDayIdx].toISOString().split('T')[0];
+          const habit = habits[focusedHabitIdx];
+          if (habit.daysOfWeek.includes(focusedDayIdx)) {
+            handleToggleHabit(habit.id, dateStr);
+          }
+        }
+      } else if (key === 'a') {
+        e.preventDefault();
+        onAddHabit?.();
+      } else if (key === 'e') {
+        e.preventDefault();
+        if (habits[focusedHabitIdx]) {
+          onEditHabit?.(habits[focusedHabitIdx].id);
+        }
+      } else if (key === 'delete' || key === 'backspace') {
+        e.preventDefault();
+        if (habits[focusedHabitIdx]) {
+          onDeleteHabit?.(habits[focusedHabitIdx].id);
+        }
+      } else if (key === ']') {
+        e.preventDefault();
+        handleNextWeek();
+      } else if (key === '[') {
+        e.preventDefault();
+        handlePrevWeek();
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [focusedHabitIdx, focusedDayIdx, habits, weekDates, currentWeek, onAddHabit, onEditHabit, onDeleteHabit]);
 
   const handlePrevWeek = () => {
     const [year, weekNum] = currentWeek.split('-W').map(Number);
@@ -169,12 +230,12 @@ export function HabitGridView({ onAddHabit, onEditHabit, onDeleteHabit }: HabitG
               </tr>
             </thead>
             <tbody>
-              {habits.map((habit) => {
+              {habits.map((habit, habitIdx) => {
                 const logs = getLogsForHabitInWeek(habit.id, currentWeek);
                 const completedCount = logs.filter((l) => l.completed).length;
 
                 return (
-                  <tr key={habit.id} className="border-b hover:bg-slate-50">
+                  <tr key={habit.id} className={`border-b ${habitIdx === focusedHabitIdx ? 'bg-blue-50' : 'hover:bg-slate-50'}`}>
                     <td className="py-3 px-4">
                       <div className="font-medium">{habit.title}</div>
                       <div className="text-xs text-slate-500">{habit.type === 'do' ? '✓ Do' : '✗ Avoid'}</div>
@@ -194,15 +255,16 @@ export function HabitGridView({ onAddHabit, onEditHabit, onDeleteHabit }: HabitG
 
                       const isCompleted = log?.completed;
 
+                      const isFocused = habitIdx === focusedHabitIdx && dayIdx === focusedDayIdx;
                       return (
-                        <td key={dayIdx} className="text-center py-3 px-2">
+                        <td key={dayIdx} className={`text-center py-3 px-2 ${isFocused ? 'ring-2 ring-inset ring-blue-400' : ''}`}>
                           <button
                             onClick={() => handleToggleHabit(habit.id, dateStr)}
                             className={`w-10 h-10 rounded-lg flex items-center justify-center transition-colors cursor-pointer ${
                               isCompleted
                                 ? 'bg-green-100 text-green-700 hover:bg-green-200'
                                 : 'bg-slate-100 text-slate-400 hover:bg-slate-200'
-                            }`}
+                            } ${isFocused ? 'ring-2 ring-blue-400 font-bold' : ''}`}
                             title={isCompleted ? 'Mark incomplete' : 'Mark complete (Space)'}
                           >
                             {isCompleted ? '✓' : '○'}

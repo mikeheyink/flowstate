@@ -112,50 +112,8 @@ export function TopNav({ session, isGuest, setGuestMode }: TopNavProps) {
                 <h1 className="text-lg font-bold tracking-tight text-slate-900 dark:text-slate-100 hidden sm:block">FlowState</h1>
             </div>
 
-            {/* Center: View Switcher & Tabs */}
-            <div className="flex items-center gap-3">
-                {/* View Switcher */}
-                <nav className="flex items-center gap-1 p-1 bg-slate-100 dark:bg-slate-800/50 rounded-lg">
-                    <button
-                        onClick={() => { setCurrentView('tasks'); setFocusMode('main'); }}
-                        className={`flex items-center gap-1 px-2 py-1 rounded text-xs font-medium transition-all ${
-                            currentView === 'tasks'
-                                ? 'bg-white dark:bg-slate-700 shadow-sm text-primary-600 dark:text-primary-400'
-                                : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200 hover:bg-white/50 dark:hover:bg-slate-700/50'
-                        }`}
-                        title="Tasks (g then t)"
-                    >
-                        <ClipboardList className="w-3 h-3" />
-                        <span className="hidden sm:inline">Tasks</span>
-                    </button>
-                    <button
-                        onClick={() => setCurrentView('mail')}
-                        className={`flex items-center gap-1 px-2 py-1 rounded text-xs font-medium transition-all ${
-                            currentView === 'mail'
-                                ? 'bg-white dark:bg-slate-700 shadow-sm text-primary-600 dark:text-primary-400'
-                                : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200 hover:bg-white/50 dark:hover:bg-slate-700/50'
-                        }`}
-                        title="Mail"
-                    >
-                        <Mail className="w-3 h-3" />
-                        <span className="hidden sm:inline">Mail</span>
-                    </button>
-                    <button
-                        onClick={() => setCurrentView('habits')}
-                        className={`flex items-center gap-1 px-2 py-1 rounded text-xs font-medium transition-all ${
-                            currentView === 'habits'
-                                ? 'bg-white dark:bg-slate-700 shadow-sm text-primary-600 dark:text-primary-400'
-                                : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200 hover:bg-white/50 dark:hover:bg-slate-700/50'
-                        }`}
-                        title="Habits (g then h)"
-                    >
-                        <CheckCircle className="w-3 h-3" />
-                        <span className="hidden sm:inline">Habits</span>
-                    </button>
-                </nav>
-
-                {/* Tab Switcher */}
-                <nav className="flex items-center gap-1 p-1 bg-slate-100 dark:bg-slate-800/50 rounded-lg">
+            {/* Center: Context-aware Tabs */}
+            <nav className="flex items-center gap-1 p-1 bg-slate-100 dark:bg-slate-800/50 rounded-lg">
                 {currentView === 'tasks' ? (
                     // Task View Tabs
                     taskMenuItems.map((item) => {
@@ -214,8 +172,7 @@ export function TopNav({ session, isGuest, setGuestMode }: TopNavProps) {
                         );
                     })
                 )}
-                </nav>
-            </div>
+            </nav>
 
             {/* Right: Actions & Status */}
             <div className="flex items-center gap-4">

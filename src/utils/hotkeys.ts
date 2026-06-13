@@ -129,3 +129,68 @@ export function getPaletteHotkeys(): Hotkey[] {
 export function getHotkeyById(id: string): Hotkey | undefined {
     return HOTKEYS.find(h => h.id === id);
 }
+
+/**
+ * Get hotkey groups filtered by view context
+ */
+export function getHotkeyModalGroupsByView(view: 'tasks' | 'mail' | 'habits'): { title: string; items: Hotkey[] }[] {
+    const groups: { title: string; ids: string[] }[] = [
+        { title: 'Most used', ids: ['new-task', 'complete', 'nav-down', 'nav-up', 'edit-title', 'set-date', 'delete', 'cmd-palette'] },
+        { title: 'Organize', ids: ['indent', 'outdent', 'move-task-up', 'move-task-down', 'toggle-importance', 'clear-importance', 'push-tomorrow'] },
+        { title: 'Navigate', ids: ['nav-sidebar', 'expand', 'collapse', 'expand-all', 'collapse-all'] },
+        { title: 'Create & history', ids: ['new-subtask', 'batch-add', 'open-links', 'undo', 'redo', 'shortcuts-modal'] },
+    ];
+
+    if (view === 'habits') {
+        return [
+            {
+                title: 'Navigation',
+                items: [
+                    getHotkeyById('go-habits'),
+                    getHotkeyById('nav-down'),
+                    getHotkeyById('nav-up'),
+                    getHotkeyById('nav-sidebar'),
+                ].filter((h): h is Hotkey => !!h)
+            },
+            {
+                title: 'Habits',
+                items: [
+                    getHotkeyById('habit-toggle'),
+                    getHotkeyById('habit-add'),
+                    getHotkeyById('habit-edit'),
+                    getHotkeyById('habit-delete'),
+                    getHotkeyById('habit-prev-week'),
+                    getHotkeyById('habit-next-week'),
+                ].filter((h): h is Hotkey => !!h)
+            },
+            {
+                title: 'Edit',
+                items: [
+                    getHotkeyById('undo'),
+                    getHotkeyById('redo'),
+                ].filter((h): h is Hotkey => !!h)
+            }
+        ];
+    }
+
+    if (view === 'mail') {
+        return [
+            {
+                title: 'Navigation',
+                items: [
+                    getHotkeyById('nav-down'),
+                    getHotkeyById('nav-up'),
+                    getHotkeyById('nav-sidebar'),
+                ].filter((h): h is Hotkey => !!h)
+            },
+        ];
+    }
+
+    // Tasks view (default)
+    return groups.map(g => ({
+        title: g.title,
+        items: g.ids
+            .map(id => HOTKEYS.find(h => h.id === id))
+            .filter((h): h is Hotkey => !!h && h.showInModal !== false),
+    }));
+}

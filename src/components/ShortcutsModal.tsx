@@ -1,5 +1,6 @@
 import React from 'react';
-import { getHotkeyModalGroups } from '../utils/hotkeys';
+import { getHotkeyModalGroupsByView } from '../utils/hotkeys';
+import { useUIStore } from '../store/useUIStore';
 
 interface Props {
   isOpen: boolean;
@@ -27,7 +28,8 @@ function splitKeys(keys: string): string[] {
 export const ShortcutsModal: React.FC<Props> = ({ isOpen, onClose }) => {
   if (!isOpen) return null;
 
-  const groups = getHotkeyModalGroups();
+  const currentView = useUIStore((state) => state.currentView);
+  const groups = getHotkeyModalGroupsByView(currentView as 'tasks' | 'mail' | 'habits');
 
   return (
     <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm animate-in fade-in" onClick={onClose}>

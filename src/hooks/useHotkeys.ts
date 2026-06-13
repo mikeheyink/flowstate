@@ -87,18 +87,23 @@ export function useHotkeys() {
                 return;
             }
 
-            // View Switching (Cmd+Arrow)
-            if (isCmd && (key === 'arrowright' || key === 'arrowleft')) {
+            // View Switching ([ and ] cycle through Tasks → Mail → Habits)
+            if ((key === '[' || key === ']') && !isCmd && !isShift && !isAlt) {
                 e.preventDefault();
-                const views = ['tasks', 'mail'] as const;
-                const currentIdx = views.indexOf(uiState.currentView);
-                if (key === 'arrowright' && currentIdx < views.length - 1) {
-                    setCurrentView(views[currentIdx + 1]);
-                    toast(`Switched to ${views[currentIdx + 1] === 'mail' ? 'Mail' : 'Tasks'}`);
-                } else if (key === 'arrowleft' && currentIdx > 0) {
-                    setCurrentView(views[currentIdx - 1]);
-                    toast(`Switched to ${views[currentIdx - 1] === 'mail' ? 'Mail' : 'Tasks'}`);
+                const views = ['tasks', 'mail', 'habits'] as const;
+                const currentIdx = views.indexOf(uiState.currentView as any);
+                let nextIdx: number;
+
+                if (key === ']') {
+                    nextIdx = (currentIdx + 1) % views.length;
+                } else {
+                    nextIdx = (currentIdx - 1 + views.length) % views.length;
                 }
+
+                const nextView = views[nextIdx];
+                setCurrentView(nextView);
+                const labels = { tasks: 'Tasks', mail: 'Mail', habits: 'Habits' };
+                toast(`Switch to ${labels[nextView]}`);
                 return;
             }
 
