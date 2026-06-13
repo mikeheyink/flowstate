@@ -3,6 +3,7 @@ import { useUIStore } from '../store/useUIStore';
 import { useTaskStore } from '../store/useTaskStore';
 import { useMailStore, filterEmails } from '../store/useMailStore';
 import { toast } from '../components/Toaster';
+import { useHabitStore } from '../store/useHabitStore';
 
 export function useHotkeys() {
     const {
@@ -127,26 +128,27 @@ export function useHotkeys() {
                 return;
             }
 
+            // G-Chord Navigation (Global)
+            if (key === 'g' && !isCmd && !gPressed) {
+                setGPressed(true);
+                if (gTimeoutRef.current) clearTimeout(gTimeoutRef.current);
+                gTimeoutRef.current = window.setTimeout(() => setGPressed(false), 500);
+                return;
+            }
+
+            if (gPressed) {
+                if (key === 'i' && uiState.currentView === 'tasks') { setFilter('active'); toast("Go to Inbox"); setGPressed(false); return; }
+                if (key === 't' && uiState.currentView === 'tasks') { setFilter('today'); toast("Go to Today"); setGPressed(false); return; }
+                if (key === 'r' && uiState.currentView === 'tasks') { setFilter('review'); toast("Go to Review"); setGPressed(false); return; }
+                if (key === 'h') { setCurrentView(uiState.currentView === 'habits' ? 'tasks' : 'habits'); toast(uiState.currentView === 'habits' ? 'Back to Tasks' : 'Go to Habits'); setGPressed(false); return; }
+                setGPressed(false);
+                return;
+            }
+
             // ----------------------------------------------------------------
             // TASK VIEW HOTKEYS
             // ----------------------------------------------------------------
             if (uiState.currentView === 'tasks') {
-
-                // G-Chord Navigation
-                if (key === 'g' && !isCmd && !gPressed) {
-                    setGPressed(true);
-                    if (gTimeoutRef.current) clearTimeout(gTimeoutRef.current);
-                    gTimeoutRef.current = window.setTimeout(() => setGPressed(false), 500);
-                    return;
-                }
-
-                if (gPressed) {
-                    if (key === 'i') { setFilter('active'); toast("Go to Inbox"); }
-                    if (key === 't') { setFilter('today'); toast("Go to Today"); }
-                    if (key === 'r') { setFilter('review'); toast("Go to Review"); }
-                    setGPressed(false);
-                    return;
-                }
 
                 // Quick Add
                 if (key === 'enter' && !isCmd && !isAlt && !isShift) {
@@ -164,7 +166,7 @@ export function useHotkeys() {
                 }
 
                 // Sidebar Cycle (PageUp/Down) - TASKS
-                if (key === 'pagedown') {
+                if (key === 'pagedown' || key === ']') {
                     e.preventDefault();
                     const currentFilter = uiState.filter;
                     const items = ['active', 'today', 'upcoming', 'review'] as const;
@@ -173,7 +175,7 @@ export function useHotkeys() {
                     setFilter(items[nextIndex]);
                     return;
                 }
-                if (key === 'pageup') {
+                if (key === 'pageup' || key === '[') {
                     e.preventDefault();
                     const currentFilter = uiState.filter;
                     const items = ['active', 'today', 'upcoming', 'review'] as const;
@@ -185,12 +187,20 @@ export function useHotkeys() {
             }
 
             // ----------------------------------------------------------------
+            // HABITS VIEW HOTKEYS
+            // ----------------------------------------------------------------
+            if (uiState.currentView === 'habits') {
+                // View cycling is handled by the HabitsView component
+                // Hotkeys here are for global actions
+            }
+
+            // ----------------------------------------------------------------
             // MAIL VIEW HOTKEYS
             // ----------------------------------------------------------------
             if (uiState.currentView === 'mail') {
 
                 // Sidebar Cycle (PageUp/Down) - MAIL
-                if (key === 'pagedown') {
+                if (key === 'pagedown' || key === ']') {
                     e.preventDefault();
                     const currentTab = mailState.activeTab;
                     const items = ['inbox', 'to_read', 'to_reply', 'other'] as const;
@@ -199,7 +209,7 @@ export function useHotkeys() {
                     setActiveTab(items[nextIndex]);
                     return;
                 }
-                if (key === 'pageup') {
+                if (key === 'pageup' || key === '[') {
                     e.preventDefault();
                     const currentTab = mailState.activeTab;
                     const items = ['inbox', 'to_read', 'to_reply', 'other'] as const;

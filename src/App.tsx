@@ -12,10 +12,13 @@ import { Login } from './components/Login';
 import { TopNav } from './components/TopNav';
 import { InboxZero } from './components/InboxZero';
 import { MailView } from './components/Mail/MailView';
+import { HabitsView } from './components/Habits/HabitsView';
 import { useTaskStore } from './store/useTaskStore';
+import { useHabitStore } from './store/useHabitStore';
 import { useUIStore } from './store/useUIStore';
 import { useHotkeys } from './hooks/useHotkeys';
 import { useOnlineStatus } from './store/useOnlineStatus';
+import { celebrate } from './utils/celebrate';
 import { supabase } from './utils/supabase';
 
 function App() {
@@ -39,6 +42,7 @@ function App() {
     } = useUIStore();
 
     const fetchTasks = useTaskStore((state) => state.fetchTasks);
+    const fetchHabits = useHabitStore((state) => state.fetchHabits);
     const undo = useTaskStore((state) => state.undo);
     const redo = useTaskStore((state) => state.redo);
     const batchAddTasks = useTaskStore((state) => state.batchAddTasks);
@@ -106,7 +110,10 @@ function App() {
                 useTaskStore.getState().setError(error.message);
             }
             setSession(session);
-            if (session) fetchTasks();
+            if (session) {
+                fetchTasks();
+                fetchHabits();
+            }
         }).catch(err => {
             console.error('Unexpected Auth Error:', err);
             useTaskStore.getState().setError('Unexpected authentication error occurred');
@@ -118,7 +125,10 @@ function App() {
             data: { subscription },
         } = supabase.auth.onAuthStateChange(async (event, session) => {
             setSession(session);
-            if (session) fetchTasks();
+            if (session) {
+                fetchTasks();
+                fetchHabits();
+            }
             setAuthLoading(false);
 
             // Global Handler: Capture Google Refresh Token if present (e.g. after OAuth redirect)
@@ -138,7 +148,22 @@ function App() {
         });
 
         return () => subscription.unsubscribe();
-    }, [fetchTasks]);
+    }, [fetchTasks, fetchHabits]);
+
+    // Celebrate the milestone: fire one subtle confetti burst the moment the
+    // list goes from "has tasks" to "all done" (Today cleared / Inbox Zero).
+    // sawTasksRef gates out the "opened the app already-empty" case so the
+    // burst stays rare — it only fires after we've actually seen a non-empty list.
+    const prevInboxZeroRef = useRef(false);
+    const sawTasksRef = useRef(false);
+    useEffect(() => {
+        if (!showInboxZero) {
+            sawTasksRef.current = true;
+        } else if (sawTasksRef.current && !prevInboxZeroRef.current) {
+            celebrate();
+        }
+        prevInboxZeroRef.current = showInboxZero;
+    }, [showInboxZero]);
 
     // Process pending operations when back online
     useEffect(() => {
@@ -225,9 +250,9 @@ function App() {
                     <AnimatePresence mode="wait">
                         <motion.div
                             key={currentView}
-                            initial={{ x: currentView === 'mail' ? '100%' : '-100%', opacity: 0 }}
+                            initial={{ x: currentView === 'mail' || currentView === 'habits' ? '100%' : '-100%', opacity: 0 }}
                             animate={{ x: 0, opacity: 1 }}
-                            exit={{ x: currentView === 'mail' ? '-100%' : '100%', opacity: 0 }}
+                            exit={{ x: currentView === 'mail' || currentView === 'habits' ? '-100%' : '100%', opacity: 0 }}
                             transition={{ type: 'spring', stiffness: 300, damping: 30 }}
                             className="absolute inset-0 overflow-y-auto px-4 py-6 md:px-8 scroll-smooth"
                         >
@@ -235,10 +260,12 @@ function App() {
                                 <div className="max-w-5xl mx-auto">
                                     {filter === 'review' ? <WeeklyReview /> : <TaskList filter={filter} />}
                                 </div>
-                            ) : (
+                            ) : currentView === 'mail' ? (
                                 <div className="max-w-5xl mx-auto h-full">
                                     <MailView />
                                 </div>
+                            ) : (
+                                <HabitsView />
                             )}
                         </motion.div>
                     </AnimatePresence>

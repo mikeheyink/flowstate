@@ -1,4 +1,4 @@
-import React, { useRef, useEffect } from 'react';
+import React, { useRef, useEffect, useState } from 'react';
 import { useTaskStore } from '../store/useTaskStore';
 import { useUIStore } from '../store/useUIStore';
 import { DndContext, closestCenter, DragOverlay } from '@dnd-kit/core';
@@ -52,6 +52,23 @@ export const TaskList: React.FC<TaskListProps> = ({ filter }) => {
   useEffect(() => { selectedIdsRef.current = selectedIds; }, [selectedIds]);
   useEffect(() => { editingTaskIdRef.current = editingTaskId; }, [editingTaskId]);
 
+  // Completion celebration: hold the task on-screen briefly so the checkbox
+  // animation is visible before it's filtered out of the list. Drives the
+  // success-green burst for every completion path (click, swipe, keyboard X).
+  const [celebratingId, setCelebratingId] = useState<string | null>(null);
+
+  const requestComplete = (id: string) => {
+    const t = useTaskStore.getState().tasks.find(x => x.id === id);
+    if (!t) return;
+    if (t.completed) { toggleTask(id); return; } // un-completing: instant, no fanfare
+    setCelebratingId(id);
+    window.setTimeout(() => {
+      toggleTask(id);
+      toast("Task completed", { label: "Undo", onClick: () => toggleTask(id) });
+      setCelebratingId(null);
+    }, 340);
+  };
+
   useTaskListKeyboard({
     visibleTasksRef,
     focusedIdRef,
@@ -59,7 +76,8 @@ export const TaskList: React.FC<TaskListProps> = ({ filter }) => {
     editingTaskIdRef,
     filter,
     expandedGroups,
-    toggleGroup
+    toggleGroup,
+    requestComplete,
   });
 
   // 4. Focus Recovery & Auto-scroll
@@ -85,12 +103,7 @@ export const TaskList: React.FC<TaskListProps> = ({ filter }) => {
     }
   }, [focusedId, focusMode, editingTaskId]);
 
-  const handleToggle = (id: string, currentlyCompleted: boolean) => {
-    toggleTask(id);
-    if (!currentlyCompleted) {
-      toast("Task completed", { label: "Undo", onClick: () => toggleTask(id) });
-    }
-  };
+  const handleToggle = (id: string, _currentlyCompleted: boolean) => requestComplete(id);
 
   if (visibleTasks.length === 0) {
     return (
@@ -125,6 +138,7 @@ export const TaskList: React.FC<TaskListProps> = ({ filter }) => {
                   index={index}
                   isFocused={focusedId === task.id}
                   isSelected={selectedIds.includes(task.id)}
+                  isCelebrating={celebratingId === task.id}
                   isEditing={editingTaskId === task.id}
                   focusMode={focusMode}
                   paddingLeft={`${task.depth * 1.5}rem`}

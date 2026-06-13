@@ -18,6 +18,29 @@ export interface Task {
   todayOrder?: number | null;
 }
 
+export type HabitType = 'do' | 'dont-do';
+
+export interface Habit {
+  id: string;
+  title: string;
+  type: HabitType;
+  createdAt: number;
+  archivedAt: number | null; // soft-delete
+
+  // Recurrence: habit applies for specific days of week
+  appliesFromWeek: string; // ISO week "2026-W24"
+  appliesUntilWeek: string | null; // null = all future weeks
+  daysOfWeek: number[]; // 0=Monday, 6=Sunday
+}
+
+export interface HabitLog {
+  id: string;
+  habitId: string;
+  date: string; // YYYY-MM-DD
+  completed: boolean; // true = succeeded, false = failed/skipped
+  updatedAt: number;
+}
+
 export interface ToastMessage {
   id: string;
   message: string;

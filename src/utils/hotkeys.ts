@@ -5,12 +5,12 @@
  * Used by ShortcutsModal, CommandPalette, and useTaskListKeyboard.
  */
 
-export type HotkeyCategory = 'navigation' | 'creation' | 'organization' | 'editing' | 'view';
+export type HotkeyCategory = 'navigation' | 'creation' | 'organization' | 'editing' | 'view' | 'habits';
 export type HotkeyContext = 'global' | 'task-focused' | 'task-with-date';
 
 export interface Hotkey {
     id: string;
-    keys: string;           // Display format: "Ctrl+↓" or "g then i"
+    keys: string;           // Display format (macOS glyphs): "⌘K", "⌥↓", "g then i"
     description: string;
     category: HotkeyCategory;
     context?: HotkeyContext;
@@ -26,39 +26,50 @@ export const HOTKEYS: Hotkey[] = [
     // === Navigation ===
     { id: 'nav-down', keys: '↓', description: 'Move Focus Down', category: 'navigation' },
     { id: 'nav-up', keys: '↑', description: 'Move Focus Up', category: 'navigation' },
-    { id: 'nav-sidebar', keys: 'PgUp / PgDn', description: 'Sidebar Navigation', category: 'navigation' },
-    { id: 'move-task-down', keys: 'Ctrl+↓', description: 'Move Task Down', category: 'navigation', context: 'task-focused' },
-    { id: 'move-task-up', keys: 'Ctrl+↑', description: 'Move Task Up', category: 'navigation', context: 'task-focused' },
+    { id: 'nav-sidebar', keys: '[ / ]', description: 'Previous / Next View', category: 'navigation' },
+    { id: 'move-task-down', keys: '⌥↓', description: 'Move Task Down', category: 'navigation', context: 'task-focused' },
+    { id: 'move-task-up', keys: '⌥↑', description: 'Move Task Up', category: 'navigation', context: 'task-focused' },
     { id: 'expand', keys: '→', description: 'Expand', category: 'navigation', context: 'task-focused' },
     { id: 'collapse', keys: '←', description: 'Collapse', category: 'navigation', context: 'task-focused' },
-    { id: 'expand-all', keys: 'Alt+Shift+→', description: 'Expand All', category: 'navigation' },
-    { id: 'collapse-all', keys: 'Alt+Shift+←', description: 'Collapse All', category: 'navigation' },
-    { id: 'cmd-palette', keys: 'Cmd+K', description: 'Command Palette', category: 'navigation' },
+    { id: 'expand-all', keys: '⌥⇧→', description: 'Expand All', category: 'navigation' },
+    { id: 'collapse-all', keys: '⌥⇧←', description: 'Collapse All', category: 'navigation' },
+    { id: 'cmd-palette', keys: '⌘K', description: 'Command Palette', category: 'navigation' },
+    { id: 'go-habits', keys: 'g then h', description: 'Go to Habits', category: 'navigation' },
 
     // === Creation ===
-    { id: 'new-task', keys: 'Enter', description: 'New Task', category: 'creation', showInPalette: true },
-    { id: 'new-subtask', keys: 'Cmd+Enter', description: 'New Subtask', category: 'creation', context: 'task-focused' },
-    { id: 'batch-add', keys: 'Cmd+Shift+V', description: 'Batch Add from Clipboard', category: 'creation' },
+    { id: 'new-task', keys: '↩', description: 'New Task', category: 'creation', showInPalette: true },
+    { id: 'new-subtask', keys: '⌘↩', description: 'New Subtask', category: 'creation', context: 'task-focused' },
+    { id: 'batch-add', keys: '⌘⇧V', description: 'Batch Add from Clipboard', category: 'creation' },
 
     // === Organization ===
-    { id: 'complete', keys: 'x', description: 'Complete Task', category: 'organization', context: 'task-focused', showInPalette: true },
-    { id: 'delete', keys: 'Delete', description: 'Delete Task', category: 'organization', context: 'task-focused', showInPalette: true },
-    { id: 'indent', keys: 'Tab', description: 'Indent (Make Subtask)', category: 'organization', context: 'task-focused' },
-    { id: 'outdent', keys: 'Shift+Tab', description: 'Outdent', category: 'organization', context: 'task-focused' },
-    { id: 'set-date', keys: 'd', description: 'Set Due Date', category: 'organization', context: 'task-focused', showInPalette: true },
-    { id: 'add-tags', keys: 'l', description: 'Add Tags', category: 'organization', context: 'task-focused', showInModal: false }, // Not implemented yet
+    { id: 'complete', keys: 'X', description: 'Complete Task', category: 'organization', context: 'task-focused', showInPalette: true },
+    { id: 'delete', keys: '⌫', description: 'Delete Task', category: 'organization', context: 'task-focused', showInPalette: true },
+    { id: 'indent', keys: '⇥', description: 'Indent (Make Subtask)', category: 'organization', context: 'task-focused' },
+    { id: 'outdent', keys: '⇧⇥', description: 'Outdent', category: 'organization', context: 'task-focused' },
+    { id: 'set-date', keys: 'D', description: 'Set Due Date', category: 'organization', context: 'task-focused', showInPalette: true },
+    { id: 'push-tomorrow', keys: '⇧T', description: 'Push Today’s Tasks to Tomorrow', category: 'organization' },
+    { id: 'add-tags', keys: 'L', description: 'Add Tags', category: 'organization', context: 'task-focused', showInModal: false }, // Not implemented yet
     { id: 'toggle-importance', keys: '1', description: 'Mark as Important', category: 'organization', context: 'task-with-date', showInPalette: true },
     { id: 'clear-importance', keys: '0', description: 'Clear Importance', category: 'organization', context: 'task-with-date', showInPalette: true },
 
     // === Editing ===
-    { id: 'edit-title', keys: 'e', description: 'Edit Title', category: 'editing', context: 'task-focused' },
-    { id: 'edit-note', keys: 'n', description: 'Edit Note', category: 'editing', context: 'task-focused', showInModal: false }, // Not implemented yet
-    { id: 'open-links', keys: 'Cmd+O', description: 'Open Links in Task', category: 'editing', context: 'task-focused' },
-    { id: 'undo', keys: 'Cmd+Z', description: 'Undo', category: 'editing' },
-    { id: 'redo', keys: 'Cmd+Shift+Z', description: 'Redo', category: 'editing' },
+    { id: 'edit-title', keys: 'E', description: 'Edit Title', category: 'editing', context: 'task-focused' },
+    { id: 'edit-note', keys: 'N', description: 'Edit Note', category: 'editing', context: 'task-focused', showInModal: false }, // Not implemented yet
+    { id: 'open-links', keys: '⌘O', description: 'Open Links in Task', category: 'editing', context: 'task-focused' },
+    { id: 'undo', keys: '⌘Z', description: 'Undo', category: 'editing' },
+    { id: 'redo', keys: '⌘⇧Z', description: 'Redo', category: 'editing' },
 
     // === View ===
     { id: 'shortcuts-modal', keys: '?', description: 'Show Shortcuts', category: 'view' },
+
+    // === Habits ===
+    { id: 'habit-toggle-view', keys: 'g then h', description: 'Cycle Habit Views', category: 'habits', context: 'global', showInModal: false },
+    { id: 'habit-toggle', keys: 'Space / X', description: 'Mark Habit Complete', category: 'habits', context: 'global', showInModal: false },
+    { id: 'habit-add', keys: 'A', description: 'Add Habit', category: 'habits', context: 'global', showInModal: false },
+    { id: 'habit-edit', keys: 'E', description: 'Edit Habit', category: 'habits', context: 'global', showInModal: false },
+    { id: 'habit-delete', keys: '⌫', description: 'Delete Habit', category: 'habits', context: 'global', showInModal: false },
+    { id: 'habit-prev-week', keys: '[', description: 'Previous Week', category: 'habits', context: 'global', showInModal: false },
+    { id: 'habit-next-week', keys: ']', description: 'Next Week', category: 'habits', context: 'global', showInModal: false },
 ];
 
 /**
@@ -82,6 +93,26 @@ export function getHotkeySections(): { title: string; category: HotkeyCategory; 
     return categories.map(c => ({
         ...c,
         items: getHotkeysByCategory(c.category)
+    }));
+}
+
+/**
+ * Curated modal grouping — ordered by how often a key is actually used,
+ * not by internal category. Resolves ids against the registry so the modal,
+ * command palette, and real handlers never drift apart.
+ */
+export function getHotkeyModalGroups(): { title: string; items: Hotkey[] }[] {
+    const groups: { title: string; ids: string[] }[] = [
+        { title: 'Most used', ids: ['new-task', 'complete', 'nav-down', 'nav-up', 'edit-title', 'set-date', 'delete', 'cmd-palette'] },
+        { title: 'Organize', ids: ['indent', 'outdent', 'move-task-up', 'move-task-down', 'toggle-importance', 'clear-importance', 'push-tomorrow'] },
+        { title: 'Navigate', ids: ['nav-sidebar', 'expand', 'collapse', 'expand-all', 'collapse-all'] },
+        { title: 'Create & history', ids: ['new-subtask', 'batch-add', 'open-links', 'undo', 'redo', 'shortcuts-modal'] },
+    ];
+    return groups.map(g => ({
+        title: g.title,
+        items: g.ids
+            .map(id => HOTKEYS.find(h => h.id === id))
+            .filter((h): h is Hotkey => !!h && h.showInModal !== false),
     }));
 }
 

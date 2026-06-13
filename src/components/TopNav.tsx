@@ -1,5 +1,5 @@
-import React, { useEffect, useState, useRef } from 'react';
-import { Layers, Inbox, Calendar as CalendarIcon, CalendarClock, ClipboardList, RefreshCw, WifiOff, UserX, Keyboard, Command, BookOpen, Reply, Mail } from 'lucide-react';
+import React, { useEffect, useState, useRef, useMemo } from 'react';
+import { Layers, Inbox, Calendar as CalendarIcon, CalendarClock, ClipboardList, RefreshCw, WifiOff, UserX, Keyboard, Command, BookOpen, Reply, Mail, CheckCircle } from 'lucide-react';
 import { useUIStore } from '../store/useUIStore';
 import { useOnlineStatus } from '../store/useOnlineStatus';
 import { useMailStore } from '../store/useMailStore';
@@ -19,11 +19,35 @@ export function TopNav({ session, isGuest, setGuestMode }: TopNavProps) {
         setFilter,
         setFocusMode,
         setShortcutsOpen,
-        setCmdOpen
+        setCmdOpen,
+        setCurrentView
     } = useUIStore();
 
     const pendingCount = useTaskStore((state) => state.pendingOperations.length);
+    const tasks = useTaskStore((state) => state.tasks);
     const isOnline = useOnlineStatus();
+
+    // Today's "plate": outstanding tasks due today-or-earlier, plus anything
+    // completed today. Drives the daily progress ring — it fills as you clear
+    // Today and "closes" (and fires confetti) when nothing is left.
+    const { todayDone, todayTotal } = useMemo(() => {
+        const now = new Date();
+        const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
+        const endOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1).getTime();
+        let done = 0, total = 0;
+        for (const t of tasks) {
+            if (t.archived || !t.dueDate) continue;
+            const due = new Date(t.dueDate).getTime();
+            if (due >= endOfToday) continue;
+            if (!t.completed) { total++; continue; }
+            const c = t.completedAt ? new Date(t.completedAt).getTime() : 0;
+            if (c >= startOfToday) { total++; done++; }
+        }
+        return { todayDone: done, todayTotal: total };
+    }, [tasks]);
+
+    const ringCircumference = 2 * Math.PI * 15;
+    const ringOffset = todayTotal > 0 ? ringCircumference * (1 - todayDone / todayTotal) : ringCircumference;
     const isLoading = useTaskStore((state) => state.isLoading);
     const { activeTab, setActiveTab } = useMailStore();
 
@@ -88,8 +112,50 @@ export function TopNav({ session, isGuest, setGuestMode }: TopNavProps) {
                 <h1 className="text-lg font-bold tracking-tight text-slate-900 dark:text-slate-100 hidden sm:block">FlowState</h1>
             </div>
 
-            {/* Center: Navigation Tabs */}
-            <nav className="flex items-center gap-1 p-1 bg-slate-100 dark:bg-slate-800/50 rounded-lg">
+            {/* Center: View Switcher & Tabs */}
+            <div className="flex items-center gap-3">
+                {/* View Switcher */}
+                <nav className="flex items-center gap-1 p-1 bg-slate-100 dark:bg-slate-800/50 rounded-lg">
+                    <button
+                        onClick={() => { setCurrentView('tasks'); setFocusMode('main'); }}
+                        className={`flex items-center gap-1 px-2 py-1 rounded text-xs font-medium transition-all ${
+                            currentView === 'tasks'
+                                ? 'bg-white dark:bg-slate-700 shadow-sm text-primary-600 dark:text-primary-400'
+                                : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200 hover:bg-white/50 dark:hover:bg-slate-700/50'
+                        }`}
+                        title="Tasks (g then t)"
+                    >
+                        <ClipboardList className="w-3 h-3" />
+                        <span className="hidden sm:inline">Tasks</span>
+                    </button>
+                    <button
+                        onClick={() => setCurrentView('mail')}
+                        className={`flex items-center gap-1 px-2 py-1 rounded text-xs font-medium transition-all ${
+                            currentView === 'mail'
+                                ? 'bg-white dark:bg-slate-700 shadow-sm text-primary-600 dark:text-primary-400'
+                                : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200 hover:bg-white/50 dark:hover:bg-slate-700/50'
+                        }`}
+                        title="Mail"
+                    >
+                        <Mail className="w-3 h-3" />
+                        <span className="hidden sm:inline">Mail</span>
+                    </button>
+                    <button
+                        onClick={() => setCurrentView('habits')}
+                        className={`flex items-center gap-1 px-2 py-1 rounded text-xs font-medium transition-all ${
+                            currentView === 'habits'
+                                ? 'bg-white dark:bg-slate-700 shadow-sm text-primary-600 dark:text-primary-400'
+                                : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200 hover:bg-white/50 dark:hover:bg-slate-700/50'
+                        }`}
+                        title="Habits (g then h)"
+                    >
+                        <CheckCircle className="w-3 h-3" />
+                        <span className="hidden sm:inline">Habits</span>
+                    </button>
+                </nav>
+
+                {/* Tab Switcher */}
+                <nav className="flex items-center gap-1 p-1 bg-slate-100 dark:bg-slate-800/50 rounded-lg">
                 {currentView === 'tasks' ? (
                     // Task View Tabs
                     taskMenuItems.map((item) => {
@@ -148,10 +214,30 @@ export function TopNav({ session, isGuest, setGuestMode }: TopNavProps) {
                         );
                     })
                 )}
-            </nav>
+                </nav>
+            </div>
 
             {/* Right: Actions & Status */}
             <div className="flex items-center gap-4">
+                {/* Today progress ring */}
+                {currentView === 'tasks' && todayTotal > 0 && (
+                    <div className="hidden md:flex items-center gap-2" title={`${todayDone} of ${todayTotal} done today`}>
+                        <svg width="22" height="22" viewBox="0 0 36 36" className="-rotate-90">
+                            <circle cx="18" cy="18" r="15" fill="none" className="stroke-slate-200 dark:stroke-slate-800" strokeWidth="4" />
+                            <circle
+                                cx="18" cy="18" r="15" fill="none"
+                                className="stroke-success-500"
+                                strokeWidth="4"
+                                strokeLinecap="round"
+                                strokeDasharray={ringCircumference}
+                                strokeDashoffset={ringOffset}
+                                style={{ transition: 'stroke-dashoffset 0.5s cubic-bezier(0.16, 1, 0.3, 1)' }}
+                            />
+                        </svg>
+                        <span className="text-xs font-medium text-slate-500 dark:text-slate-400 tabular-nums">{todayDone}/{todayTotal}</span>
+                    </div>
+                )}
+
                 {/* Search Trigger */}
                 <button
                     onClick={() => setCmdOpen(true)}

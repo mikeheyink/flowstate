@@ -1,9 +1,10 @@
 import React, { useEffect, useState } from 'react';
-import { Search, Plus, Trash2, CheckCircle, SunMoon, MessageCircle, Calendar, Star, StarOff, Edit3, Undo, Redo } from 'lucide-react';
+import { Search, Plus, Trash2, CheckCircle, SunMoon, MessageCircle, Calendar, CalendarClock, Star, StarOff, Edit3, Undo, Redo } from 'lucide-react';
 import { useTaskStore } from '../store/useTaskStore';
 import { useUIStore } from '../store/useUIStore';
 import { useCoachStore } from '../store/useCoachStore';
 import { getHotkeyById } from '../utils/hotkeys';
+import { toast } from './Toaster';
 
 interface Action {
   id: string;
@@ -17,8 +18,8 @@ interface Action {
 export const CommandPalette: React.FC<{ isOpen: boolean; onClose: () => void }> = ({ isOpen, onClose }) => {
   const [query, setQuery] = useState('');
   const [selectedIndex, setSelectedIndex] = useState(0);
-  const { tasks, focusedId, toggleTask, archiveTask, toggleImportance, clearImportance, undo, redo } = useTaskStore();
-  const { setQuickAddOpen, setEditingTaskId } = useUIStore();
+  const { tasks, focusedId, toggleTask, archiveTask, toggleImportance, clearImportance, undo, redo, pushTodayToTomorrow } = useTaskStore();
+  const { filter, setQuickAddOpen, setEditingTaskId } = useUIStore();
   const setCoachOpen = useCoachStore((state) => state.setOpen);
 
   // Build actions list - contextual first, then global
@@ -89,6 +90,21 @@ export const CommandPalette: React.FC<{ isOpen: boolean; onClose: () => void }> 
         section: 'Task'
       });
     }
+  }
+
+  // === Bulk reschedule ===
+  if (filter !== 'review') {
+    actions.push({
+      id: 'push-tomorrow',
+      title: "Push Today's Tasks to Tomorrow",
+      icon: <CalendarClock className="w-4 h-4" />,
+      shortcut: getHotkeyById('push-tomorrow')?.keys,
+      perform: () => {
+        const n = pushTodayToTomorrow();
+        toast(n > 0 ? `Moved ${n} task${n === 1 ? '' : 's'} to tomorrow` : 'Nothing due today to move', n > 0 ? { label: 'Undo', onClick: () => undo() } : undefined);
+      },
+      section: 'Tasks'
+    });
   }
 
   // === Global Actions ===
