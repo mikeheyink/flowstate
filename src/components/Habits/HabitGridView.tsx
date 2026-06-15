@@ -20,8 +20,9 @@ export function HabitGridView({ onAddHabit, onEditHabit, onDeleteHabit }: HabitG
   const getLogsForHabitInWeek = useHabitStore((state) => state.getLogsForHabitInWeek);
   const logHabit = useHabitStore((state) => state.logHabit);
   const getWeekStats = useHabitStore((state) => state.getWeekStats);
+  const moveHabit = useHabitStore((state) => state.moveHabit);
   // Subscribe to the raw data so the grid re-renders (and the memos recompute)
-  // whenever a habit is added/edited or a day is toggled.
+  // whenever a habit is added/edited, reordered, or a day is toggled.
   const allHabits = useHabitStore((state) => state.habits);
   const habitLogs = useHabitStore((state) => state.habitLogs);
   const globalHabitGoal = useUIStore((state) => state.globalHabitGoal);
@@ -41,6 +42,12 @@ export function HabitGridView({ onAddHabit, onEditHabit, onDeleteHabit }: HabitG
     setFocusedHabitIdx((prev) => Math.max(0, Math.min(prev, habits.length - 1)));
   }, [habits.length]);
 
+  // Scroll the focused row into view so keyboard navigation never goes off-screen.
+  useEffect(() => {
+    const row = document.querySelector(`[data-habit-row="${focusedHabitIdx}"]`);
+    row?.scrollIntoView({ block: 'nearest' });
+  }, [focusedHabitIdx]);
+
   // Keyboard navigation
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -52,6 +59,22 @@ export function HabitGridView({ onAddHabit, onEditHabit, onDeleteHabit }: HabitG
       if (useUIStore.getState().isAnyOverlayOpen()) return;
 
       const key = e.key.toLowerCase();
+      const isCmd = e.metaKey || e.ctrlKey;
+
+      // ⌘↑ / ⌘↓ — reorder the focused habit (persists across grid & checklist).
+      if (isCmd && (key === 'arrowup' || key === 'arrowdown')) {
+        e.preventDefault();
+        const habit = habits[focusedHabitIdx];
+        if (habit) {
+          const dir = key === 'arrowup' ? 'up' : 'down';
+          moveHabit(habit.id, dir);
+          // Keep focus on the moved habit as it changes position.
+          setFocusedHabitIdx((prev) =>
+            dir === 'up' ? Math.max(prev - 1, 0) : Math.min(prev + 1, habits.length - 1)
+          );
+        }
+        return;
+      }
 
       if (key === 'arrowdown') {
         e.preventDefault();
@@ -100,7 +123,7 @@ export function HabitGridView({ onAddHabit, onEditHabit, onDeleteHabit }: HabitG
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [focusedHabitIdx, focusedDayIdx, habits, weekDates, currentWeek, onAddHabit, onEditHabit, onDeleteHabit]);
+  }, [focusedHabitIdx, focusedDayIdx, habits, weekDates, currentWeek, onAddHabit, onEditHabit, onDeleteHabit, moveHabit]);
 
   const handlePrevWeek = () => setCurrentWeek((w) => shiftWeek(w, -1));
   const handleNextWeek = () => setCurrentWeek((w) => shiftWeek(w, 1));
@@ -213,7 +236,7 @@ export function HabitGridView({ onAddHabit, onEditHabit, onDeleteHabit }: HabitG
                 const completedCount = logs.filter((l) => l.completed).length;
 
                 return (
-                  <tr key={habit.id} className={`border-b border-slate-200 dark:border-slate-800 ${habitIdx === focusedHabitIdx ? 'bg-primary-50 dark:bg-primary-500/10' : 'hover:bg-slate-50 dark:hover:bg-slate-800/50'}`}>
+                  <tr key={habit.id} data-habit-row={habitIdx} className={`border-b border-slate-200 dark:border-slate-800 ${habitIdx === focusedHabitIdx ? 'bg-primary-50 dark:bg-primary-500/10' : 'hover:bg-slate-50 dark:hover:bg-slate-800/50'}`}>
                     <td className="py-3 px-4">
                       <div className="font-medium">{habit.title}</div>
                       <div className="text-xs text-slate-500 dark:text-slate-400">{habit.type === 'do' ? '✓ Do' : '✗ Avoid'}</div>

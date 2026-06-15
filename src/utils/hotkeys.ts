@@ -30,9 +30,10 @@ export const HOTKEYS: Hotkey[] = [
     { id: 'nav-sidebar', keys: '[ / ]', description: 'Previous / Next Tab', category: 'navigation' },
     { id: 'go-inbox', keys: 'g then i', description: 'Go to Inbox', category: 'navigation' },
     { id: 'go-today', keys: 'g then t', description: 'Go to Today', category: 'navigation' },
+    { id: 'go-upcoming', keys: 'g then u', description: 'Go to Upcoming', category: 'navigation' },
     { id: 'go-review', keys: 'g then r', description: 'Go to Review', category: 'navigation' },
-    { id: 'move-task-down', keys: '⌥↓', description: 'Move Task Down', category: 'navigation', context: 'task-focused' },
-    { id: 'move-task-up', keys: '⌥↑', description: 'Move Task Up', category: 'navigation', context: 'task-focused' },
+    { id: 'move-task-down', keys: '⌘↓', description: 'Move Task Down', category: 'navigation', context: 'task-focused' },
+    { id: 'move-task-up', keys: '⌘↑', description: 'Move Task Up', category: 'navigation', context: 'task-focused' },
     { id: 'expand', keys: '→', description: 'Expand', category: 'navigation', context: 'task-focused' },
     { id: 'collapse', keys: '←', description: 'Collapse', category: 'navigation', context: 'task-focused' },
     { id: 'expand-all', keys: '⌥⇧→', description: 'Expand All', category: 'navigation' },
@@ -67,11 +68,12 @@ export const HOTKEYS: Hotkey[] = [
 
     // === Habits ===
     { id: 'habit-toggle', keys: 'Space / X', description: 'Mark / unmark habit', category: 'habits', context: 'global', showInModal: false },
-    { id: 'habit-nav', keys: '↑ ↓ ← →', description: 'Move around the grid', category: 'habits', context: 'global', showInModal: false },
+    { id: 'habit-nav', keys: '↑ ↓ ← →', description: 'Move between habits / days', category: 'habits', context: 'global', showInModal: false },
+    { id: 'habit-reorder', keys: '⌘↑ / ⌘↓', description: 'Reorder habit up / down', category: 'habits', context: 'global', showInModal: false },
+    { id: 'habit-week', keys: ', / .', description: 'Previous / next week', category: 'habits', context: 'global', showInModal: false },
     { id: 'habit-add', keys: 'A', description: 'Add habit', category: 'habits', context: 'global', showInModal: false },
     { id: 'habit-edit', keys: 'E', description: 'Edit habit', category: 'habits', context: 'global', showInModal: false },
     { id: 'habit-delete', keys: '⌫', description: 'Delete habit', category: 'habits', context: 'global', showInModal: false },
-    { id: 'habit-week', keys: ', / .', description: 'Previous / next week', category: 'habits', context: 'global', showInModal: false },
 ];
 
 /**
@@ -151,7 +153,7 @@ export function getHotkeyModalGroupsByView(view: 'tasks' | 'mail' | 'habits'): {
             },
             {
                 title: 'Track habits',
-                items: resolve(['habit-toggle', 'habit-nav', 'habit-week']),
+                items: resolve(['habit-toggle', 'habit-nav', 'habit-reorder', 'habit-week']),
             },
             {
                 title: 'Manage & history',
@@ -164,7 +166,7 @@ export function getHotkeyModalGroupsByView(view: 'tasks' | 'mail' | 'habits'): {
     return [
         { title: 'Most used', items: resolve(['new-task', 'complete', 'nav-down', 'nav-up', 'edit-title', 'set-date', 'delete', 'cmd-palette']) },
         { title: 'Organize', items: resolve(['indent', 'outdent', 'move-task-up', 'move-task-down', 'toggle-importance', 'clear-importance', 'push-tomorrow']) },
-        { title: 'Get around', items: resolve(['nav-section', 'nav-sidebar', 'go-inbox', 'go-today', 'go-review', 'expand', 'collapse']) },
+        { title: 'Get around', items: resolve(['nav-section', 'nav-sidebar', 'go-inbox', 'go-today', 'go-upcoming', 'go-review', 'expand', 'collapse']) },
         { title: 'Create & history', items: resolve(['new-subtask', 'batch-add', 'open-links', 'undo', 'redo', 'shortcuts-modal']) },
     ];
 }

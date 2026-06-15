@@ -6,6 +6,7 @@ CREATE TABLE IF NOT EXISTS habits (
   type VARCHAR(10) NOT NULL CHECK (type IN ('do', 'dont-do')),
   created_at BIGINT NOT NULL,
   archived_at BIGINT,
+  "order" DOUBLE PRECISION, -- manual sort key (lower = higher in the list)
   applies_from_week VARCHAR(8) NOT NULL, -- ISO week format: YYYY-W##
   applies_until_week VARCHAR(8), -- NULL means all future weeks
   days_of_week INTEGER[] NOT NULL, -- Array of day indices (0=Monday, 6=Sunday)

@@ -29,6 +29,7 @@ interface HabitState {
   addHabit: (title: string, type: 'do' | 'dont-do', daysOfWeek: number[], appliesFromWeek: string) => void;
   updateHabit: (id: string, updates: Partial<Habit>) => void;
   removeHabit: (id: string) => void; // soft-delete
+  moveHabit: (id: string, direction: 'up' | 'down') => void; // manual reorder
   logHabit: (habitId: string, date: string, completed: boolean) => void;
 
   // Queries
@@ -54,6 +55,8 @@ const mapFromDb = (dbHabit: any): Habit => ({
   type: dbHabit.type as 'do' | 'dont-do',
   createdAt: parseInt(dbHabit.created_at),
   archivedAt: dbHabit.archived_at ? parseInt(dbHabit.archived_at) : null,
+  // Fall back to createdAt for rows saved before manual ordering existed.
+  order: dbHabit.order != null ? parseFloat(dbHabit.order) : parseInt(dbHabit.created_at),
   appliesFromWeek: dbHabit.applies_from_week,
   appliesUntilWeek: dbHabit.applies_until_week,
   daysOfWeek: dbHabit.days_of_week || [],
@@ -66,11 +69,16 @@ const mapToDb = (habit: Partial<Habit>) => {
   if (habit.type !== undefined) dbObj.type = habit.type;
   if (habit.createdAt !== undefined) dbObj.created_at = habit.createdAt;
   if (habit.archivedAt !== undefined) dbObj.archived_at = habit.archivedAt;
+  if (habit.order !== undefined) dbObj.order = habit.order;
   if (habit.appliesFromWeek !== undefined) dbObj.applies_from_week = habit.appliesFromWeek;
   if (habit.appliesUntilWeek !== undefined) dbObj.applies_until_week = habit.appliesUntilWeek;
   if (habit.daysOfWeek !== undefined) dbObj.days_of_week = habit.daysOfWeek;
   return dbObj;
 };
+
+// Shared sort: manual order first, createdAt as a stable tiebreaker.
+const byOrder = (a: Habit, b: Habit) =>
+  (a.order ?? a.createdAt) - (b.order ?? b.createdAt) || a.createdAt - b.createdAt;
 
 const queueOperation = async (
   set: any,
@@ -141,12 +149,16 @@ export const useHabitStore = create<HabitState>()(
       },
 
       addHabit: (title, type, daysOfWeek, appliesFromWeek) => {
+        const now = Date.now();
+        // New habits go to the bottom of the current list.
+        const maxOrder = get().habits.reduce((m, h) => Math.max(m, h.order ?? h.createdAt), 0);
         const habit: Habit = {
           id: generateId(),
           title,
           type,
-          createdAt: Date.now(),
+          createdAt: now,
           archivedAt: null,
+          order: maxOrder + 1,
           appliesFromWeek,
           appliesUntilWeek: null,
           daysOfWeek,
@@ -183,6 +195,22 @@ export const useHabitStore = create<HabitState>()(
       removeHabit: (id) => {
         // Soft delete
         get().updateHabit(id, { archivedAt: Date.now() });
+      },
+
+      moveHabit: (id, direction) => {
+        // Reorder within the full active list; swap sort keys with the neighbour.
+        const active = get().habits.filter((h) => !h.archivedAt).sort(byOrder);
+        const idx = active.findIndex((h) => h.id === id);
+        if (idx === -1) return;
+        const swapIdx = direction === 'up' ? idx - 1 : idx + 1;
+        if (swapIdx < 0 || swapIdx >= active.length) return;
+
+        const a = active[idx];
+        const b = active[swapIdx];
+        const aKey = a.order ?? a.createdAt;
+        const bKey = b.order ?? b.createdAt;
+        get().updateHabit(a.id, { order: bKey });
+        get().updateHabit(b.id, { order: aKey });
       },
 
       logHabit: (habitId, date, completed) => {
@@ -233,12 +261,14 @@ export const useHabitStore = create<HabitState>()(
       },
 
       getHabitsForWeek: (weekStr) => {
-        return get().habits.filter((h) => {
-          if (h.archivedAt) return false;
-          if (weekStr < h.appliesFromWeek) return false;
-          if (h.appliesUntilWeek && weekStr > h.appliesUntilWeek) return false;
-          return true;
-        });
+        return get().habits
+          .filter((h) => {
+            if (h.archivedAt) return false;
+            if (weekStr < h.appliesFromWeek) return false;
+            if (h.appliesUntilWeek && weekStr > h.appliesUntilWeek) return false;
+            return true;
+          })
+          .sort(byOrder);
       },
 
       getLogsForWeek: (weekStr) => {

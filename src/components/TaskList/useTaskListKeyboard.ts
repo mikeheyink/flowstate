@@ -78,8 +78,8 @@ export function useTaskListKeyboard({
 
             const key = e.key.toLowerCase();
             const isShift = e.shiftKey;
-            const isCmd = e.metaKey || e.ctrlKey;
-            const isAlt = e.altKey; // Option on macOS — used for Move Task (avoids Ctrl+Arrow = Mission Control)
+            const isCmd = e.metaKey || e.ctrlKey; // Cmd on macOS — used for Move Task
+            const isAlt = e.altKey; // Option — still drives Expand/Collapse All (⌥⇧→/←)
 
             // Push all outstanding tasks due today-or-earlier to tomorrow.
             // Works from any task view, not just Today.
@@ -115,7 +115,7 @@ export function useTaskListKeyboard({
                         return;
                     }
 
-                    if (isAlt && currentTask) {
+                    if (isCmd && currentTask) {
                         // Skip reordering in Upcoming view — order is determined by date
                         if (filter === 'upcoming') return;
 
@@ -152,7 +152,7 @@ export function useTaskListKeyboard({
                         return;
                     }
 
-                    if (isAlt && currentTask) {
+                    if (isCmd && currentTask) {
                         // Skip reordering in Upcoming view — order is determined by date
                         if (filter === 'upcoming') return;
 

@@ -26,6 +26,7 @@ export interface Habit {
   type: HabitType;
   createdAt: number;
   archivedAt: number | null; // soft-delete
+  order: number; // manual sort key (lower = higher in the list)
 
   // Recurrence: habit applies for specific days of week
   appliesFromWeek: string; // ISO week "2026-W24"

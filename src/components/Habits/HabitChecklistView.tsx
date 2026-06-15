@@ -54,6 +54,12 @@ export function HabitChecklistView({ onAddHabit }: HabitChecklistViewProps) {
     setFocusedHabitIdx((prev) => Math.max(0, Math.min(prev, habitsForFocusedDay.length - 1)));
   }, [habitsForFocusedDay.length]);
 
+  // Scroll the focused habit into view so arrowing down follows it on the page.
+  useEffect(() => {
+    const el = document.querySelector(`[data-checklist-idx="${focusedHabitIdx}"]`);
+    el?.scrollIntoView({ block: 'nearest' });
+  }, [focusedHabitIdx]);
+
   // Keyboard: ←/→ change day, ↑/↓ move between habits, Space/X toggle, A add.
   // (Same verbs as the grid, so muscle memory carries across the two views.)
   useEffect(() => {
@@ -130,6 +136,7 @@ export function HabitChecklistView({ onAddHabit }: HabitChecklistViewProps) {
           habitsForFocusedDay.map(({ habit, completed }, idx) => (
             <button
               key={habit.id}
+              data-checklist-idx={idx}
               onClick={() => { setFocusedHabitIdx(idx); handleToggleHabit(habit.id); }}
               className={`w-full p-4 rounded-lg text-left transition-colors ${
                 completed
