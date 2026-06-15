@@ -29,7 +29,8 @@ interface HabitState {
   addHabit: (title: string, type: 'do' | 'dont-do', daysOfWeek: number[], appliesFromWeek: string) => void;
   updateHabit: (id: string, updates: Partial<Habit>) => void;
   removeHabit: (id: string) => void; // soft-delete
-  moveHabit: (id: string, direction: 'up' | 'down') => void; // manual reorder
+  moveHabit: (id: string, direction: 'up' | 'down') => void; // reorder within the full list
+  swapHabitOrder: (idA: string, idB: string) => void; // swap two habits' sort keys
   logHabit: (habitId: string, date: string, completed: boolean) => void;
 
   // Queries
@@ -204,9 +205,15 @@ export const useHabitStore = create<HabitState>()(
         if (idx === -1) return;
         const swapIdx = direction === 'up' ? idx - 1 : idx + 1;
         if (swapIdx < 0 || swapIdx >= active.length) return;
+        get().swapHabitOrder(active[idx].id, active[swapIdx].id);
+      },
 
-        const a = active[idx];
-        const b = active[swapIdx];
+      swapHabitOrder: (idA, idB) => {
+        // Swap the two habits' sort keys. Used by both the grid (full-list
+        // neighbour) and the checklist (neighbour among the day's visible habits).
+        const a = get().habits.find((h) => h.id === idA);
+        const b = get().habits.find((h) => h.id === idB);
+        if (!a || !b) return;
         const aKey = a.order ?? a.createdAt;
         const bKey = b.order ?? b.createdAt;
         get().updateHabit(a.id, { order: bKey });

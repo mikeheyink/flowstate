@@ -20,7 +20,8 @@ export function HabitChecklistView({ onAddHabit }: HabitChecklistViewProps) {
   const getHabitsForWeek = useHabitStore((state) => state.getHabitsForWeek);
   const getLogsForHabitInWeek = useHabitStore((state) => state.getLogsForHabitInWeek);
   const logHabit = useHabitStore((state) => state.logHabit);
-  // Subscribe to raw data so the list reflects adds/edits/toggles immediately.
+  const swapHabitOrder = useHabitStore((state) => state.swapHabitOrder);
+  // Subscribe to raw data so the list reflects adds/edits/toggles/reorders immediately.
   const allHabits = useHabitStore((state) => state.habits);
   const habitLogs = useHabitStore((state) => state.habitLogs);
 
@@ -54,20 +55,37 @@ export function HabitChecklistView({ onAddHabit }: HabitChecklistViewProps) {
     setFocusedHabitIdx((prev) => Math.max(0, Math.min(prev, habitsForFocusedDay.length - 1)));
   }, [habitsForFocusedDay.length]);
 
-  // Scroll the focused habit into view so arrowing down follows it on the page.
+  // Keep the focused habit comfortably in view. Instant (not smooth) so rapid
+  // arrowing keeps up with the keys; the rows carry scroll-margin so 'nearest'
+  // leaves a band of context instead of jamming them against the edge.
   useEffect(() => {
     const el = document.querySelector(`[data-checklist-idx="${focusedHabitIdx}"]`);
-    el?.scrollIntoView({ block: 'nearest' });
+    el?.scrollIntoView({ block: 'nearest', behavior: 'instant' as ScrollBehavior });
   }, [focusedHabitIdx]);
 
-  // Keyboard: ←/→ change day, ↑/↓ move between habits, Space/X toggle, A add.
-  // (Same verbs as the grid, so muscle memory carries across the two views.)
+  // Keyboard: ←/→ change day, ↑/↓ move between habits, ⌘↑/⌘↓ reorder,
+  // Space/X toggle, A add. (Same verbs as the grid.)
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if (document.activeElement?.tagName === 'INPUT' || document.activeElement?.tagName === 'TEXTAREA') return;
       if (useUIStore.getState().isAnyOverlayOpen()) return;
 
       const key = e.key.toLowerCase();
+      const isCmd = e.metaKey || e.ctrlKey;
+
+      // ⌘↑ / ⌘↓ — reorder the focused habit relative to its visible neighbour.
+      if (isCmd && (key === 'arrowup' || key === 'arrowdown')) {
+        e.preventDefault();
+        const swapIdx = key === 'arrowup' ? focusedHabitIdx - 1 : focusedHabitIdx + 1;
+        const cur = habitsForFocusedDay[focusedHabitIdx];
+        const neighbour = habitsForFocusedDay[swapIdx];
+        if (cur && neighbour) {
+          swapHabitOrder(cur.habit.id, neighbour.habit.id);
+          setFocusedHabitIdx(swapIdx);
+        }
+        return;
+      }
+
       if (key === 'arrowleft') { e.preventDefault(); handlePrevDay(); }
       else if (key === 'arrowright') { e.preventDefault(); handleNextDay(); }
       else if (key === 'arrowdown') { e.preventDefault(); setFocusedHabitIdx((p) => Math.min(p + 1, habitsForFocusedDay.length - 1)); }
@@ -80,7 +98,7 @@ export function HabitChecklistView({ onAddHabit }: HabitChecklistViewProps) {
     };
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [habitsForFocusedDay, focusedHabitIdx, onAddHabit]);
+  }, [habitsForFocusedDay, focusedHabitIdx, onAddHabit, swapHabitOrder]);
 
   return (
     <div className="p-6 max-w-2xl mx-auto">
@@ -138,7 +156,7 @@ export function HabitChecklistView({ onAddHabit }: HabitChecklistViewProps) {
               key={habit.id}
               data-checklist-idx={idx}
               onClick={() => { setFocusedHabitIdx(idx); handleToggleHabit(habit.id); }}
-              className={`w-full p-4 rounded-lg text-left transition-colors ${
+              className={`w-full p-4 rounded-lg text-left transition-colors scroll-mt-24 scroll-mb-28 ${
                 completed
                   ? 'bg-green-100 dark:bg-green-500/20 text-green-900 dark:text-green-200 hover:bg-green-200 dark:hover:bg-green-500/30'
                   : 'bg-slate-100 dark:bg-slate-800 text-slate-900 dark:text-slate-200 hover:bg-slate-200 dark:hover:bg-slate-700'
