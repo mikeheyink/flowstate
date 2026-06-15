@@ -35,13 +35,21 @@ export function HabitGridView({ onAddHabit, onEditHabit, onDeleteHabit }: HabitG
   const [focusedHabitIdx, setFocusedHabitIdx] = useState(0);
   const [focusedDayIdx, setFocusedDayIdx] = useState(0);
 
+  // Keep the focused row valid as habits are added/removed (e.g. after delete,
+  // the index could point past the end). Clamp to the last row, never below 0.
+  useEffect(() => {
+    setFocusedHabitIdx((prev) => Math.max(0, Math.min(prev, habits.length - 1)));
+  }, [habits.length]);
+
   // Keyboard navigation
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      // Ignore if typing in input
+      // Ignore typing in inputs, and stand down while any modal/overlay is open
+      // (so arrows/space don't move the grid behind the habit form or palette).
       if (document.activeElement?.tagName === 'INPUT' || document.activeElement?.tagName === 'TEXTAREA') {
         return;
       }
+      if (useUIStore.getState().isAnyOverlayOpen()) return;
 
       const key = e.key.toLowerCase();
 
@@ -168,8 +176,19 @@ export function HabitGridView({ onAddHabit, onEditHabit, onDeleteHabit }: HabitG
 
       {/* Grid */}
       {habits.length === 0 ? (
-        <div className="text-center py-12 text-slate-500">
-          No habits for this week. Add one to get started!
+        <div className="flex flex-col items-center justify-center py-16 text-center">
+          <p className="text-slate-600 font-medium mb-1">No habits for this week yet</p>
+          <p className="text-slate-400 text-sm mb-5">Track something you want to do (or avoid) — daily.</p>
+          <button
+            onClick={onAddHabit}
+            className="inline-flex items-center gap-2 px-4 py-2.5 bg-blue-600 text-white rounded-lg font-medium hover:bg-blue-700 transition-colors"
+          >
+            <Plus className="w-4 h-4" />
+            Add your first habit
+          </button>
+          <p className="mt-3 text-xs text-slate-400">
+            or press <kbd className="px-1.5 py-0.5 rounded bg-slate-100 font-mono">A</kbd>
+          </p>
         </div>
       ) : (
         <div className="overflow-x-auto">

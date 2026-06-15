@@ -68,15 +68,27 @@ export function useHotkeys() {
             // GLOBAL HOTKEYS (Application-wide)
             // ----------------------------------------------------------------
 
-            // Shortcuts Modal (?)
-            if (key === '?' && !isCmd) {
-                setShortcutsOpen(true);
-                return;
-            }
+            // Escape always closes whatever overlay is open (handled here so it
+            // works even when focus isn't in an input — e.g. the habit form).
             if (key === 'escape') {
                 if (uiState.isShortcutsOpen) setShortcutsOpen(false);
                 if (uiState.isCmdOpen) setCmdOpen(false);
                 if (uiState.isQuickAddOpen) setQuickAddOpen(false);
+                if (uiState.habitForm.open) uiState.closeHabitForm();
+                return;
+            }
+
+            // While a modal/overlay owns the screen, swallow all other shortcuts so
+            // section/grid navigation can't fire "behind" it. (The overlay handles
+            // its own keys: ⌘K toggles the palette, the form captures typing, etc.)
+            if (uiState.isAnyOverlayOpen()) {
+                if (isCmd && key === 'k') { e.preventDefault(); toggleCmd(); }
+                return;
+            }
+
+            // Shortcuts Modal (?)
+            if (key === '?' && !isCmd) {
+                setShortcutsOpen(true);
                 return;
             }
 

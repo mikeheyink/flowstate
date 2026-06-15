@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React from 'react';
 import { HabitGridView } from './HabitGridView';
 import { HabitChecklistView } from './HabitChecklistView';
 import { HabitAnalyticsView } from './HabitAnalyticsView';
@@ -8,37 +8,20 @@ import { useUIStore } from '../../store/useUIStore';
 import { getISOWeek } from '../../utils/habitDates';
 
 export function HabitsView() {
-  const [showForm, setShowForm] = useState(false);
-  const [editingHabitId, setEditingHabitId] = useState<string | null>(null);
-
   const habitView = useUIStore((state) => state.habitView);
-  const habitFormSignal = useUIStore((state) => state.habitFormSignal);
+  const habitForm = useUIStore((state) => state.habitForm);
+  const openNewHabit = useUIStore((state) => state.openNewHabit);
+  const openEditHabit = useUIStore((state) => state.openEditHabit);
+  const closeHabitForm = useUIStore((state) => state.closeHabitForm);
 
   const habits = useHabitStore((state) => state.habits);
   const addHabit = useHabitStore((state) => state.addHabit);
   const updateHabit = useHabitStore((state) => state.updateHabit);
   const removeHabit = useHabitStore((state) => state.removeHabit);
 
-  const editingHabit = editingHabitId ? habits.find((h) => h.id === editingHabitId && !h.archivedAt) : null;
-
-  const handleAddHabit = () => {
-    setEditingHabitId(null);
-    setShowForm(true);
-  };
-
-  // The command palette / global hotkeys can request the "new habit" form by
-  // bumping habitFormSignal. Ignore the initial 0 so it only fires on a real bump.
-  useEffect(() => {
-    if (habitFormSignal > 0) {
-      setEditingHabitId(null);
-      setShowForm(true);
-    }
-  }, [habitFormSignal]);
-
-  const handleEditHabit = (habitId: string) => {
-    setEditingHabitId(habitId);
-    setShowForm(true);
-  };
+  const editingHabit = habitForm.editingId
+    ? habits.find((h) => h.id === habitForm.editingId && !h.archivedAt) || null
+    : null;
 
   const handleDeleteHabit = (habitId: string) => {
     if (confirm('Are you sure? This will remove the habit from this week forward.')) {
@@ -56,13 +39,7 @@ export function HabitsView() {
     } else {
       addHabit(data.title, data.type, data.daysOfWeek, getISOWeek(new Date()));
     }
-    setShowForm(false);
-    setEditingHabitId(null);
-  };
-
-  const handleCloseForm = () => {
-    setShowForm(false);
-    setEditingHabitId(null);
+    closeHabitForm();
   };
 
   return (
@@ -71,18 +48,18 @@ export function HabitsView() {
       <div className="flex-1 overflow-auto">
         {habitView === 'grid' && (
           <HabitGridView
-            onAddHabit={handleAddHabit}
-            onEditHabit={handleEditHabit}
+            onAddHabit={openNewHabit}
+            onEditHabit={openEditHabit}
             onDeleteHabit={handleDeleteHabit}
           />
         )}
-        {habitView === 'checklist' && <HabitChecklistView onAddHabit={handleAddHabit} />}
+        {habitView === 'checklist' && <HabitChecklistView onAddHabit={openNewHabit} />}
         {habitView === 'analytics' && <HabitAnalyticsView />}
       </div>
 
       {/* Form Modal */}
-      {showForm && (
-        <HabitForm habit={editingHabit} onSubmit={handleSubmitForm} onClose={handleCloseForm} />
+      {habitForm.open && (
+        <HabitForm habit={editingHabit} onSubmit={handleSubmitForm} onClose={closeHabitForm} />
       )}
     </div>
   );

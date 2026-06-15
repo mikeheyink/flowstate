@@ -15,6 +15,16 @@ export function HabitForm({ habit, onSubmit, onClose }: HabitFormProps) {
   const [type, setType] = useState<'do' | 'dont-do'>(habit?.type || 'do');
   const [daysOfWeek, setDaysOfWeek] = useState<number[]>(habit?.daysOfWeek || [0, 1, 2, 3, 4]); // Default Mon-Fri
 
+  // Esc closes the form even while a field is focused (capture phase so it wins
+  // over the global hotkey handler, which would otherwise just blur the input).
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); onClose(); }
+    };
+    window.addEventListener('keydown', onKey, true);
+    return () => window.removeEventListener('keydown', onKey, true);
+  }, [onClose]);
+
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!title.trim()) {
@@ -37,8 +47,8 @@ export function HabitForm({ habit, onSubmit, onClose }: HabitFormProps) {
   };
 
   return (
-    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-      <div className="bg-white rounded-lg shadow-lg w-full max-w-md mx-4">
+    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50" onClick={onClose}>
+      <div className="bg-white rounded-lg shadow-lg w-full max-w-md mx-4" onClick={(e) => e.stopPropagation()}>
         <div className="flex items-center justify-between p-6 border-b">
           <h2 className="text-xl font-bold">{habit ? 'Edit Habit' : 'New Habit'}</h2>
           <button onClick={onClose} className="p-1 hover:bg-slate-100 rounded transition-colors">

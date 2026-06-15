@@ -19,9 +19,10 @@ interface UIState {
   habitView: HabitView;
   globalHabitGoal: number; // percentage, e.g., 80 for 80%
 
-  // Signal counter: bump to ask HabitsView to open the "new habit" form
-  // (lets the command palette / hotkeys trigger it from outside the component).
-  habitFormSignal: number;
+  // Habit add/edit form. Lives here (not in HabitsView) so the command palette
+  // and global hotkeys can open it, and so keyboard handlers can tell when a
+  // modal is up and suppress grid navigation behind it.
+  habitForm: { open: boolean; editingId: string | null };
 
   // UI-only expansion state for headers
   expandedGroups: Set<string>;
@@ -38,10 +39,16 @@ interface UIState {
   setGlobalHabitGoal: (goal: number) => void;
   toggleCmd: () => void;
   cycleHabitView: (dir?: 'next' | 'prev') => void;
-  requestNewHabit: () => void;
+  openNewHabit: () => void;
+  openEditHabit: (id: string) => void;
+  closeHabitForm: () => void;
+
+  // True when any modal/overlay owns keyboard focus — used to suppress
+  // section/grid hotkeys so they don't fire "behind" the overlay.
+  isAnyOverlayOpen: () => boolean;
 }
 
-export const useUIStore = create<UIState>((set) => ({
+export const useUIStore = create<UIState>((set, get) => ({
   isCmdOpen: false,
   isQuickAddOpen: false,
   isShortcutsOpen: false,
@@ -54,7 +61,7 @@ export const useUIStore = create<UIState>((set) => ({
   currentView: 'tasks',
   habitView: 'grid',
   globalHabitGoal: 80,
-  habitFormSignal: 0,
+  habitForm: { open: false, editingId: null },
 
   expandedGroups: new Set(['header-important', 'header-outstanding']),
   toggleGroup: (id) => set((state) => {
@@ -82,5 +89,12 @@ export const useUIStore = create<UIState>((set) => ({
     const nextIndex = (currentIndex + delta + views.length) % views.length;
     return { habitView: views[nextIndex] };
   }),
-  requestNewHabit: () => set((state) => ({ habitFormSignal: state.habitFormSignal + 1 })),
+  openNewHabit: () => set({ habitForm: { open: true, editingId: null } }),
+  openEditHabit: (id) => set({ habitForm: { open: true, editingId: id } }),
+  closeHabitForm: () => set({ habitForm: { open: false, editingId: null } }),
+
+  isAnyOverlayOpen: () => {
+    const s = get();
+    return s.isCmdOpen || s.isShortcutsOpen || s.isQuickAddOpen || s.habitForm.open;
+  },
 }));

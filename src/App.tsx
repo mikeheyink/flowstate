@@ -65,6 +65,10 @@ function App() {
         if (authLoading) return false;
         if (!session && !isGuest) return false;
 
+        // The "all tasks done" backdrop belongs to the Tasks section only — it must
+        // never bleed over Mail or Habits (which have their own empty states).
+        if (currentView !== 'tasks') return false;
+
         // 1. Inbox (Active) View
         if (filter === 'active') {
             return tasks.filter(t => !t.completed && !t.archived).length === 0;
@@ -86,7 +90,7 @@ function App() {
         }
 
         return false;
-    }, [filter, tasks, authLoading, session, isGuest]);
+    }, [filter, tasks, authLoading, session, isGuest, currentView]);
 
     // Auth & Data Init
     useEffect(() => {
@@ -274,9 +278,13 @@ function App() {
                 {/* Floating Quick Add Input */}
                 <QuickAdd isOpen={isQuickAddOpen} onClose={() => setQuickAddOpen(false)} />
 
-                {/* Mobile FAB */}
+                {/* Mobile FAB — context-aware: adds a task in Tasks, a habit in Habits, hidden in Mail */}
                 <button
                     onClick={() => {
+                        if (currentView === 'habits') {
+                            useUIStore.getState().openNewHabit();
+                            return;
+                        }
                         const focusedId = useTaskStore.getState().focusedId;
                         if (focusedId) {
                             setQuickAddOpen(true, focusedId);
@@ -284,8 +292,8 @@ function App() {
                             setQuickAddOpen(true);
                         }
                     }}
-                    className="md:hidden fixed bottom-6 right-6 w-14 h-14 bg-primary-600 text-white rounded-full shadow-lg flex items-center justify-center hover:bg-primary-500 active:scale-95 transition-all z-40"
-                    aria-label="Add Task"
+                    className={`${currentView === 'mail' ? 'hidden' : 'md:hidden'} fixed bottom-6 right-6 w-14 h-14 bg-primary-600 text-white rounded-full shadow-lg flex items-center justify-center hover:bg-primary-500 active:scale-95 transition-all z-40`}
+                    aria-label={currentView === 'habits' ? 'Add Habit' : 'Add Task'}
                 >
                     <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                         <line x1="12" y1="5" x2="12" y2="19"></line>

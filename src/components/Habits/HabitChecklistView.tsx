@@ -1,6 +1,7 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { ChevronLeft, ChevronRight, Plus } from 'lucide-react';
 import { useHabitStore } from '../../store/useHabitStore';
+import { useUIStore } from '../../store/useUIStore';
 import { getISOWeek, getWeekDates, toLocalISO } from '../../utils/habitDates';
 
 interface HabitChecklistViewProps {
@@ -8,10 +9,13 @@ interface HabitChecklistViewProps {
 }
 
 const DAYS = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
+const todayDayIndex = () => (new Date().getDay() + 6) % 7; // 0 = Monday
 
 export function HabitChecklistView({ onAddHabit }: HabitChecklistViewProps) {
   const [currentWeek, setCurrentWeek] = useState(() => getISOWeek(new Date()));
-  const [focusedDayIndex, setFocusedDayIndex] = useState(0); // 0 = Monday of this week
+  // Start on the actual current day, not Monday — this is the "today" view.
+  const [focusedDayIndex, setFocusedDayIndex] = useState(todayDayIndex);
+  const [focusedHabitIdx, setFocusedHabitIdx] = useState(0);
 
   const getHabitsForWeek = useHabitStore((state) => state.getHabitsForWeek);
   const getLogsForHabitInWeek = useHabitStore((state) => state.getLogsForHabitInWeek);
@@ -42,23 +46,41 @@ export function HabitChecklistView({ onAddHabit }: HabitChecklistViewProps) {
     logHabit(habitId, focusedDateStr, newCompleted);
   };
 
-  const handlePrevDay = () => {
-    if (focusedDayIndex > 0) {
-      setFocusedDayIndex(focusedDayIndex - 1);
-    }
-  };
+  const handlePrevDay = () => setFocusedDayIndex((d) => Math.max(0, d - 1));
+  const handleNextDay = () => setFocusedDayIndex((d) => Math.min(6, d + 1));
 
-  const handleNextDay = () => {
-    if (focusedDayIndex < 6) {
-      setFocusedDayIndex(focusedDayIndex + 1);
-    }
-  };
+  // Keep the focused habit in range as the day's list changes.
+  useEffect(() => {
+    setFocusedHabitIdx((prev) => Math.max(0, Math.min(prev, habitsForFocusedDay.length - 1)));
+  }, [habitsForFocusedDay.length]);
+
+  // Keyboard: ←/→ change day, ↑/↓ move between habits, Space/X toggle, A add.
+  // (Same verbs as the grid, so muscle memory carries across the two views.)
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (document.activeElement?.tagName === 'INPUT' || document.activeElement?.tagName === 'TEXTAREA') return;
+      if (useUIStore.getState().isAnyOverlayOpen()) return;
+
+      const key = e.key.toLowerCase();
+      if (key === 'arrowleft') { e.preventDefault(); handlePrevDay(); }
+      else if (key === 'arrowright') { e.preventDefault(); handleNextDay(); }
+      else if (key === 'arrowdown') { e.preventDefault(); setFocusedHabitIdx((p) => Math.min(p + 1, habitsForFocusedDay.length - 1)); }
+      else if (key === 'arrowup') { e.preventDefault(); setFocusedHabitIdx((p) => Math.max(p - 1, 0)); }
+      else if (key === ' ' || key === 'x') {
+        e.preventDefault();
+        const entry = habitsForFocusedDay[focusedHabitIdx];
+        if (entry) handleToggleHabit(entry.habit.id);
+      } else if (key === 'a') { e.preventDefault(); onAddHabit?.(); }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [habitsForFocusedDay, focusedHabitIdx, onAddHabit]);
 
   return (
     <div className="p-6 max-w-2xl mx-auto">
       {/* Header */}
       <div className="flex items-center justify-between mb-6">
-        <h2 className="text-2xl font-bold">Today's Habits</h2>
+        <h2 className="text-2xl font-bold">Checklist</h2>
         <button
           onClick={onAddHabit}
           className="p-2 hover:bg-slate-100 rounded-lg transition-colors"
@@ -74,19 +96,24 @@ export function HabitChecklistView({ onAddHabit }: HabitChecklistViewProps) {
           onClick={handlePrevDay}
           disabled={focusedDayIndex === 0}
           className="p-2 hover:bg-slate-100 disabled:opacity-50 disabled:cursor-not-allowed rounded-lg transition-colors"
-          title="Previous Day"
+          title="Previous day (←)"
         >
           <ChevronLeft className="w-5 h-5" />
         </button>
         <div className="text-center flex-1">
-          <div className="text-xl font-bold">{DAYS[focusedDayIndex]}</div>
+          <div className="text-xl font-bold">
+            {DAYS[focusedDayIndex]}
+            {focusedDayIndex === todayDayIndex() && currentWeek === getISOWeek(new Date()) && (
+              <span className="ml-2 text-xs font-semibold text-blue-600 align-middle">Today</span>
+            )}
+          </div>
           <div className="text-sm text-slate-600">{focusedDate.toLocaleDateString()}</div>
         </div>
         <button
           onClick={handleNextDay}
           disabled={focusedDayIndex === 6}
           className="p-2 hover:bg-slate-100 disabled:opacity-50 disabled:cursor-not-allowed rounded-lg transition-colors"
-          title="Next Day"
+          title="Next day (→)"
         >
           <ChevronRight className="w-5 h-5" />
         </button>
@@ -96,18 +123,19 @@ export function HabitChecklistView({ onAddHabit }: HabitChecklistViewProps) {
       <div className="space-y-3">
         {habitsForFocusedDay.length === 0 ? (
           <div className="text-center py-8 text-slate-500">
-            No habits for {DAYS[focusedDayIndex].toLowerCase()}
+            No habits for {DAYS[focusedDayIndex].toLowerCase()}.
+            <button onClick={onAddHabit} className="ml-1 text-blue-600 hover:underline">Add one</button>
           </div>
         ) : (
-          habitsForFocusedDay.map(({ habit, completed }) => (
+          habitsForFocusedDay.map(({ habit, completed }, idx) => (
             <button
               key={habit.id}
-              onClick={() => handleToggleHabit(habit.id)}
+              onClick={() => { setFocusedHabitIdx(idx); handleToggleHabit(habit.id); }}
               className={`w-full p-4 rounded-lg text-left transition-colors ${
                 completed
                   ? 'bg-green-100 text-green-900 hover:bg-green-200'
                   : 'bg-slate-100 text-slate-900 hover:bg-slate-200'
-              }`}
+              } ${idx === focusedHabitIdx ? 'ring-2 ring-blue-400' : ''}`}
             >
               <div className="flex items-center gap-3">
                 <div className={`w-6 h-6 rounded-full flex items-center justify-center font-bold ${

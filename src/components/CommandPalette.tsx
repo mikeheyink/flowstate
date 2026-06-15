@@ -19,7 +19,7 @@ interface Action {
 export const CommandPalette: React.FC<{ isOpen: boolean; onClose: () => void }> = ({ isOpen, onClose }) => {
   const [query, setQuery] = useState('');
   const [selectedIndex, setSelectedIndex] = useState(0);
-  const { currentView, filter, setCurrentView, setQuickAddOpen, setEditingTaskId, requestNewHabit } = useUIStore();
+  const { currentView, filter, setCurrentView, setQuickAddOpen, setEditingTaskId, openNewHabit } = useUIStore();
   const { tasks, focusedId, toggleTask, archiveTask, toggleImportance, clearImportance, undo, redo, pushTodayToTomorrow } = useTaskStore();
   const setCoachOpen = useCoachStore((state) => state.setOpen);
 
@@ -133,7 +133,7 @@ export const CommandPalette: React.FC<{ isOpen: boolean; onClose: () => void }> 
       title: 'Add Habit',
       icon: <Plus className="w-4 h-4" />,
       shortcut: getHotkeyById('habit-add')?.keys,
-      perform: () => requestNewHabit(),
+      perform: () => openNewHabit(),
       section: 'Habits'
     });
   }
