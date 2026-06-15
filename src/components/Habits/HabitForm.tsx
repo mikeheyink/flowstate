@@ -48,10 +48,10 @@ export function HabitForm({ habit, onSubmit, onClose }: HabitFormProps) {
 
   return (
     <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50" onClick={onClose}>
-      <div className="bg-white rounded-lg shadow-lg w-full max-w-md mx-4" onClick={(e) => e.stopPropagation()}>
-        <div className="flex items-center justify-between p-6 border-b">
+      <div className="bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100 rounded-lg shadow-lg ring-1 ring-slate-200 dark:ring-slate-800 w-full max-w-md mx-4" onClick={(e) => e.stopPropagation()}>
+        <div className="flex items-center justify-between p-6 border-b border-slate-200 dark:border-slate-800">
           <h2 className="text-xl font-bold">{habit ? 'Edit Habit' : 'New Habit'}</h2>
-          <button onClick={onClose} className="p-1 hover:bg-slate-100 rounded transition-colors">
+          <button onClick={onClose} className="p-1 hover:bg-slate-100 dark:hover:bg-slate-800 rounded transition-colors">
             <X className="w-5 h-5" />
           </button>
         </div>
@@ -65,7 +65,7 @@ export function HabitForm({ habit, onSubmit, onClose }: HabitFormProps) {
               value={title}
               onChange={(e) => setTitle(e.target.value)}
               placeholder="e.g., Exercise, Meditate, Drink water"
-              className="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className="w-full px-3 py-2 border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500"
               autoFocus
             />
           </div>
@@ -110,15 +110,15 @@ export function HabitForm({ habit, onSubmit, onClose }: HabitFormProps) {
                   onClick={() => toggleDay(idx)}
                   className={`py-2 rounded-lg font-medium transition-colors ${
                     daysOfWeek.includes(idx)
-                      ? 'bg-blue-500 text-white hover:bg-blue-600'
-                      : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
+                      ? 'bg-primary-600 text-white hover:bg-primary-500'
+                      : 'bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700'
                   }`}
                 >
                   {day}
                 </button>
               ))}
             </div>
-            <div className="mt-2 text-xs text-slate-600">
+            <div className="mt-2 text-xs text-slate-600 dark:text-slate-400">
               Selected: {daysOfWeek.length > 0 ? daysOfWeek.length : 'None'} day{daysOfWeek.length !== 1 ? 's' : ''}
             </div>
           </div>
@@ -128,13 +128,13 @@ export function HabitForm({ habit, onSubmit, onClose }: HabitFormProps) {
             <button
               type="button"
               onClick={onClose}
-              className="flex-1 px-4 py-2 border rounded-lg hover:bg-slate-50 transition-colors"
+              className="flex-1 px-4 py-2 border border-slate-300 dark:border-slate-700 rounded-lg hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors"
             >
               Cancel
             </button>
             <button
               type="submit"
-              className="flex-1 px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors font-medium"
+              className="flex-1 px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-500 transition-colors font-medium"
             >
               {habit ? 'Update' : 'Create'} Habit
             </button>

@@ -119,36 +119,36 @@ export function HabitAnalyticsView() {
 
       {/* Overall Stats */}
       <div className="grid grid-cols-3 gap-4 mb-8">
-        <div className="bg-blue-50 p-4 rounded-lg">
-          <div className="text-sm text-blue-700 mb-1">Overall Completion</div>
-          <div className="text-3xl font-bold text-blue-900">{overallCompletion}%</div>
+        <div className="bg-blue-50 dark:bg-blue-500/10 p-4 rounded-lg">
+          <div className="text-sm text-blue-700 dark:text-blue-300 mb-1">Overall Completion</div>
+          <div className="text-3xl font-bold text-blue-900 dark:text-blue-200">{overallCompletion}%</div>
         </div>
-        <div className="bg-green-50 p-4 rounded-lg">
-          <div className="text-sm text-green-700 mb-1">Current Streak</div>
-          <div className="text-3xl font-bold text-green-900">{currentStreak}w</div>
+        <div className="bg-green-50 dark:bg-green-500/10 p-4 rounded-lg">
+          <div className="text-sm text-green-700 dark:text-green-300 mb-1">Current Streak</div>
+          <div className="text-3xl font-bold text-green-900 dark:text-green-200">{currentStreak}w</div>
         </div>
-        <div className="bg-purple-50 p-4 rounded-lg">
-          <div className="text-sm text-purple-700 mb-1">Active Habits</div>
-          <div className="text-3xl font-bold text-purple-900">{habits.length}</div>
+        <div className="bg-purple-50 dark:bg-purple-500/10 p-4 rounded-lg">
+          <div className="text-sm text-purple-700 dark:text-purple-300 mb-1">Active Habits</div>
+          <div className="text-3xl font-bold text-purple-900 dark:text-purple-200">{habits.length}</div>
         </div>
       </div>
 
       {/* Weekly Completion Trend */}
       <div className="mb-8">
         <h3 className="text-lg font-semibold mb-4">12-Week Trend</h3>
-        <div className="flex items-end gap-1 h-32 bg-slate-50 p-4 rounded-lg">
+        <div className="flex items-end gap-1 h-32 bg-slate-50 dark:bg-slate-800/50 p-4 rounded-lg">
           {weekStats.map((stat, idx) => {
             const goalMet = stat.percentage >= globalHabitGoal;
             return (
-              <div key={idx} className="flex-1 flex flex-col items-center gap-1">
+              <div key={idx} className="flex-1 flex flex-col items-center gap-1 justify-end h-full">
                 <div
                   className={`w-full rounded-t transition-colors ${
                     goalMet ? 'bg-green-500' : 'bg-orange-500'
                   }`}
-                  style={{ height: `${(stat.percentage / 100) * 100}px` }}
+                  style={{ height: `${Math.max(stat.percentage, 2)}%` }}
                   title={`Week ${stat.week}: ${stat.percentage}%`}
                 />
-                <div className="text-xs text-slate-600 mt-1">{stat.week.split('-W')[1]}</div>
+                <div className="text-xs text-slate-600 dark:text-slate-400 mt-1">{stat.week.split('-W')[1]}</div>
               </div>
             );
           })}
@@ -159,22 +159,22 @@ export function HabitAnalyticsView() {
       <div className="mb-8">
         <h3 className="text-lg font-semibold mb-4">Habits You're Struggling With</h3>
         {problemHabits.length === 0 ? (
-          <div className="text-center py-8 text-slate-500">All habits are going great!</div>
+          <div className="text-center py-8 text-slate-500 dark:text-slate-400">All habits are going great!</div>
         ) : (
           <div className="space-y-3">
             {problemHabits.map(({ habit, avgCompletion }) => (
-              <div key={habit.id} className="bg-slate-50 p-4 rounded-lg">
+              <div key={habit.id} className="bg-slate-50 dark:bg-slate-800/50 p-4 rounded-lg">
                 <div className="flex items-center justify-between mb-2">
                   <div>
                     <div className="font-semibold">{habit.title}</div>
-                    <div className="text-sm text-slate-600">{habit.type === 'do' ? '✓ Do' : '✗ Avoid'}</div>
+                    <div className="text-sm text-slate-600 dark:text-slate-400">{habit.type === 'do' ? '✓ Do' : '✗ Avoid'}</div>
                   </div>
                   <div className="text-right">
-                    <div className="text-2xl font-bold text-orange-600">{Math.round(avgCompletion)}%</div>
-                    <div className="text-xs text-slate-600">completion</div>
+                    <div className="text-2xl font-bold text-orange-600 dark:text-orange-400">{Math.round(avgCompletion)}%</div>
+                    <div className="text-xs text-slate-600 dark:text-slate-400">completion</div>
                   </div>
                 </div>
-                <div className="w-full bg-slate-300 rounded-full h-2">
+                <div className="w-full bg-slate-300 dark:bg-slate-700 rounded-full h-2">
                   <div
                     className="bg-orange-500 h-2 rounded-full transition-all"
                     style={{ width: `${avgCompletion}%` }}
@@ -190,13 +190,13 @@ export function HabitAnalyticsView() {
       <div>
         <h3 className="text-lg font-semibold mb-4">Perfect Week Streaks</h3>
         {habits.length === 0 ? (
-          <div className="text-center py-8 text-slate-500">No habits yet.</div>
+          <div className="text-center py-8 text-slate-500 dark:text-slate-400">No habits yet.</div>
         ) : (
           <div className="space-y-2">
             {habits.map((habit) => (
-              <div key={habit.id} className="flex items-center justify-between p-3 bg-slate-50 rounded-lg">
+              <div key={habit.id} className="flex items-center justify-between p-3 bg-slate-50 dark:bg-slate-800/50 rounded-lg">
                 <div className="font-medium">{habit.title}</div>
-                <div className="text-lg font-bold text-green-600">{streaks[habit.id] || 0}w</div>
+                <div className="text-lg font-bold text-green-600 dark:text-green-400">{streaks[habit.id] || 0}w</div>
               </div>
             ))}
           </div>

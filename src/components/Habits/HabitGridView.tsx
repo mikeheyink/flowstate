@@ -119,7 +119,7 @@ export function HabitGridView({ onAddHabit, onEditHabit, onDeleteHabit }: HabitG
         <h2 className="text-2xl font-bold">Habits</h2>
         <button
           onClick={onAddHabit}
-          className="p-2 hover:bg-slate-100 rounded-lg transition-colors"
+          className="p-2 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg transition-colors"
           title="Add Habit (A)"
         >
           <Plus className="w-5 h-5" />
@@ -130,7 +130,7 @@ export function HabitGridView({ onAddHabit, onEditHabit, onDeleteHabit }: HabitG
       <div className="flex items-center justify-between mb-6">
         <button
           onClick={handlePrevWeek}
-          className="p-2 hover:bg-slate-100 rounded-lg transition-colors"
+          className="p-2 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg transition-colors"
           title="Previous week (,)"
         >
           <ChevronLeft className="w-5 h-5" />
@@ -140,7 +140,7 @@ export function HabitGridView({ onAddHabit, onEditHabit, onDeleteHabit }: HabitG
         </div>
         <button
           onClick={handleNextWeek}
-          className="p-2 hover:bg-slate-100 rounded-lg transition-colors"
+          className="p-2 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg transition-colors"
           title="Next week (.)"
         >
           <ChevronRight className="w-5 h-5" />
@@ -148,27 +148,27 @@ export function HabitGridView({ onAddHabit, onEditHabit, onDeleteHabit }: HabitG
       </div>
 
       {/* Stats */}
-      <div className="mb-6 p-4 bg-slate-50 rounded-lg">
+      <div className="mb-6 p-4 bg-slate-50 dark:bg-slate-800/50 rounded-lg">
         <div className="flex items-center justify-between">
           <div>
-            <div className="text-sm text-slate-600">This week</div>
+            <div className="text-sm text-slate-600 dark:text-slate-400">This week</div>
             <div className="text-2xl font-bold">
               {stats.totalCompleted} / {stats.totalApplicableDays}
             </div>
           </div>
           <div className="text-right">
-            <div className="text-sm text-slate-600">Completion</div>
-            <div className={`text-3xl font-bold ${goalMet ? 'text-green-600' : 'text-orange-600'}`}>
+            <div className="text-sm text-slate-600 dark:text-slate-400">Completion</div>
+            <div className={`text-3xl font-bold ${goalMet ? 'text-green-600 dark:text-green-400' : 'text-orange-600 dark:text-orange-400'}`}>
               {stats.percentage}%
             </div>
           </div>
           <div className="text-right">
-            <div className="text-sm text-slate-600">Goal</div>
+            <div className="text-sm text-slate-600 dark:text-slate-400">Goal</div>
             <div className="text-2xl font-semibold">{globalHabitGoal}%</div>
           </div>
         </div>
         {goalMet && (
-          <div className="mt-3 text-sm text-green-700 bg-green-50 px-3 py-2 rounded inline-block">
+          <div className="mt-3 text-sm text-green-700 dark:text-green-300 bg-green-50 dark:bg-green-500/15 px-3 py-2 rounded inline-block">
             ✓ Goal met this week!
           </div>
         )}
@@ -177,29 +177,29 @@ export function HabitGridView({ onAddHabit, onEditHabit, onDeleteHabit }: HabitG
       {/* Grid */}
       {habits.length === 0 ? (
         <div className="flex flex-col items-center justify-center py-16 text-center">
-          <p className="text-slate-600 font-medium mb-1">No habits for this week yet</p>
-          <p className="text-slate-400 text-sm mb-5">Track something you want to do (or avoid) — daily.</p>
+          <p className="text-slate-600 dark:text-slate-300 font-medium mb-1">No habits for this week yet</p>
+          <p className="text-slate-400 dark:text-slate-500 text-sm mb-5">Track something you want to do (or avoid) — daily.</p>
           <button
             onClick={onAddHabit}
-            className="inline-flex items-center gap-2 px-4 py-2.5 bg-blue-600 text-white rounded-lg font-medium hover:bg-blue-700 transition-colors"
+            className="inline-flex items-center gap-2 px-4 py-2.5 bg-primary-600 text-white rounded-lg font-medium hover:bg-primary-500 transition-colors"
           >
             <Plus className="w-4 h-4" />
             Add your first habit
           </button>
-          <p className="mt-3 text-xs text-slate-400">
-            or press <kbd className="px-1.5 py-0.5 rounded bg-slate-100 font-mono">A</kbd>
+          <p className="mt-3 text-xs text-slate-400 dark:text-slate-500">
+            or press <kbd className="px-1.5 py-0.5 rounded bg-slate-100 dark:bg-slate-800 font-mono">A</kbd>
           </p>
         </div>
       ) : (
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
             <thead>
-              <tr className="border-b">
+              <tr className="border-b border-slate-200 dark:border-slate-800">
                 <th className="text-left py-2 px-4 font-semibold">Habit</th>
                 {DAYS.map((day, i) => (
                   <th key={i} className="text-center py-2 px-2 font-semibold">
                     <div>{day}</div>
-                    <div className="text-xs text-slate-500 mt-1">
+                    <div className="text-xs text-slate-500 dark:text-slate-500 mt-1">
                       {weekDates[i].toLocaleDateString('en-US', { month: 'numeric', day: 'numeric' })}
                     </div>
                   </th>
@@ -213,10 +213,10 @@ export function HabitGridView({ onAddHabit, onEditHabit, onDeleteHabit }: HabitG
                 const completedCount = logs.filter((l) => l.completed).length;
 
                 return (
-                  <tr key={habit.id} className={`border-b ${habitIdx === focusedHabitIdx ? 'bg-blue-50' : 'hover:bg-slate-50'}`}>
+                  <tr key={habit.id} className={`border-b border-slate-200 dark:border-slate-800 ${habitIdx === focusedHabitIdx ? 'bg-primary-50 dark:bg-primary-500/10' : 'hover:bg-slate-50 dark:hover:bg-slate-800/50'}`}>
                     <td className="py-3 px-4">
                       <div className="font-medium">{habit.title}</div>
-                      <div className="text-xs text-slate-500">{habit.type === 'do' ? '✓ Do' : '✗ Avoid'}</div>
+                      <div className="text-xs text-slate-500 dark:text-slate-400">{habit.type === 'do' ? '✓ Do' : '✗ Avoid'}</div>
                     </td>
                     {DAY_INDICES.map((dayIdx) => {
                       const dateStr = toLocalISO(weekDates[dayIdx]);
@@ -226,7 +226,7 @@ export function HabitGridView({ onAddHabit, onEditHabit, onDeleteHabit }: HabitG
                       if (!applicable) {
                         return (
                           <td key={dayIdx} className="text-center py-3 px-2">
-                            <div className="text-slate-300">-</div>
+                            <div className="text-slate-300 dark:text-slate-700">-</div>
                           </td>
                         );
                       }
@@ -235,14 +235,14 @@ export function HabitGridView({ onAddHabit, onEditHabit, onDeleteHabit }: HabitG
 
                       const isFocused = habitIdx === focusedHabitIdx && dayIdx === focusedDayIdx;
                       return (
-                        <td key={dayIdx} className={`text-center py-3 px-2 ${isFocused ? 'ring-2 ring-inset ring-blue-400' : ''}`}>
+                        <td key={dayIdx} className="text-center py-3 px-2">
                           <button
                             onClick={() => handleToggleHabit(habit.id, dateStr)}
                             className={`w-10 h-10 rounded-lg flex items-center justify-center transition-colors cursor-pointer ${
                               isCompleted
-                                ? 'bg-green-100 text-green-700 hover:bg-green-200'
-                                : 'bg-slate-100 text-slate-400 hover:bg-slate-200'
-                            } ${isFocused ? 'ring-2 ring-blue-400 font-bold' : ''}`}
+                                ? 'bg-green-100 dark:bg-green-500/20 text-green-700 dark:text-green-400 hover:bg-green-200 dark:hover:bg-green-500/30'
+                                : 'bg-slate-100 dark:bg-slate-800 text-slate-400 dark:text-slate-500 hover:bg-slate-200 dark:hover:bg-slate-700'
+                            } ${isFocused ? 'ring-2 ring-primary-400 font-bold' : ''}`}
                             title={isCompleted ? 'Mark incomplete' : 'Mark complete (Space)'}
                           >
                             {isCompleted ? '✓' : '○'}
@@ -254,14 +254,14 @@ export function HabitGridView({ onAddHabit, onEditHabit, onDeleteHabit }: HabitG
                       <div className="flex items-center justify-center gap-1">
                         <button
                           onClick={() => onEditHabit?.(habit.id)}
-                          className="p-1 hover:bg-slate-200 rounded transition-colors"
+                          className="p-1 hover:bg-slate-200 dark:hover:bg-slate-700 rounded transition-colors"
                           title="Edit Habit (E)"
                         >
                           <Edit2 className="w-4 h-4" />
                         </button>
                         <button
                           onClick={() => onDeleteHabit?.(habit.id)}
-                          className="p-1 hover:bg-red-100 hover:text-red-600 rounded transition-colors"
+                          className="p-1 hover:bg-red-100 dark:hover:bg-red-500/20 hover:text-red-600 dark:hover:text-red-400 rounded transition-colors"
                           title="Delete Habit (Delete)"
                         >
                           <Trash2 className="w-4 h-4" />

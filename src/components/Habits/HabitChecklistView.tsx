@@ -83,7 +83,7 @@ export function HabitChecklistView({ onAddHabit }: HabitChecklistViewProps) {
         <h2 className="text-2xl font-bold">Checklist</h2>
         <button
           onClick={onAddHabit}
-          className="p-2 hover:bg-slate-100 rounded-lg transition-colors"
+          className="p-2 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg transition-colors"
           title="Add Habit (A)"
         >
           <Plus className="w-5 h-5" />
@@ -95,7 +95,7 @@ export function HabitChecklistView({ onAddHabit }: HabitChecklistViewProps) {
         <button
           onClick={handlePrevDay}
           disabled={focusedDayIndex === 0}
-          className="p-2 hover:bg-slate-100 disabled:opacity-50 disabled:cursor-not-allowed rounded-lg transition-colors"
+          className="p-2 hover:bg-slate-100 dark:hover:bg-slate-800 disabled:opacity-50 disabled:cursor-not-allowed rounded-lg transition-colors"
           title="Previous day (←)"
         >
           <ChevronLeft className="w-5 h-5" />
@@ -104,15 +104,15 @@ export function HabitChecklistView({ onAddHabit }: HabitChecklistViewProps) {
           <div className="text-xl font-bold">
             {DAYS[focusedDayIndex]}
             {focusedDayIndex === todayDayIndex() && currentWeek === getISOWeek(new Date()) && (
-              <span className="ml-2 text-xs font-semibold text-blue-600 align-middle">Today</span>
+              <span className="ml-2 text-xs font-semibold text-primary-600 dark:text-primary-400 align-middle">Today</span>
             )}
           </div>
-          <div className="text-sm text-slate-600">{focusedDate.toLocaleDateString()}</div>
+          <div className="text-sm text-slate-600 dark:text-slate-400">{focusedDate.toLocaleDateString()}</div>
         </div>
         <button
           onClick={handleNextDay}
           disabled={focusedDayIndex === 6}
-          className="p-2 hover:bg-slate-100 disabled:opacity-50 disabled:cursor-not-allowed rounded-lg transition-colors"
+          className="p-2 hover:bg-slate-100 dark:hover:bg-slate-800 disabled:opacity-50 disabled:cursor-not-allowed rounded-lg transition-colors"
           title="Next day (→)"
         >
           <ChevronRight className="w-5 h-5" />
@@ -122,9 +122,9 @@ export function HabitChecklistView({ onAddHabit }: HabitChecklistViewProps) {
       {/* Habits List */}
       <div className="space-y-3">
         {habitsForFocusedDay.length === 0 ? (
-          <div className="text-center py-8 text-slate-500">
+          <div className="text-center py-8 text-slate-500 dark:text-slate-400">
             No habits for {DAYS[focusedDayIndex].toLowerCase()}.
-            <button onClick={onAddHabit} className="ml-1 text-blue-600 hover:underline">Add one</button>
+            <button onClick={onAddHabit} className="ml-1 text-primary-600 dark:text-primary-400 hover:underline">Add one</button>
           </div>
         ) : (
           habitsForFocusedDay.map(({ habit, completed }, idx) => (
@@ -133,13 +133,13 @@ export function HabitChecklistView({ onAddHabit }: HabitChecklistViewProps) {
               onClick={() => { setFocusedHabitIdx(idx); handleToggleHabit(habit.id); }}
               className={`w-full p-4 rounded-lg text-left transition-colors ${
                 completed
-                  ? 'bg-green-100 text-green-900 hover:bg-green-200'
-                  : 'bg-slate-100 text-slate-900 hover:bg-slate-200'
-              } ${idx === focusedHabitIdx ? 'ring-2 ring-blue-400' : ''}`}
+                  ? 'bg-green-100 dark:bg-green-500/20 text-green-900 dark:text-green-200 hover:bg-green-200 dark:hover:bg-green-500/30'
+                  : 'bg-slate-100 dark:bg-slate-800 text-slate-900 dark:text-slate-200 hover:bg-slate-200 dark:hover:bg-slate-700'
+              } ${idx === focusedHabitIdx ? 'ring-2 ring-primary-400' : ''}`}
             >
               <div className="flex items-center gap-3">
                 <div className={`w-6 h-6 rounded-full flex items-center justify-center font-bold ${
-                  completed ? 'bg-green-600 text-white' : 'bg-slate-300 text-slate-600'
+                  completed ? 'bg-green-600 text-white' : 'bg-slate-300 dark:bg-slate-600 text-slate-600 dark:text-slate-300'
                 }`}>
                   {completed ? '✓' : '○'}
                 </div>
@@ -154,8 +154,8 @@ export function HabitChecklistView({ onAddHabit }: HabitChecklistViewProps) {
       </div>
 
       {/* Mini preview of other days */}
-      <div className="mt-8 pt-6 border-t">
-        <div className="text-xs font-semibold text-slate-600 mb-3">Other days this week</div>
+      <div className="mt-8 pt-6 border-t border-slate-200 dark:border-slate-800">
+        <div className="text-xs font-semibold text-slate-600 dark:text-slate-400 mb-3">Other days this week</div>
         <div className="grid grid-cols-7 gap-2">
           {DAYS.map((day, idx) => {
             const dayHabits = habits.filter((h) => h.daysOfWeek.includes(idx));
@@ -170,8 +170,8 @@ export function HabitChecklistView({ onAddHabit }: HabitChecklistViewProps) {
               <div
                 key={idx}
                 className={`p-2 text-center rounded-lg text-xs font-medium ${
-                  idx === focusedDayIndex ? 'ring-2 ring-blue-500' : ''
-                } ${total === 0 ? 'bg-slate-50 text-slate-400' : 'bg-slate-100 text-slate-700'}`}
+                  idx === focusedDayIndex ? 'ring-2 ring-primary-500' : ''
+                } ${total === 0 ? 'bg-slate-50 dark:bg-slate-800/40 text-slate-400 dark:text-slate-600' : 'bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300'}`}
               >
                 <div>{day.substring(0, 3)}</div>
                 <div className="text-xs mt-1">
