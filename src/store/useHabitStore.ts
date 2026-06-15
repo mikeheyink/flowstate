@@ -77,6 +77,24 @@ const mapToDb = (habit: Partial<Habit>) => {
   return dbObj;
 };
 
+const mapLogFromDb = (row: any): HabitLog => ({
+  id: row.id,
+  habitId: row.habit_id,
+  date: row.date,
+  completed: !!row.completed,
+  updatedAt: row.updated_at != null ? parseInt(row.updated_at) : Date.now(),
+});
+
+const mapLogToDb = (log: Partial<HabitLog>) => {
+  const dbObj: any = {};
+  if (log.id !== undefined) dbObj.id = log.id;
+  if (log.habitId !== undefined) dbObj.habit_id = log.habitId;
+  if (log.date !== undefined) dbObj.date = log.date;
+  if (log.completed !== undefined) dbObj.completed = log.completed;
+  if (log.updatedAt !== undefined) dbObj.updated_at = log.updatedAt;
+  return dbObj;
+};
+
 // Shared sort: manual order first, createdAt as a stable tiebreaker.
 const byOrder = (a: Habit, b: Habit) =>
   (a.order ?? a.createdAt) - (b.order ?? b.createdAt) || a.createdAt - b.createdAt;
@@ -139,7 +157,7 @@ export const useHabitStore = create<HabitState>()(
 
           set({
             habits: habitsData?.map(mapFromDb) || [],
-            habitLogs: logsData || [],
+            habitLogs: logsData?.map(mapLogFromDb) || [],
             error: null,
           });
         } catch (err: any) {
@@ -242,7 +260,8 @@ export const useHabitStore = create<HabitState>()(
           queueOperation(set, get, {
             type: 'update',
             table: 'habit_logs',
-            data: { completed, updated_at: Date.now() },
+            // Include the id so offline replay updates this row only.
+            data: { id: existing.id, completed, updated_at: Date.now() },
           }, async () => {
             const { data: { user } } = await supabase.auth.getUser();
             if (!user) return;
@@ -258,11 +277,11 @@ export const useHabitStore = create<HabitState>()(
           queueOperation(set, get, {
             type: 'insert',
             table: 'habit_logs',
-            data: log,
+            data: mapLogToDb(log),
           }, async () => {
             const { data: { user } } = await supabase.auth.getUser();
             if (!user) return;
-            await supabase.from('habit_logs').insert([{ ...log, user_id: user.id }]);
+            await supabase.from('habit_logs').insert([{ ...mapLogToDb(log), user_id: user.id }]);
           });
         }
       },
@@ -322,20 +341,24 @@ export const useHabitStore = create<HabitState>()(
       processPendingOperations: async () => {
         if (!navigator.onLine) return;
 
+        const { data: { user } } = await supabase.auth.getUser();
+        if (!user) return; // can't replay without an authenticated owner
+
         const state = get();
         for (const op of state.pendingOperations) {
           try {
             if (op.table === 'habits') {
               if (op.type === 'insert') {
-                await supabase.from('habits').insert([op.data]);
+                await supabase.from('habits').insert([{ ...op.data, user_id: user.id }]);
               } else if (op.type === 'update') {
-                await supabase.from('habits').update(op.data).eq('id', op.habitId);
+                await supabase.from('habits').update(op.data).eq('id', op.habitId).eq('user_id', user.id);
               }
             } else if (op.table === 'habit_logs') {
               if (op.type === 'insert') {
-                await supabase.from('habit_logs').insert([op.data]);
+                await supabase.from('habit_logs').insert([{ ...op.data, user_id: user.id }]);
               } else if (op.type === 'update') {
-                await supabase.from('habit_logs').update(op.data);
+                // op.data carries the row id so this scopes to the single log.
+                await supabase.from('habit_logs').update(op.data).eq('id', op.data.id).eq('user_id', user.id);
               }
             }
           } catch (err) {
