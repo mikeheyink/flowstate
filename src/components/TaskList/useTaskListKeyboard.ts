@@ -1,6 +1,7 @@
 import { useEffect, MutableRefObject } from 'react';
 import { useTaskStore } from '../../store/useTaskStore';
 import { useUIStore } from '../../store/useUIStore';
+import { toast } from '../Toaster';
 import { VisibleTask } from './types';
 // Hotkeys are centrally defined in utils/hotkeys.ts
 // This handler implements the actual key bindings - keep in sync with registry
@@ -13,6 +14,7 @@ interface UseTaskListKeyboardProps {
     filter: string;
     expandedGroups: Set<string>;
     toggleGroup: (id: string) => void;
+    requestComplete?: (id: string) => void;
 }
 
 export function useTaskListKeyboard({
@@ -23,6 +25,7 @@ export function useTaskListKeyboard({
     filter,
     expandedGroups,
     toggleGroup,
+    requestComplete,
 }: UseTaskListKeyboardProps) {
     const {
         setFocusedId,
@@ -33,10 +36,12 @@ export function useTaskListKeyboard({
         changeParent,
         batchChangeParent,
         batchComplete,
+        batchMove,
         toggleImportance,
         clearImportance,
         selectTask,
         clearSelection,
+        pushTodayToTomorrow,
         tasks
     } = useTaskStore();
 
@@ -73,7 +78,22 @@ export function useTaskListKeyboard({
 
             const key = e.key.toLowerCase();
             const isShift = e.shiftKey;
-            const isCmd = e.metaKey || e.ctrlKey;
+            const isCmd = e.metaKey || e.ctrlKey; // Cmd on macOS — used for Move Task
+            const isAlt = e.altKey; // Option — still drives Expand/Collapse All (⌥⇧→/←)
+
+            // Push all outstanding tasks due today-or-earlier to tomorrow.
+            // Works from any task view, not just Today.
+            if (key === 't' && isShift && !isCmd && !isAlt) {
+                e.preventDefault();
+                const count = pushTodayToTomorrow();
+                if (count > 0) {
+                    toast(`Moved ${count} task${count === 1 ? '' : 's'} to tomorrow`, {
+                        label: 'Undo',
+                        onClick: () => useTaskStore.getState().undo(),
+                    });
+                }
+                return;
+            }
 
             // Conflict Resolution: "Expand All" moved to Alt+Shift
             if (e.altKey && isShift && (key === 'l' || key === 'arrowright')) {
@@ -101,7 +121,12 @@ export function useTaskListKeyboard({
 
                         const isToday = filter === 'today';
                         const context = isToday ? 'today' : 'project';
-                        useTaskStore.getState().moveTask(currentTask.id, 'down', { context });
+                        // Move the whole selection together when multiple are selected.
+                        if (currentSelectedIds.length > 1) {
+                            batchMove('down', { context });
+                        } else {
+                            useTaskStore.getState().moveTask(currentTask.id, 'down', { context });
+                        }
                         return;
                     }
 
@@ -133,7 +158,12 @@ export function useTaskListKeyboard({
 
                         const isToday = filter === 'today';
                         const context = isToday ? 'today' : 'project';
-                        useTaskStore.getState().moveTask(currentTask.id, 'up', { context });
+                        // Move the whole selection together when multiple are selected.
+                        if (currentSelectedIds.length > 1) {
+                            batchMove('up', { context });
+                        } else {
+                            useTaskStore.getState().moveTask(currentTask.id, 'up', { context });
+                        }
                         return;
                     }
 
@@ -238,7 +268,7 @@ export function useTaskListKeyboard({
                     break;
                 case 'x':
                     if (currentSelectedIds.length > 1) { batchComplete(); }
-                    else if (currentId) toggleTask(currentId);
+                    else if (currentId) { (requestComplete ?? toggleTask)(currentId); }
                     break;
                 case 'delete':
                 case 'backspace':
@@ -280,8 +310,9 @@ export function useTaskListKeyboard({
     }, [
         focusMode, filter, expandedGroups, tasks,
         setFocusedId, toggleTask, archiveTask, toggleExpand, setExpandedAll,
-        changeParent, batchChangeParent, batchComplete,
+        changeParent, batchChangeParent, batchComplete, batchMove,
         toggleImportance, clearImportance, setFocusMode, setQuickAddOpen,
-        selectTask, clearSelection, setEditingTaskId
+        selectTask, clearSelection, setEditingTaskId,
+        pushTodayToTomorrow, requestComplete
     ]);
 }

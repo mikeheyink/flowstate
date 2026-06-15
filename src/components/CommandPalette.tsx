@@ -1,9 +1,11 @@
 import React, { useEffect, useState } from 'react';
-import { Search, Plus, Trash2, CheckCircle, SunMoon, MessageCircle, Calendar, Star, StarOff, Edit3, Undo, Redo } from 'lucide-react';
+import { Search, Plus, Trash2, CheckCircle, SunMoon, MessageCircle, Calendar, CalendarClock, Star, StarOff, Edit3, Undo, Redo, ClipboardList, Flame } from 'lucide-react';
 import { useTaskStore } from '../store/useTaskStore';
+import { useHabitStore } from '../store/useHabitStore';
 import { useUIStore } from '../store/useUIStore';
 import { useCoachStore } from '../store/useCoachStore';
 import { getHotkeyById } from '../utils/hotkeys';
+import { toast } from './Toaster';
 
 interface Action {
   id: string;
@@ -17,90 +19,149 @@ interface Action {
 export const CommandPalette: React.FC<{ isOpen: boolean; onClose: () => void }> = ({ isOpen, onClose }) => {
   const [query, setQuery] = useState('');
   const [selectedIndex, setSelectedIndex] = useState(0);
-  const { tasks, focusedId, toggleTask, archiveTask, toggleImportance, clearImportance, undo, redo } = useTaskStore();
-  const { setQuickAddOpen, setEditingTaskId } = useUIStore();
+  const { currentView, filter, setCurrentView, setQuickAddOpen, setEditingTaskId, openNewHabit } = useUIStore();
+  const { tasks, focusedId, toggleTask, archiveTask, toggleImportance, clearImportance, undo, redo, pushTodayToTomorrow } = useTaskStore();
   const setCoachOpen = useCoachStore((state) => state.setOpen);
 
-  // Build actions list - contextual first, then global
+  // Build actions list - context-dependent
   const actions: Action[] = [];
 
-  // === Contextual Actions (when task is focused) ===
-  if (focusedId) {
-    const task = tasks.find(t => t.id === focusedId);
-    if (task) {
-      // Primary task actions (most common)
-      actions.push({
-        id: 'edit-title',
-        title: 'Edit Title',
-        icon: <Edit3 className="w-4 h-4" />,
-        shortcut: getHotkeyById('edit-title')?.keys,
-        perform: () => setEditingTaskId(focusedId),
-        section: 'Task'
-      });
+  if (currentView === 'tasks') {
+    // === TASK VIEW ACTIONS ===
 
-      actions.push({
-        id: 'toggle-task',
-        title: task.completed ? 'Mark Incomplete' : 'Mark Complete',
-        icon: <CheckCircle className="w-4 h-4" />,
-        shortcut: getHotkeyById('complete')?.keys,
-        perform: () => toggleTask(focusedId),
-        section: 'Task'
-      });
+    // Contextual Actions (when task is focused)
+    if (focusedId) {
+      const task = tasks.find(t => t.id === focusedId);
+      if (task) {
+        actions.push({
+          id: 'edit-title',
+          title: 'Edit Title',
+          icon: <Edit3 className="w-4 h-4" />,
+          shortcut: getHotkeyById('edit-title')?.keys,
+          perform: () => setEditingTaskId(focusedId),
+          section: 'Task'
+        });
 
-      actions.push({
-        id: 'set-date',
-        title: 'Set Due Date',
-        icon: <Calendar className="w-4 h-4" />,
-        shortcut: getHotkeyById('set-date')?.keys,
-        perform: () => setQuickAddOpen(true, null, 'date', focusedId),
-        section: 'Task'
-      });
+        actions.push({
+          id: 'toggle-task',
+          title: task.completed ? 'Mark Incomplete' : 'Mark Complete',
+          icon: <CheckCircle className="w-4 h-4" />,
+          shortcut: getHotkeyById('complete')?.keys,
+          perform: () => toggleTask(focusedId),
+          section: 'Task'
+        });
 
-      // Importance (only for tasks with due dates)
-      if (task.dueDate) {
-        if (!task.importantOrder) {
-          actions.push({
-            id: 'toggle-importance',
-            title: 'Mark Important',
-            icon: <Star className="w-4 h-4" />,
-            shortcut: getHotkeyById('toggle-importance')?.keys,
-            perform: () => toggleImportance(focusedId),
-            section: 'Task'
-          });
-        } else {
-          actions.push({
-            id: 'clear-importance',
-            title: 'Unmark Important',
-            icon: <StarOff className="w-4 h-4" />,
-            shortcut: getHotkeyById('clear-importance')?.keys,
-            perform: () => clearImportance(focusedId),
-            section: 'Task'
-          });
+        actions.push({
+          id: 'set-date',
+          title: 'Set Due Date',
+          icon: <Calendar className="w-4 h-4" />,
+          shortcut: getHotkeyById('set-date')?.keys,
+          perform: () => setQuickAddOpen(true, null, 'date', focusedId),
+          section: 'Task'
+        });
+
+        if (task.dueDate) {
+          if (!task.importantOrder) {
+            actions.push({
+              id: 'toggle-importance',
+              title: 'Mark Important',
+              icon: <Star className="w-4 h-4" />,
+              shortcut: getHotkeyById('toggle-importance')?.keys,
+              perform: () => toggleImportance(focusedId),
+              section: 'Task'
+            });
+          } else {
+            actions.push({
+              id: 'clear-importance',
+              title: 'Unmark Important',
+              icon: <StarOff className="w-4 h-4" />,
+              shortcut: getHotkeyById('clear-importance')?.keys,
+              perform: () => clearImportance(focusedId),
+              section: 'Task'
+            });
+          }
         }
-      }
 
-      // Destructive action last
+        actions.push({
+          id: 'delete-task',
+          title: 'Delete Task',
+          icon: <Trash2 className="w-4 h-4" />,
+          shortcut: getHotkeyById('delete')?.keys,
+          perform: () => archiveTask(focusedId),
+          section: 'Task'
+        });
+      }
+    }
+
+    // Bulk reschedule
+    if (filter !== 'review') {
       actions.push({
-        id: 'delete-task',
-        title: 'Delete Task',
-        icon: <Trash2 className="w-4 h-4" />,
-        shortcut: getHotkeyById('delete')?.keys,
-        perform: () => archiveTask(focusedId),
-        section: 'Task'
+        id: 'push-tomorrow',
+        title: "Push Today's Tasks to Tomorrow",
+        icon: <CalendarClock className="w-4 h-4" />,
+        shortcut: getHotkeyById('push-tomorrow')?.keys,
+        perform: () => {
+          const n = pushTodayToTomorrow();
+          toast(n > 0 ? `Moved ${n} task${n === 1 ? '' : 's'} to tomorrow` : 'Nothing due today to move');
+        },
+        section: 'Tasks'
       });
     }
+
+    // Create new task
+    actions.push({
+      id: 'new-task',
+      title: 'New Task',
+      icon: <Plus className="w-4 h-4" />,
+      shortcut: getHotkeyById('new-task')?.keys,
+      perform: () => setQuickAddOpen(true),
+      section: 'Create'
+    });
+
+    actions.push({
+      id: 'review-coach',
+      title: 'Review with Coach',
+      icon: <MessageCircle className="w-4 h-4" />,
+      perform: () => setCoachOpen(true),
+      section: 'Tools'
+    });
+
+  } else if (currentView === 'habits') {
+    // === HABIT VIEW ACTIONS ===
+    actions.push({
+      id: 'habit-add',
+      title: 'Add Habit',
+      icon: <Plus className="w-4 h-4" />,
+      shortcut: getHotkeyById('habit-add')?.keys,
+      perform: () => openNewHabit(),
+      section: 'Habits'
+    });
   }
 
-  // === Global Actions ===
-  actions.push({
-    id: 'new-task',
-    title: 'New Task',
-    icon: <Plus className="w-4 h-4" />,
-    shortcut: getHotkeyById('new-task')?.keys,
-    perform: () => setQuickAddOpen(true),
-    section: 'Create'
-  });
+  // === GO TO (all views) — section navigation, the current one omitted.
+  // ⌘[ / ⌘] cycle sections; with two sections the "other" one is one keypress away.
+  if (currentView !== 'tasks') {
+    actions.push({
+      id: 'go-tasks',
+      title: 'Go to Tasks',
+      icon: <ClipboardList className="w-4 h-4" />,
+      shortcut: '⌘[',
+      perform: () => setCurrentView('tasks'),
+      section: 'Go to'
+    });
+  }
+  if (currentView !== 'habits') {
+    actions.push({
+      id: 'go-habits',
+      title: 'Go to Habits',
+      icon: <Flame className="w-4 h-4" />,
+      shortcut: '⌘]',
+      perform: () => setCurrentView('habits'),
+      section: 'Go to'
+    });
+  }
 
+  // === GLOBAL ACTIONS (all views) ===
   actions.push({
     id: 'undo',
     title: 'Undo',
@@ -117,14 +178,6 @@ export const CommandPalette: React.FC<{ isOpen: boolean; onClose: () => void }> 
     shortcut: getHotkeyById('redo')?.keys,
     perform: () => redo(),
     section: 'Edit'
-  });
-
-  actions.push({
-    id: 'review-coach',
-    title: 'Review with Coach',
-    icon: <MessageCircle className="w-4 h-4" />,
-    perform: () => setCoachOpen(true),
-    section: 'Tools'
   });
 
   actions.push({

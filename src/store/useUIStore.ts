@@ -2,7 +2,8 @@ import { create } from 'zustand';
 
 export type FocusMode = 'sidebar' | 'main';
 export type QuickAddMode = 'create' | 'date' | 'tag';
-export type CurrentView = 'tasks' | 'mail';
+export type CurrentView = 'tasks' | 'mail' | 'habits';
+export type HabitView = 'grid' | 'checklist' | 'analytics';
 
 interface UIState {
   isCmdOpen: boolean;
@@ -15,6 +16,13 @@ interface UIState {
   filter: 'active' | 'today' | 'upcoming' | 'review';
   focusMode: FocusMode;
   currentView: CurrentView;
+  habitView: HabitView;
+  globalHabitGoal: number; // percentage, e.g., 80 for 80%
+
+  // Habit add/edit form. Lives here (not in HabitsView) so the command palette
+  // and global hotkeys can open it, and so keyboard handlers can tell when a
+  // modal is up and suppress grid navigation behind it.
+  habitForm: { open: boolean; editingId: string | null };
 
   // UI-only expansion state for headers
   expandedGroups: Set<string>;
@@ -27,10 +35,20 @@ interface UIState {
   setFilter: (filter: 'active' | 'today' | 'upcoming' | 'review') => void;
   setFocusMode: (mode: FocusMode) => void;
   setCurrentView: (view: CurrentView) => void;
+  setHabitView: (view: HabitView) => void;
+  setGlobalHabitGoal: (goal: number) => void;
   toggleCmd: () => void;
+  cycleHabitView: (dir?: 'next' | 'prev') => void;
+  openNewHabit: () => void;
+  openEditHabit: (id: string) => void;
+  closeHabitForm: () => void;
+
+  // True when any modal/overlay owns keyboard focus — used to suppress
+  // section/grid hotkeys so they don't fire "behind" the overlay.
+  isAnyOverlayOpen: () => boolean;
 }
 
-export const useUIStore = create<UIState>((set) => ({
+export const useUIStore = create<UIState>((set, get) => ({
   isCmdOpen: false,
   isQuickAddOpen: false,
   isShortcutsOpen: false,
@@ -41,6 +59,9 @@ export const useUIStore = create<UIState>((set) => ({
   filter: 'today',
   focusMode: 'main',
   currentView: 'tasks',
+  habitView: 'grid',
+  globalHabitGoal: 80,
+  habitForm: { open: false, editingId: null },
 
   expandedGroups: new Set(['header-important', 'header-outstanding']),
   toggleGroup: (id) => set((state) => {
@@ -58,5 +79,22 @@ export const useUIStore = create<UIState>((set) => ({
   setFilter: (filter) => set({ filter }),
   setFocusMode: (mode) => set({ focusMode: mode }),
   setCurrentView: (view) => set({ currentView: view }),
+  setHabitView: (view) => set({ habitView: view }),
+  setGlobalHabitGoal: (goal) => set({ globalHabitGoal: goal }),
   toggleCmd: () => set((state) => ({ isCmdOpen: !state.isCmdOpen })),
+  cycleHabitView: (dir = 'next') => set((state) => {
+    const views: HabitView[] = ['grid', 'checklist', 'analytics'];
+    const currentIndex = views.indexOf(state.habitView);
+    const delta = dir === 'next' ? 1 : -1;
+    const nextIndex = (currentIndex + delta + views.length) % views.length;
+    return { habitView: views[nextIndex] };
+  }),
+  openNewHabit: () => set({ habitForm: { open: true, editingId: null } }),
+  openEditHabit: (id) => set({ habitForm: { open: true, editingId: id } }),
+  closeHabitForm: () => set({ habitForm: { open: false, editingId: null } }),
+
+  isAnyOverlayOpen: () => {
+    const s = get();
+    return s.isCmdOpen || s.isShortcutsOpen || s.isQuickAddOpen || s.habitForm.open;
+  },
 }));

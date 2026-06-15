@@ -1,0 +1,5 @@
+<svg viewBox="0 0 64 64" xmlns="http://www.w3.org/2000/svg">
+  <!-- Flowing wave/checkmark mark -->
+  <path d="M 12 32 Q 20 24 28 28 T 44 20" stroke="#5680B0" stroke-width="3" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
+  <path d="M 16 40 Q 24 36 32 40 T 52 36" stroke="#15A66A" stroke-width="3" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
+</svg>

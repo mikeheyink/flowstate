@@ -1,46 +1,64 @@
 import React, { useEffect, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 
-// Using the images we generated (paths based on your file structure, assuming they were moved to public/backgrounds or similar)
-// Since I can't move them physically, I will assume for now they are in 'public/assets/inbox_zero/'
-// BUT wait, I generated them to the artifacts folder. 
-// I need to instruct the user or "move" them. 
-// Since I can't move to public easily without shell, I'll assume they will be served from a known path or I'll use placeholders.
-// Actually, I can use the artifact paths if served? No, web app can't access artifacts.
-// I will use some nice external placeholder URLs for now that match the description as a fallback, 
-// OR I can try to write them to public? 
-// The prompt said "I will add a bunch of images to the assets folder". 
-// Let's assume there are images in `/backgrounds/` for now, or use Unsplash source as a robust fallback.
+// Curated, high-resolution (2400px) nature backdrops shown when the inbox is cleared.
+// A fresh one is picked at random each time the empty state appears.
+// Auto-collected from the folder via Vite glob — just drop new .jpg files in to add more.
+const IMAGES = Object.values(
+    import.meta.glob('../assets/inbox_zero/*.jpg', { eager: true, import: 'default' })
+) as string[];
 
-// Import local asset
-// Note: Vite handles image imports by returning the resolved URL
-import lakeMountain from '../assets/lake_mountain.png';
+const randomIndex = () => Math.floor(Math.random() * IMAGES.length);
 
 interface InboxZeroProps {
     show: boolean;
 }
 
 export function InboxZero({ show }: InboxZeroProps) {
-    // We only have one image now, so no need for random selection state
-    const image = lakeMountain;
+    const [index, setIndex] = useState(randomIndex);
 
+    // Re-roll the image each time the empty state (re)appears.
+    useEffect(() => {
+        if (show) setIndex(randomIndex());
+    }, [show]);
 
+    const image = IMAGES[index];
 
     return (
         <AnimatePresence>
             {show && (
                 <motion.div
+                    key={image}
                     initial={{ opacity: 0 }}
                     animate={{ opacity: 1 }}
                     exit={{ opacity: 0 }}
                     transition={{ duration: 1.5, ease: "easeInOut" }}
-                    className="fixed inset-0 z-[100] flex items-center justify-center bg-black"
+                    // z-30 keeps the calming backdrop *below* the TopNav/QuickAdd/CommandPalette (z-50+),
+                    // and pointer-events-none lets clicks/keys reach them so the empty state isn't a dead-end.
+                    className="fixed inset-0 z-30 flex items-center justify-center bg-black pointer-events-none"
                 >
-                    <div
-                        className="absolute inset-0 bg-cover bg-center bg-no-repeat opacity-90"
+                    <motion.div
+                        key={image}
+                        initial={{ opacity: 0, scale: 1.04 }}
+                        animate={{ opacity: 1, scale: 1 }}
+                        transition={{ duration: 1.6, ease: "easeOut" }}
+                        className="absolute inset-0 bg-cover bg-center bg-no-repeat"
                         style={{ backgroundImage: `url(${image})` }}
                     />
 
+                    {/* Scrim for text legibility across bright or busy images */}
+                    <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/10 to-black/30" />
+
+                    <div className="relative text-center px-6">
+                        <p className="font-display text-white text-4xl font-bold tracking-tight drop-shadow-[0_2px_8px_rgba(0,0,0,0.6)]">
+                            All tasks done
+                        </p>
+                        <p className="mt-3 text-white/85 text-sm drop-shadow-[0_1px_4px_rgba(0,0,0,0.7)]">
+                            Press <kbd className="px-1.5 py-0.5 mx-0.5 rounded bg-white/20 backdrop-blur-sm font-mono">Enter</kbd> to add a task
+                            <span className="mx-1.5">·</span>
+                            <kbd className="px-1.5 py-0.5 mx-0.5 rounded bg-white/20 backdrop-blur-sm font-mono">⌘K</kbd> for commands
+                        </p>
+                    </div>
 
                 </motion.div>
             )}

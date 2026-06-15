@@ -12,10 +12,13 @@ import { Login } from './components/Login';
 import { TopNav } from './components/TopNav';
 import { InboxZero } from './components/InboxZero';
 import { MailView } from './components/Mail/MailView';
+import { HabitsView } from './components/Habits/HabitsView';
 import { useTaskStore } from './store/useTaskStore';
+import { useHabitStore } from './store/useHabitStore';
 import { useUIStore } from './store/useUIStore';
 import { useHotkeys } from './hooks/useHotkeys';
 import { useOnlineStatus } from './store/useOnlineStatus';
+import { celebrate } from './utils/celebrate';
 import { supabase } from './utils/supabase';
 
 function App() {
@@ -39,6 +42,7 @@ function App() {
     } = useUIStore();
 
     const fetchTasks = useTaskStore((state) => state.fetchTasks);
+    const fetchHabits = useHabitStore((state) => state.fetchHabits);
     const undo = useTaskStore((state) => state.undo);
     const redo = useTaskStore((state) => state.redo);
     const batchAddTasks = useTaskStore((state) => state.batchAddTasks);
@@ -61,6 +65,10 @@ function App() {
         if (authLoading) return false;
         if (!session && !isGuest) return false;
 
+        // The "all tasks done" backdrop belongs to the Tasks section only — it must
+        // never bleed over Mail or Habits (which have their own empty states).
+        if (currentView !== 'tasks') return false;
+
         // 1. Inbox (Active) View
         if (filter === 'active') {
             return tasks.filter(t => !t.completed && !t.archived).length === 0;
@@ -82,7 +90,7 @@ function App() {
         }
 
         return false;
-    }, [filter, tasks, authLoading, session, isGuest]);
+    }, [filter, tasks, authLoading, session, isGuest, currentView]);
 
     // Auth & Data Init
     useEffect(() => {
@@ -106,7 +114,10 @@ function App() {
                 useTaskStore.getState().setError(error.message);
             }
             setSession(session);
-            if (session) fetchTasks();
+            if (session) {
+                fetchTasks();
+                fetchHabits();
+            }
         }).catch(err => {
             console.error('Unexpected Auth Error:', err);
             useTaskStore.getState().setError('Unexpected authentication error occurred');
@@ -118,7 +129,10 @@ function App() {
             data: { subscription },
         } = supabase.auth.onAuthStateChange(async (event, session) => {
             setSession(session);
-            if (session) fetchTasks();
+            if (session) {
+                fetchTasks();
+                fetchHabits();
+            }
             setAuthLoading(false);
 
             // Global Handler: Capture Google Refresh Token if present (e.g. after OAuth redirect)
@@ -138,7 +152,22 @@ function App() {
         });
 
         return () => subscription.unsubscribe();
-    }, [fetchTasks]);
+    }, [fetchTasks, fetchHabits]);
+
+    // Celebrate the milestone: fire one subtle confetti burst the moment the
+    // list goes from "has tasks" to "all done" (Today cleared / Inbox Zero).
+    // sawTasksRef gates out the "opened the app already-empty" case so the
+    // burst stays rare — it only fires after we've actually seen a non-empty list.
+    const prevInboxZeroRef = useRef(false);
+    const sawTasksRef = useRef(false);
+    useEffect(() => {
+        if (!showInboxZero) {
+            sawTasksRef.current = true;
+        } else if (sawTasksRef.current && !prevInboxZeroRef.current) {
+            celebrate();
+        }
+        prevInboxZeroRef.current = showInboxZero;
+    }, [showInboxZero]);
 
     // Process pending operations when back online
     useEffect(() => {
@@ -225,9 +254,9 @@ function App() {
                     <AnimatePresence mode="wait">
                         <motion.div
                             key={currentView}
-                            initial={{ x: currentView === 'mail' ? '100%' : '-100%', opacity: 0 }}
+                            initial={{ x: currentView === 'mail' || currentView === 'habits' ? '100%' : '-100%', opacity: 0 }}
                             animate={{ x: 0, opacity: 1 }}
-                            exit={{ x: currentView === 'mail' ? '-100%' : '100%', opacity: 0 }}
+                            exit={{ x: currentView === 'mail' || currentView === 'habits' ? '-100%' : '100%', opacity: 0 }}
                             transition={{ type: 'spring', stiffness: 300, damping: 30 }}
                             className="absolute inset-0 overflow-y-auto px-4 py-6 md:px-8 scroll-smooth"
                         >
@@ -235,10 +264,12 @@ function App() {
                                 <div className="max-w-5xl mx-auto">
                                     {filter === 'review' ? <WeeklyReview /> : <TaskList filter={filter} />}
                                 </div>
-                            ) : (
+                            ) : currentView === 'mail' ? (
                                 <div className="max-w-5xl mx-auto h-full">
                                     <MailView />
                                 </div>
+                            ) : (
+                                <HabitsView />
                             )}
                         </motion.div>
                     </AnimatePresence>
@@ -247,9 +278,13 @@ function App() {
                 {/* Floating Quick Add Input */}
                 <QuickAdd isOpen={isQuickAddOpen} onClose={() => setQuickAddOpen(false)} />
 
-                {/* Mobile FAB */}
+                {/* Mobile FAB — context-aware: adds a task in Tasks, a habit in Habits, hidden in Mail */}
                 <button
                     onClick={() => {
+                        if (currentView === 'habits') {
+                            useUIStore.getState().openNewHabit();
+                            return;
+                        }
                         const focusedId = useTaskStore.getState().focusedId;
                         if (focusedId) {
                             setQuickAddOpen(true, focusedId);
@@ -257,8 +292,8 @@ function App() {
                             setQuickAddOpen(true);
                         }
                     }}
-                    className="md:hidden fixed bottom-6 right-6 w-14 h-14 bg-primary-600 text-white rounded-full shadow-lg flex items-center justify-center hover:bg-primary-500 active:scale-95 transition-all z-40"
-                    aria-label="Add Task"
+                    className={`${currentView === 'mail' ? 'hidden' : 'md:hidden'} fixed bottom-6 right-6 w-14 h-14 bg-primary-600 text-white rounded-full shadow-lg flex items-center justify-center hover:bg-primary-500 active:scale-95 transition-all z-40`}
+                    aria-label={currentView === 'habits' ? 'Add Habit' : 'Add Task'}
                 >
                     <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                         <line x1="12" y1="5" x2="12" y2="19"></line>

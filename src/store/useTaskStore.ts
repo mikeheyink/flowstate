@@ -69,7 +69,8 @@ interface TaskState {
   batchDelete: () => void;
   batchComplete: () => void;
   batchSetDueDate: (date: Date | null) => void;
-  batchMove: (direction: 'up' | 'down') => void;
+  pushTodayToTomorrow: () => number;
+  batchMove: (direction: 'up' | 'down', options?: { context?: 'project' | 'today' }) => void;
   batchChangeParent: (updates: { id: string; newParentId: string | null }[]) => void;
   batchIndent: () => void;
   batchOutdent: () => void;
@@ -910,68 +911,140 @@ export const useTaskStore = create<TaskState>()(
         idsToUpdate.forEach(id => state.updateTask(id, { dueDate: date }, { skipHistory: true }));
       },
 
-      batchMove: (direction) => {
+      // Reschedule every outstanding task due today-or-earlier to tomorrow.
+      // Returns the number of tasks moved so the caller can surface a toast.
+      pushTodayToTomorrow: () => {
         const state = get();
-        let idsToMove: string[] = [];
-        if (state.selectedIds.length === 0 && state.focusedId) {
-          idsToMove = [state.focusedId];
-        } else {
-          idsToMove = [...state.selectedIds];
-        }
+        const now = new Date();
+        const endOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1).getTime();
+        // Tomorrow at noon — avoids timezone edge cases that could land it back on today.
+        const tomorrow = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1, 12, 0, 0);
 
-        if (idsToMove.length === 0) return;
+        const targets = state.tasks.filter(t => {
+          if (t.completed || t.archived || !t.dueDate) return false;
+          return new Date(t.dueDate).getTime() < endOfToday;
+        });
 
-        // History
+        if (targets.length === 0) return 0;
+
+        const snapshot = targets.map(t => ({ id: t.id, dueDate: t.dueDate }));
+        const ids = targets.map(t => t.id);
+
         set((s) => {
           const newHistory = [...s.history, {
-            name: 'Batch Move',
-            undo: () => {
+            name: 'Push to Tomorrow',
+            undo: async () => {
               const currentS = get();
-              // Inverse direction
-              const inverse = direction === 'up' ? 'down' : 'up';
-              // We need to move them back in specific order? 
-              // Batch move logic sorts them. If we just call batchMove(inverse), it *should* work roughly.
-              // But we can't call batchMove easily because it relies on selection state.
-              // Better: iterate ids and call moveTask.
-              // BUT moveTask relies on 'siblings' state which changes after each move.
-              // Valid approach: Just call recursive moveTask calls.
-              // For now, let's just trigger moveTask for each, relying on its internal logic?
-              // Actually, let's keep it simple: Re-execute the batch move logic in reverse direction?
-              // No, `moveTask` is instrumented. We want to SKIP history.
-              // Let's iterate.
-              idsToMove.forEach(id => currentS.moveTask(id, inverse, { skipHistory: true }));
+              for (const item of snapshot) {
+                await currentS.updateTask(item.id, { dueDate: item.dueDate }, { skipHistory: true });
+              }
             },
-            redo: () => {
+            redo: async () => {
               const currentS = get();
-              // Re-execute
-              // We need to replicate the sort logic here or export it?
-              // Let's just iterate and call moveTask with skipHistory
-              // NOTE: The order of calling moveTask matters.
-              // The original function sorts them.
-              const tasks = currentS.tasks;
-              const selected = tasks.filter(t => idsToMove.includes(t.id));
-              const sorted = [...selected].sort((a, b) => {
-                const idxA = tasks.indexOf(a);
-                const idxB = tasks.indexOf(b);
-                return direction === 'up' ? idxA - idxB : idxB - idxA;
-              });
-              sorted.forEach(t => currentS.moveTask(t.id, direction, { skipHistory: true }));
+              for (const id of ids) {
+                await currentS.updateTask(id, { dueDate: tomorrow }, { skipHistory: true });
+              }
             }
           }];
           if (newHistory.length > 50) newHistory.shift();
           return { history: newHistory, future: [] };
         });
 
-        const tasks = state.tasks;
-        const selected = tasks.filter(t => idsToMove.includes(t.id));
+        ids.forEach(id => state.updateTask(id, { dueDate: tomorrow }, { skipHistory: true }));
+        return targets.length;
+      },
 
-        const sorted = [...selected].sort((a, b) => {
-          const idxA = tasks.indexOf(a);
-          const idxB = tasks.indexOf(b);
-          return direction === 'up' ? idxA - idxB : idxB - idxA;
+      batchMove: (direction, options = {}) => {
+        const state = get();
+        const context = options.context;
+        const idsToMove = state.selectedIds.length > 0
+          ? [...state.selectedIds]
+          : (state.focusedId ? [state.focusedId] : []);
+        if (idsToMove.length === 0) return;
+
+        // Single selection → delegate to moveTask (keeps its own history/sync).
+        if (idsToMove.length === 1) {
+          state.moveTask(idsToMove[0], direction, { context });
+          return;
+        }
+
+        // Resolve the sibling list + order field from context, mirroring moveTask.
+        const rep = state.tasks.find(t => idsToMove.includes(t.id));
+        if (!rep) return;
+        let siblings: Task[];
+        let orderField: keyof Task;
+        if (context === 'today' && !rep.importantOrder) {
+          siblings = getSiblings(rep, state.tasks, 'today');
+          orderField = 'todayOrder';
+        } else if (context === 'today' && rep.importantOrder) {
+          siblings = getSiblings(rep, state.tasks, 'important');
+          orderField = 'importantOrder';
+        } else {
+          siblings = getSiblings(rep, state.tasks, 'project');
+          orderField = 'order';
+        }
+
+        const sibIds = siblings.map(t => t.id);
+        const selectedSet = new Set(idsToMove.filter(id => sibIds.includes(id)));
+        if (selectedSet.size === 0) return;
+
+        const selIdx = sibIds.map((id, i) => (selectedSet.has(id) ? i : -1)).filter(i => i >= 0);
+        const minI = Math.min(...selIdx);
+        const maxI = Math.max(...selIdx);
+
+        // Move the whole block by one by hopping the single unselected neighbour
+        // across it — so a contiguous selection shifts as a unit instead of its
+        // members leapfrogging (and cancelling) each other.
+        const newIds = [...sibIds];
+        if (direction === 'down') {
+          if (maxI >= sibIds.length - 1) return; // already at the bottom
+          const neighbor = newIds.splice(maxI + 1, 1)[0];
+          newIds.splice(minI, 0, neighbor);
+        } else {
+          if (minI <= 0) return; // already at the top
+          const neighbor = newIds.splice(minI - 1, 1)[0];
+          newIds.splice(maxI, 0, neighbor);
+        }
+
+        const spacing = orderField === 'importantOrder' ? 1 : 1000;
+        const base = orderField === 'importantOrder' ? 1 : 0;
+        const updates: Record<string, number> = {};
+        newIds.forEach((id, i) => { updates[id] = base + i * spacing; });
+
+        const snapshot = siblings.map(t => ({ id: t.id, val: (t[orderField] as number | null) ?? null }));
+
+        set((s) => {
+          const newHistory = [...s.history, {
+            name: 'Batch Move',
+            undo: () => {
+              set((st) => ({
+                tasks: st.tasks.map(t => {
+                  const snap = snapshot.find(x => x.id === t.id);
+                  return snap ? { ...t, [orderField]: snap.val } : t;
+                })
+              }));
+            },
+            redo: () => {
+              set((st) => ({
+                tasks: st.tasks.map(t => (updates[t.id] !== undefined ? { ...t, [orderField]: updates[t.id] } : t))
+              }));
+            },
+          }];
+          if (newHistory.length > 50) newHistory.shift();
+          return { history: newHistory, future: [] };
         });
 
-        sorted.forEach(t => state.moveTask(t.id, direction, { skipHistory: true }));
+        set((s) => ({
+          tasks: s.tasks.map(t => (updates[t.id] !== undefined ? { ...t, [orderField]: updates[t.id] } : t))
+        }));
+
+        if (state.guestMode) return;
+        const dbField = orderField === 'importantOrder' ? 'important_order' : (orderField === 'todayOrder' ? 'today_order' : 'order');
+        snapshot.forEach(({ id, val }) => {
+          if (updates[id] !== val) {
+            supabase.from('tasks').update({ [dbField]: updates[id] }).eq('id', id).then(() => { }, () => { });
+          }
+        });
       },
 
       batchChangeParent: (updates) => {

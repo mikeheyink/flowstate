@@ -3,6 +3,7 @@ import { useUIStore } from '../store/useUIStore';
 import { useTaskStore } from '../store/useTaskStore';
 import { useMailStore, filterEmails } from '../store/useMailStore';
 import { toast } from '../components/Toaster';
+import { useHabitStore } from '../store/useHabitStore';
 
 export function useHotkeys() {
     const {
@@ -67,15 +68,27 @@ export function useHotkeys() {
             // GLOBAL HOTKEYS (Application-wide)
             // ----------------------------------------------------------------
 
-            // Shortcuts Modal (?)
-            if (key === '?' && !isCmd) {
-                setShortcutsOpen(true);
-                return;
-            }
+            // Escape always closes whatever overlay is open (handled here so it
+            // works even when focus isn't in an input — e.g. the habit form).
             if (key === 'escape') {
                 if (uiState.isShortcutsOpen) setShortcutsOpen(false);
                 if (uiState.isCmdOpen) setCmdOpen(false);
                 if (uiState.isQuickAddOpen) setQuickAddOpen(false);
+                if (uiState.habitForm.open) uiState.closeHabitForm();
+                return;
+            }
+
+            // While a modal/overlay owns the screen, swallow all other shortcuts so
+            // section/grid navigation can't fire "behind" it. (The overlay handles
+            // its own keys: ⌘K toggles the palette, the form captures typing, etc.)
+            if (uiState.isAnyOverlayOpen()) {
+                if (isCmd && key === 'k') { e.preventDefault(); toggleCmd(); }
+                return;
+            }
+
+            // Shortcuts Modal (?)
+            if (key === '?' && !isCmd) {
+                setShortcutsOpen(true);
                 return;
             }
 
@@ -83,21 +96,6 @@ export function useHotkeys() {
             if (isCmd && key === 'k') {
                 e.preventDefault();
                 toggleCmd();
-                return;
-            }
-
-            // View Switching (Cmd+Arrow)
-            if (isCmd && (key === 'arrowright' || key === 'arrowleft')) {
-                e.preventDefault();
-                const views = ['tasks', 'mail'] as const;
-                const currentIdx = views.indexOf(uiState.currentView);
-                if (key === 'arrowright' && currentIdx < views.length - 1) {
-                    setCurrentView(views[currentIdx + 1]);
-                    toast(`Switched to ${views[currentIdx + 1] === 'mail' ? 'Mail' : 'Tasks'}`);
-                } else if (key === 'arrowleft' && currentIdx > 0) {
-                    setCurrentView(views[currentIdx - 1]);
-                    toast(`Switched to ${views[currentIdx - 1] === 'mail' ? 'Mail' : 'Tasks'}`);
-                }
                 return;
             }
 
@@ -127,26 +125,67 @@ export function useHotkeys() {
                 return;
             }
 
+            // Section switching (⌘[ / ⌘]) — previous / next top-level section.
+            // ⌘[ / ⌘] are Back/Forward in Chrome/Safari but are interceptable;
+            // preventDefault stops the browser navigating history.
+            if (isCmd && (key === '[' || key === ']')) {
+                e.preventDefault();
+                const sections = ['tasks', 'habits'] as const;
+                const cur = Math.max(0, sections.indexOf(uiState.currentView as any));
+                const next = key === ']'
+                    ? (cur + 1) % sections.length
+                    : (cur - 1 + sections.length) % sections.length;
+                setCurrentView(sections[next]);
+                toast(sections[next] === 'habits' ? 'Habits' : 'Tasks');
+                return;
+            }
+
+            // G-Chord Navigation (Global)
+            if (key === 'g' && !isCmd && !gPressed) {
+                setGPressed(true);
+                if (gTimeoutRef.current) clearTimeout(gTimeoutRef.current);
+                gTimeoutRef.current = window.setTimeout(() => setGPressed(false), 500);
+                return;
+            }
+
+            // G-chord resolves: jump to any section (and a specific tab for Tasks).
+            // This is the ONE way to move between sections — always two keys, always
+            // the same verb ("go to"), so it never collides with [ / ] tab cycling.
+            if (gPressed) {
+                setGPressed(false);
+                if (key === 'i') { setCurrentView('tasks'); setFilter('active'); toast('Tasks · Plan'); }
+                else if (key === 't') { setCurrentView('tasks'); setFilter('today'); toast('Tasks · Today'); }
+                else if (key === 'u') { setCurrentView('tasks'); setFilter('upcoming'); toast('Tasks · Upcoming'); }
+                else if (key === 'r') { setCurrentView('tasks'); setFilter('review'); toast('Tasks · Review'); }
+                else if (key === 'h') { setCurrentView('habits'); toast('Habits'); }
+                return;
+            }
+
+            // Tab cycling WITHIN the current section ([ / ] — PageUp/PageDown alias).
+            // One consistent meaning everywhere: Tasks filters, Mail folders, Habit views.
+            if (key === '[' || key === ']' || key === 'pageup' || key === 'pagedown') {
+                e.preventDefault();
+                const back = key === '[' || key === 'pageup';
+                if (uiState.currentView === 'tasks') {
+                    const items = ['active', 'today', 'upcoming', 'review'] as const;
+                    const idx = items.indexOf(uiState.filter as any);
+                    const next = (idx + (back ? -1 : 1) + items.length) % items.length;
+                    setFilter(items[next]);
+                } else if (uiState.currentView === 'mail') {
+                    const items = ['inbox', 'to_read', 'to_reply', 'other'] as const;
+                    const idx = items.indexOf(mailState.activeTab);
+                    const next = (idx + (back ? -1 : 1) + items.length) % items.length;
+                    setActiveTab(items[next]);
+                } else if (uiState.currentView === 'habits') {
+                    uiState.cycleHabitView(back ? 'prev' : 'next');
+                }
+                return;
+            }
+
             // ----------------------------------------------------------------
             // TASK VIEW HOTKEYS
             // ----------------------------------------------------------------
             if (uiState.currentView === 'tasks') {
-
-                // G-Chord Navigation
-                if (key === 'g' && !isCmd && !gPressed) {
-                    setGPressed(true);
-                    if (gTimeoutRef.current) clearTimeout(gTimeoutRef.current);
-                    gTimeoutRef.current = window.setTimeout(() => setGPressed(false), 500);
-                    return;
-                }
-
-                if (gPressed) {
-                    if (key === 'i') { setFilter('active'); toast("Go to Inbox"); }
-                    if (key === 't') { setFilter('today'); toast("Go to Today"); }
-                    if (key === 'r') { setFilter('review'); toast("Go to Review"); }
-                    setGPressed(false);
-                    return;
-                }
 
                 // Quick Add
                 if (key === 'enter' && !isCmd && !isAlt && !isShift) {
@@ -162,52 +201,19 @@ export function useHotkeys() {
                     setQuickAddOpen(true);
                     return;
                 }
-
-                // Sidebar Cycle (PageUp/Down) - TASKS
-                if (key === 'pagedown') {
-                    e.preventDefault();
-                    const currentFilter = uiState.filter;
-                    const items = ['active', 'today', 'upcoming', 'review'] as const;
-                    const idx = items.indexOf(currentFilter as any);
-                    const nextIndex = (idx + 1) % items.length;
-                    setFilter(items[nextIndex]);
-                    return;
-                }
-                if (key === 'pageup') {
-                    e.preventDefault();
-                    const currentFilter = uiState.filter;
-                    const items = ['active', 'today', 'upcoming', 'review'] as const;
-                    const idx = items.indexOf(currentFilter as any);
-                    const nextIndex = (idx - 1 + items.length) % items.length;
-                    setFilter(items[nextIndex]);
-                    return;
-                }
             }
+
+            // ----------------------------------------------------------------
+            // HABITS VIEW HOTKEYS
+            // ----------------------------------------------------------------
+            // Grid/Checklist internal navigation (arrows, space, e, del, week nav)
+            // is owned by the Habits components themselves, which hold the focus
+            // and week state. Section + tab navigation is handled globally above.
 
             // ----------------------------------------------------------------
             // MAIL VIEW HOTKEYS
             // ----------------------------------------------------------------
             if (uiState.currentView === 'mail') {
-
-                // Sidebar Cycle (PageUp/Down) - MAIL
-                if (key === 'pagedown') {
-                    e.preventDefault();
-                    const currentTab = mailState.activeTab;
-                    const items = ['inbox', 'to_read', 'to_reply', 'other'] as const;
-                    const idx = items.indexOf(currentTab);
-                    const nextIndex = (idx + 1) % items.length;
-                    setActiveTab(items[nextIndex]);
-                    return;
-                }
-                if (key === 'pageup') {
-                    e.preventDefault();
-                    const currentTab = mailState.activeTab;
-                    const items = ['inbox', 'to_read', 'to_reply', 'other'] as const;
-                    const idx = items.indexOf(currentTab);
-                    const nextIndex = (idx - 1 + items.length) % items.length;
-                    setActiveTab(items[nextIndex]);
-                    return;
-                }
 
                 // Navigation (Arrows) - Strict Logic
                 if (key === 'arrowdown') {

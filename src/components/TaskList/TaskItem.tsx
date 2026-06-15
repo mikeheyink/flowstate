@@ -32,6 +32,7 @@ interface TaskItemProps {
     task: VisibleTask;
     isFocused: boolean;
     isSelected?: boolean;
+    isCelebrating?: boolean;
     isEditing: boolean;
     focusMode: FocusMode;
     paddingLeft: string;
@@ -57,6 +58,7 @@ export const TaskItem: React.FC<TaskItemProps> = ({
     task,
     isFocused,
     isSelected,
+    isCelebrating,
     isEditing,
     focusMode,
     paddingLeft,
@@ -141,18 +143,23 @@ export const TaskItem: React.FC<TaskItemProps> = ({
                 whileDrag={{ scale: 1.02, zIndex: 10 }}
                 style={{ x, touchAction: "pan-y", paddingLeft }}
                 className={`
-          relative flex items-center h-12 pr-4 transition-all duration-200 cursor-pointer 
-          border-b border-slate-100 dark:border-slate-800/50
-          ${index % 2 !== 0 ? 'bg-white dark:bg-slate-900/40' : 'bg-transparent'}
-          ${isFocused ? 'ring-1 ring-inset ring-blue-500/50 bg-blue-50/30 dark:bg-blue-900/10' : ''}
-          ${isSelected ? 'bg-blue-100/50 dark:bg-blue-900/20' : ''}
+          relative flex items-center h-[52px] pr-4 mx-2 rounded-xl transition-all duration-200 cursor-pointer
+          ${isFocused ? 'bg-white dark:bg-slate-850 shadow-[0_1px_2px_rgba(40,30,15,0.06)] ring-1 ring-slate-200/70 dark:ring-slate-800' : 'bg-transparent hover:bg-slate-100/70 dark:hover:bg-slate-850/40'}
+          ${isSelected ? 'bg-primary-600/5 dark:bg-primary-500/10' : ''}
+          ${isCelebrating ? 'bg-success-500/10 dark:bg-success-500/10' : ''}
           ${isDragging ? 'opacity-30 scale-95 blur-[1px]' : ''}
         `}
-                onClick={() => {
+                onClick={(e) => {
+                    // Stop the click bubbling to the page-level "click empty space to
+                    // deselect" handler, which would immediately clear this focus.
+                    e.stopPropagation();
                     setFocusedId(task.id);
                     setFocusMode('main');
                 }}
             >
+                {/* Focused "you are here" accent bar */}
+                {isFocused && <div className="absolute left-0 top-3 bottom-3 w-[3px] rounded-full bg-primary-600 dark:bg-primary-500 z-20" />}
+
                 {/* Drop Indicators */}
                 {isInsertBefore && <div className="absolute top-0 left-0 right-0 h-0.5 bg-blue-500 z-20 shadow-[0_0_8px_rgba(59,130,246,0.5)]" />}
                 {isInsertAfter && <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-blue-500 z-20 shadow-[0_0_8px_rgba(59,130,246,0.5)]" />}
@@ -166,12 +173,27 @@ export const TaskItem: React.FC<TaskItemProps> = ({
                             e.stopPropagation();
                             handleToggle(task.id, task.completed);
                         }}
-                        className="flex-shrink-0 focus:outline-none"
+                        className="relative flex-shrink-0 focus:outline-none"
                     >
-                        {task.completed ? (
-                            <CheckCircle2 className="w-5 h-5 text-green-500 fill-green-500/10" />
+                        {(task.completed || isCelebrating) ? (
+                            <motion.span
+                                initial={isCelebrating ? { scale: 0.3 } : false}
+                                animate={{ scale: 1 }}
+                                transition={{ type: 'spring', stiffness: 500, damping: 14 }}
+                                className="block"
+                            >
+                                <CheckCircle2 className="w-5 h-5 text-success-500 fill-success-500/15" />
+                            </motion.span>
                         ) : (
-                            <Circle className="w-5 h-5 text-slate-300 dark:text-slate-600 hover:text-slate-400 dark:hover:text-slate-500 transition-colors" />
+                            <Circle className="w-5 h-5 text-slate-300 dark:text-slate-600 hover:text-primary-500 dark:hover:text-primary-400 transition-colors" />
+                        )}
+                        {isCelebrating && (
+                            <motion.span
+                                initial={{ scale: 0.5, opacity: 0.7 }}
+                                animate={{ scale: 2.4, opacity: 0 }}
+                                transition={{ duration: 0.5, ease: 'easeOut' }}
+                                className="absolute inset-0 rounded-full ring-2 ring-success-500 pointer-events-none"
+                            />
                         )}
                     </button>
 
@@ -185,7 +207,7 @@ export const TaskItem: React.FC<TaskItemProps> = ({
                                 />
                             ) : (
                                 <>
-                                    <span className={`text-sm font-medium truncate ${task.completed ? 'text-slate-400 line-through' : 'text-slate-900 dark:text-slate-100'}`}>
+                                    <span className={`text-[14.5px] font-medium truncate ${task.completed ? 'text-slate-400 line-through decoration-success-500/70' : 'text-slate-900 dark:text-slate-100'}`}>
                                         {task.title}
                                     </span>
                                     <PriorityIcon priority={task.priority} />
@@ -210,7 +232,7 @@ export const TaskItem: React.FC<TaskItemProps> = ({
 
                         {/* Task Meta */}
                         {!isEditing && (
-                            <div className="flex items-center gap-3 text-[10px] text-slate-400 font-medium">
+                            <div className="flex items-center gap-3 text-xs text-slate-400 font-medium">
                                 {/* Show due date only in Active/Review views */}
                                 {task.dueDate && (filter === 'active' || filter === 'review') && (
                                     <div className="flex items-center gap-1">
@@ -219,8 +241,8 @@ export const TaskItem: React.FC<TaskItemProps> = ({
                                     </div>
                                 )}
                                 {task.tags.length > 0 && (
-                                    <div className="flex items-center gap-1">
-                                        <Hash className="w-3 h-3 text-slate-300" />
+                                    <div className="flex items-center gap-1 text-primary-500/80 dark:text-primary-400/80">
+                                        <Hash className="w-3 h-3" />
                                         <span>{task.tags.join(', ')}</span>
                                     </div>
                                 )}

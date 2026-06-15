@@ -3,24 +3,49 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>FlowState To-Do</title>
+    <title>Flow</title>
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Hanken+Grotesk:wght@500;600;700&display=swap" rel="stylesheet">
     <script src="https://cdn.tailwindcss.com"></script>
     <script>
       tailwind.config = {
         darkMode: 'class',
         theme: {
           extend: {
+            fontFamily: {
+              sans: ['Inter', '-apple-system', 'BlinkMacSystemFont', '"Segoe UI"', 'Roboto', 'Helvetica', 'Arial', 'sans-serif'],
+              display: ['"Hanken Grotesk"', 'Inter', 'sans-serif'],
+            },
             colors: {
+              // Warm neutral ramp (replaces cold slate globally) — "Calm Focus"
               slate: {
-                850: '#151e2e',
-                900: '#0f172a',
-                950: '#020617',
+                50:  '#F5F3EF',
+                100: '#EDEAE3',
+                200: '#E3DFD6',
+                300: '#CBC6BB',
+                400: '#A8A29A',
+                500: '#87817A',
+                600: '#6A655E',
+                700: '#514D47',
+                800: '#353230',
+                850: '#232120',
+                900: '#1A1815',
+                950: '#141210',
               },
+              // Brand — denim / slate blue (interactive, focus, ⌘K)
               primary: {
-                500: '#6366f1',
-                600: '#4f46e5',
-              }
+                400: '#7CA0CB',
+                500: '#5680B0',
+                600: '#3F6896',
+              },
+              // Signature success color — reserved for completion ONLY
+              success: {
+                400: '#2BC98A',
+                500: '#15A66A',
+                600: '#0E8A57',
+              },
             },
             animation: {
               'toast-in': 'toastIn 0.2s cubic-bezier(0.16, 1, 0.3, 1)',
@@ -49,21 +74,28 @@
         background: transparent;
       }
       ::-webkit-scrollbar-thumb {
-        background: #334155;
+        background: #CBC6BB;
         border-radius: 3px;
       }
       ::-webkit-scrollbar-thumb:hover {
-        background: #475569;
+        background: #A8A29A;
+      }
+      html.dark ::-webkit-scrollbar-thumb {
+        background: #353230;
+      }
+      html.dark ::-webkit-scrollbar-thumb:hover {
+        background: #514D47;
       }
       body {
-        background-color: #f8fafc; /* Slate 50 for light mode default */
-        color: #0f172a;
-        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+        background-color: #F5F3EF; /* Warm paper — light mode */
+        color: #1C1A17;
+        font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+        -webkit-font-smoothing: antialiased;
         overflow: hidden; /* App-like feel */
       }
       html.dark body {
-        background-color: #020617; /* Slate 950 */
-        color: #e2e8f0;
+        background-color: #141210; /* Warm near-black */
+        color: #ECE8E1;
       }
     </style>
   <script type="importmap">
