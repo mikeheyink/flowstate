@@ -26,9 +26,11 @@ export const HOTKEYS: Hotkey[] = [
     // === Navigation ===
     { id: 'nav-down', keys: '↓', description: 'Move Focus Down', category: 'navigation' },
     { id: 'nav-up', keys: '↑', description: 'Move Focus Up', category: 'navigation' },
+    { id: 'nav-section', keys: '⌘[ / ⌘]', description: 'Previous / Next Section', category: 'navigation' },
     { id: 'nav-sidebar', keys: '[ / ]', description: 'Previous / Next Tab', category: 'navigation' },
-    { id: 'go-tasks', keys: 'g then t', description: 'Go to Tasks', category: 'navigation' },
-    { id: 'go-mail', keys: 'g then m', description: 'Go to Mail', category: 'navigation' },
+    { id: 'go-inbox', keys: 'g then i', description: 'Go to Inbox', category: 'navigation' },
+    { id: 'go-today', keys: 'g then t', description: 'Go to Today', category: 'navigation' },
+    { id: 'go-review', keys: 'g then r', description: 'Go to Review', category: 'navigation' },
     { id: 'move-task-down', keys: '⌥↓', description: 'Move Task Down', category: 'navigation', context: 'task-focused' },
     { id: 'move-task-up', keys: '⌥↑', description: 'Move Task Up', category: 'navigation', context: 'task-focused' },
     { id: 'expand', keys: '→', description: 'Expand', category: 'navigation', context: 'task-focused' },
@@ -36,7 +38,6 @@ export const HOTKEYS: Hotkey[] = [
     { id: 'expand-all', keys: '⌥⇧→', description: 'Expand All', category: 'navigation' },
     { id: 'collapse-all', keys: '⌥⇧←', description: 'Collapse All', category: 'navigation' },
     { id: 'cmd-palette', keys: '⌘K', description: 'Command Palette', category: 'navigation' },
-    { id: 'go-habits', keys: 'g then h', description: 'Go to Habits', category: 'navigation' },
 
     // === Creation ===
     { id: 'new-task', keys: '↩', description: 'New Task', category: 'creation', showInPalette: true },
@@ -135,27 +136,19 @@ export function getHotkeyById(id: string): Hotkey | undefined {
  * Get hotkey groups filtered by view context
  */
 export function getHotkeyModalGroupsByView(view: 'tasks' | 'mail' | 'habits'): { title: string; items: Hotkey[] }[] {
-    const groups: { title: string; ids: string[] }[] = [
-        { title: 'Most used', ids: ['new-task', 'complete', 'nav-down', 'nav-up', 'edit-title', 'set-date', 'delete', 'cmd-palette'] },
-        { title: 'Organize', ids: ['indent', 'outdent', 'move-task-up', 'move-task-down', 'toggle-importance', 'clear-importance', 'push-tomorrow'] },
-        { title: 'Get around', ids: ['go-tasks', 'go-mail', 'go-habits', 'nav-sidebar', 'expand', 'collapse'] },
-        { title: 'Create & history', ids: ['new-subtask', 'batch-add', 'open-links', 'undo', 'redo', 'shortcuts-modal'] },
-    ];
-
+    // These groups are hand-curated by id, so we show whatever is listed —
+    // the showInModal flag only governs the auto-generated global listing.
     const resolve = (ids: string[]) => ids
         .map(getHotkeyById)
         .filter((h): h is Hotkey => !!h);
 
-    // The "Get around" group is identical everywhere — it teaches the two-tier
-    // model (g-chord = jump section, [ / ] = cycle tabs) in every section.
-    const getAround = {
-        title: 'Get around',
-        items: resolve(['go-tasks', 'go-mail', 'go-habits', 'nav-sidebar', 'cmd-palette']),
-    };
-
     if (view === 'habits') {
         return [
-            getAround,
+            {
+                title: 'Get around',
+                // Two-tier model: ⌘[ / ⌘] move between sections, [ / ] between tabs.
+                items: resolve(['nav-section', 'nav-sidebar', 'cmd-palette']),
+            },
             {
                 title: 'Track habits',
                 items: resolve(['habit-toggle', 'habit-nav', 'habit-week']),
@@ -167,21 +160,11 @@ export function getHotkeyModalGroupsByView(view: 'tasks' | 'mail' | 'habits'): {
         ];
     }
 
-    if (view === 'mail') {
-        return [
-            getAround,
-            {
-                title: 'Triage',
-                items: resolve(['nav-down', 'nav-up', 'undo', 'redo']),
-            },
-        ];
-    }
-
     // Tasks view (default)
-    return groups.map(g => ({
-        title: g.title,
-        items: g.ids
-            .map(id => HOTKEYS.find(h => h.id === id))
-            .filter((h): h is Hotkey => !!h && h.showInModal !== false),
-    }));
+    return [
+        { title: 'Most used', items: resolve(['new-task', 'complete', 'nav-down', 'nav-up', 'edit-title', 'set-date', 'delete', 'cmd-palette']) },
+        { title: 'Organize', items: resolve(['indent', 'outdent', 'move-task-up', 'move-task-down', 'toggle-importance', 'clear-importance', 'push-tomorrow']) },
+        { title: 'Get around', items: resolve(['nav-section', 'nav-sidebar', 'go-inbox', 'go-today', 'go-review', 'expand', 'collapse']) },
+        { title: 'Create & history', items: resolve(['new-subtask', 'batch-add', 'open-links', 'undo', 'redo', 'shortcuts-modal']) },
+    ];
 }

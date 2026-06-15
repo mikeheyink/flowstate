@@ -125,6 +125,21 @@ export function useHotkeys() {
                 return;
             }
 
+            // Section switching (⌘[ / ⌘]) — previous / next top-level section.
+            // ⌘[ / ⌘] are Back/Forward in Chrome/Safari but are interceptable;
+            // preventDefault stops the browser navigating history.
+            if (isCmd && (key === '[' || key === ']')) {
+                e.preventDefault();
+                const sections = ['tasks', 'habits'] as const;
+                const cur = Math.max(0, sections.indexOf(uiState.currentView as any));
+                const next = key === ']'
+                    ? (cur + 1) % sections.length
+                    : (cur - 1 + sections.length) % sections.length;
+                setCurrentView(sections[next]);
+                toast(sections[next] === 'habits' ? 'Habits' : 'Tasks');
+                return;
+            }
+
             // G-Chord Navigation (Global)
             if (key === 'g' && !isCmd && !gPressed) {
                 setGPressed(true);
@@ -142,7 +157,6 @@ export function useHotkeys() {
                 else if (key === 't') { setCurrentView('tasks'); setFilter('today'); toast('Tasks · Today'); }
                 else if (key === 'u') { setCurrentView('tasks'); setFilter('upcoming'); toast('Tasks · Upcoming'); }
                 else if (key === 'r') { setCurrentView('tasks'); setFilter('review'); toast('Tasks · Review'); }
-                else if (key === 'm') { setCurrentView('mail'); toast('Mail'); }
                 else if (key === 'h') { setCurrentView('habits'); toast('Habits'); }
                 return;
             }

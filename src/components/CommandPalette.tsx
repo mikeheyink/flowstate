@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { Search, Plus, Trash2, CheckCircle, SunMoon, MessageCircle, Calendar, CalendarClock, Star, StarOff, Edit3, Undo, Redo, ClipboardList, Mail, Flame } from 'lucide-react';
+import { Search, Plus, Trash2, CheckCircle, SunMoon, MessageCircle, Calendar, CalendarClock, Star, StarOff, Edit3, Undo, Redo, ClipboardList, Flame } from 'lucide-react';
 import { useTaskStore } from '../store/useTaskStore';
 import { useHabitStore } from '../store/useHabitStore';
 import { useUIStore } from '../store/useUIStore';
@@ -138,24 +138,15 @@ export const CommandPalette: React.FC<{ isOpen: boolean; onClose: () => void }> 
     });
   }
 
-  // === GO TO (all views) — section navigation, the current one omitted ===
+  // === GO TO (all views) — section navigation, the current one omitted.
+  // ⌘[ / ⌘] cycle sections; with two sections the "other" one is one keypress away.
   if (currentView !== 'tasks') {
     actions.push({
       id: 'go-tasks',
       title: 'Go to Tasks',
       icon: <ClipboardList className="w-4 h-4" />,
-      shortcut: getHotkeyById('go-tasks')?.keys,
+      shortcut: '⌘[',
       perform: () => setCurrentView('tasks'),
-      section: 'Go to'
-    });
-  }
-  if (currentView !== 'mail') {
-    actions.push({
-      id: 'go-mail',
-      title: 'Go to Mail',
-      icon: <Mail className="w-4 h-4" />,
-      shortcut: getHotkeyById('go-mail')?.keys,
-      perform: () => setCurrentView('mail'),
       section: 'Go to'
     });
   }
@@ -164,7 +155,7 @@ export const CommandPalette: React.FC<{ isOpen: boolean; onClose: () => void }> 
       id: 'go-habits',
       title: 'Go to Habits',
       icon: <Flame className="w-4 h-4" />,
-      shortcut: getHotkeyById('go-habits')?.keys,
+      shortcut: '⌘]',
       perform: () => setCurrentView('habits'),
       section: 'Go to'
     });

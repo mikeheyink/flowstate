@@ -238,7 +238,7 @@ export function HabitGridView({ onAddHabit, onEditHabit, onDeleteHabit }: HabitG
                         <td key={dayIdx} className="text-center py-3 px-2">
                           <button
                             onClick={() => handleToggleHabit(habit.id, dateStr)}
-                            className={`w-10 h-10 rounded-lg flex items-center justify-center transition-colors cursor-pointer ${
+                            className={`w-10 h-10 rounded-lg inline-flex items-center justify-center align-middle transition-colors cursor-pointer ${
                               isCompleted
                                 ? 'bg-green-100 dark:bg-green-500/20 text-green-700 dark:text-green-400 hover:bg-green-200 dark:hover:bg-green-500/30'
                                 : 'bg-slate-100 dark:bg-slate-800 text-slate-400 dark:text-slate-500 hover:bg-slate-200 dark:hover:bg-slate-700'
