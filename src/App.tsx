@@ -10,6 +10,7 @@ import { ShortcutsModal } from './components/ShortcutsModal';
 import { Toaster, toast } from './components/Toaster';
 import { Login } from './components/Login';
 import { TopNav } from './components/TopNav';
+import { MobileNav } from './components/MobileNav';
 import { InboxZero } from './components/InboxZero';
 import { MailView } from './components/Mail/MailView';
 import { HabitsView } from './components/Habits/HabitsView';
@@ -43,6 +44,8 @@ function App() {
 
     const fetchTasks = useTaskStore((state) => state.fetchTasks);
     const fetchHabits = useHabitStore((state) => state.fetchHabits);
+    const habitPendingCount = useHabitStore((state) => state.pendingOperations.length);
+    const processHabitPending = useHabitStore((state) => state.processPendingOperations);
     const undo = useTaskStore((state) => state.undo);
     const redo = useTaskStore((state) => state.redo);
     const batchAddTasks = useTaskStore((state) => state.batchAddTasks);
@@ -56,6 +59,13 @@ function App() {
     const setGuestMode = useTaskStore((state) => state.setGuestMode);
     const pendingCount = useTaskStore((state) => state.pendingOperations.length);
     const processPendingOperations = useTaskStore((state) => state.processPendingOperations);
+
+    // Guest mode is tracked per-store; keep the habit store in lock-step with the
+    // task store so habit log writes actually sync once the user is signed in.
+    const setGuestModeBoth = React.useCallback((mode: boolean) => {
+        setGuestMode(mode);
+        useHabitStore.getState().setGuestMode(mode);
+    }, [setGuestMode]);
 
     // Online status for sync indicator
     const isOnline = useOnlineStatus();
@@ -115,6 +125,9 @@ function App() {
             }
             setSession(session);
             if (session) {
+                // A real session means we have an authenticated owner — leave guest
+                // mode so habit (and task) writes sync to Supabase.
+                useHabitStore.getState().setGuestMode(false);
                 fetchTasks();
                 fetchHabits();
             }
@@ -130,6 +143,7 @@ function App() {
         } = supabase.auth.onAuthStateChange(async (event, session) => {
             setSession(session);
             if (session) {
+                useHabitStore.getState().setGuestMode(false);
                 fetchTasks();
                 fetchHabits();
             }
@@ -176,6 +190,13 @@ function App() {
         }
     }, [isOnline, pendingCount, isGuest, processPendingOperations]);
 
+    // Replay any queued habit operations once we're back online and signed in.
+    useEffect(() => {
+        if (isOnline && habitPendingCount > 0 && !isGuest) {
+            processHabitPending();
+        }
+    }, [isOnline, habitPendingCount, isGuest, processHabitPending]);
+
     // Keyboard Shortcuts (Centralized Hook)
     useHotkeys();
 
@@ -221,7 +242,7 @@ function App() {
                             Retry Connection
                         </button>
                         <button
-                            onClick={() => { setGuestMode(true); fetchTasks(); }}
+                            onClick={() => { setGuestModeBoth(true); fetchTasks(); }}
                             className="text-xs text-slate-500 hover:text-slate-400"
                         >
                             Ignore and use Guest Mode
@@ -238,7 +259,7 @@ function App() {
     return (
         <div className="h-dvh w-screen overflow-hidden bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-200 flex flex-col md:flex-row font-sans selection:bg-primary-500/30">
             {/* Top Navigation Bar */}
-            <TopNav session={session} isGuest={isGuest} setGuestMode={setGuestMode} />
+            <TopNav session={session} isGuest={isGuest} setGuestMode={setGuestModeBoth} />
 
             {/* Main Content */}
             <main className="flex-1 overflow-hidden flex flex-col relative bg-slate-50 dark:bg-slate-950 pt-16">
@@ -258,7 +279,7 @@ function App() {
                             animate={{ x: 0, opacity: 1 }}
                             exit={{ x: currentView === 'mail' || currentView === 'habits' ? '-100%' : '100%', opacity: 0 }}
                             transition={{ type: 'spring', stiffness: 300, damping: 30 }}
-                            className="absolute inset-0 overflow-y-auto px-4 py-6 md:px-8 scroll-smooth"
+                            className="absolute inset-0 overflow-y-auto px-4 pt-6 pb-24 md:px-8 md:py-6 scroll-smooth"
                         >
                             {currentView === 'tasks' ? (
                                 <div className="max-w-5xl mx-auto">
@@ -285,14 +306,14 @@ function App() {
                             useUIStore.getState().openNewHabit();
                             return;
                         }
-                        const focusedId = useTaskStore.getState().focusedId;
-                        if (focusedId) {
-                            setQuickAddOpen(true, focusedId);
-                        } else {
-                            setQuickAddOpen(true);
-                        }
+                        // Only treat the focused id as a parent when it's a real task.
+                        // In views like Review the "focus" can be a section header
+                        // (e.g. a week group), which would orphan the new task.
+                        const { focusedId, tasks } = useTaskStore.getState();
+                        const parentId = focusedId && tasks.some(t => t.id === focusedId) ? focusedId : null;
+                        setQuickAddOpen(true, parentId);
                     }}
-                    className={`${currentView === 'mail' ? 'hidden' : 'md:hidden'} fixed bottom-6 right-6 w-14 h-14 bg-primary-600 text-white rounded-full shadow-lg flex items-center justify-center hover:bg-primary-500 active:scale-95 transition-all z-40`}
+                    className={`${currentView === 'mail' ? 'hidden' : 'md:hidden'} fixed bottom-20 right-5 w-14 h-14 bg-primary-600 text-white rounded-full shadow-lg flex items-center justify-center hover:bg-primary-500 active:scale-95 transition-all z-40`}
                     aria-label={currentView === 'habits' ? 'Add Habit' : 'Add Task'}
                 >
                     <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -302,7 +323,9 @@ function App() {
                 </button>
             </main>
 
-            {/* Modals & Overlays */}
+            {/* Mobile bottom navigation (md:hidden — desktop is unchanged) */}
+            <MobileNav />
+
             {/* Modals & Overlays */}
             <InboxZero show={showInboxZero} />
             <CommandPalette isOpen={isCmdOpen} onClose={() => setCmdOpen(false)} />

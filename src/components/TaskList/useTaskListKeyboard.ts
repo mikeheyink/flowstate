@@ -66,6 +66,10 @@ export function useTaskListKeyboard({
             const currentTask = currentTasks[currentIndex];
 
             const navigate = (newIndex: number) => {
+                // Guard against an empty list: `x % 0` is NaN, and indexing with it
+                // throws when we read `.id` — which surfaced as the full-screen
+                // ErrorBoundary. Nothing to focus when there are no tasks.
+                if (currentTasks.length === 0) return;
                 const safeIndex = (newIndex + currentTasks.length) % currentTasks.length;
                 const taskId = currentTasks[safeIndex].id;
                 setFocusedId(taskId);
