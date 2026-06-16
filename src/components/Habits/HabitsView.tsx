@@ -5,9 +5,11 @@ import { HabitAnalyticsView } from './HabitAnalyticsView';
 import { HabitForm } from './HabitForm';
 import { useHabitStore } from '../../store/useHabitStore';
 import { useUIStore } from '../../store/useUIStore';
+import { useIsMobile } from '../../hooks/useIsMobile';
 import { getISOWeek } from '../../utils/habitDates';
 
 export function HabitsView() {
+  const isMobile = useIsMobile();
   const habitView = useUIStore((state) => state.habitView);
   const habitForm = useUIStore((state) => state.habitForm);
   const openNewHabit = useUIStore((state) => state.openNewHabit);
@@ -44,17 +46,26 @@ export function HabitsView() {
 
   return (
     <div className="h-full flex flex-col">
-      {/* Content — section tabs (Grid/Checklist/Analytics) live in the TopNav */}
+      {/* Content — section tabs (Grid/Checklist/Analytics) live in the TopNav.
+          On mobile the wide 7-day grid and analytics don't fit, so we show only
+          the day-at-a-time Checklist — the one habit view that's genuinely
+          thumb-friendly. Desktop keeps all three. */}
       <div className="flex-1 overflow-auto">
-        {habitView === 'grid' && (
-          <HabitGridView
-            onAddHabit={openNewHabit}
-            onEditHabit={openEditHabit}
-            onDeleteHabit={handleDeleteHabit}
-          />
+        {isMobile ? (
+          <HabitChecklistView onAddHabit={openNewHabit} />
+        ) : (
+          <>
+            {habitView === 'grid' && (
+              <HabitGridView
+                onAddHabit={openNewHabit}
+                onEditHabit={openEditHabit}
+                onDeleteHabit={handleDeleteHabit}
+              />
+            )}
+            {habitView === 'checklist' && <HabitChecklistView onAddHabit={openNewHabit} />}
+            {habitView === 'analytics' && <HabitAnalyticsView />}
+          </>
         )}
-        {habitView === 'checklist' && <HabitChecklistView onAddHabit={openNewHabit} />}
-        {habitView === 'analytics' && <HabitAnalyticsView />}
       </div>
 
       {/* Form Modal */}

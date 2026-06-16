@@ -4,6 +4,7 @@ import { useUIStore, CurrentView } from '../store/useUIStore';
 import { useOnlineStatus } from '../store/useOnlineStatus';
 import { useMailStore } from '../store/useMailStore';
 import { useTaskStore } from '../store/useTaskStore';
+import { useIsMobile } from '../hooks/useIsMobile';
 import { supabase } from '../utils/supabase';
 
 interface TopNavProps {
@@ -35,6 +36,16 @@ export function TopNav({ session, isGuest, setGuestMode }: TopNavProps) {
     const pendingCount = useTaskStore((state) => state.pendingOperations.length);
     const tasks = useTaskStore((state) => state.tasks);
     const isOnline = useOnlineStatus();
+    const isMobile = useIsMobile();
+
+    // Short label for the mobile top bar (the section/filter pills move to the
+    // bottom nav on mobile, so the bar shows "where am I" instead).
+    const mobileTitle = (() => {
+        if (currentView === 'habits') return 'Habits';
+        if (currentView === 'mail') return 'Mail';
+        const map: Record<string, string> = { active: 'Plan', today: 'Today', upcoming: 'Upcoming', review: 'Review' };
+        return map[filter] || 'Tasks';
+    })();
 
     // Today's "plate": outstanding tasks due today-or-earlier, plus anything
     // completed today. Drives the daily progress ring — it fills as you clear
@@ -117,7 +128,7 @@ export function TopNav({ session, isGuest, setGuestMode }: TopNavProps) {
                 bg-white/80 dark:bg-slate-900/80 backdrop-blur-md
                 border-b border-slate-200 dark:border-slate-800
                 transition-opacity duration-700 ease-in-out
-                ${isVisible ? 'opacity-100' : 'opacity-20 hover:opacity-100 grayscale hover:grayscale-0'}
+                ${(isVisible || isMobile) ? 'opacity-100' : 'opacity-20 hover:opacity-100 grayscale hover:grayscale-0'}
             `}
             onMouseEnter={handleMouseEnter}
             onMouseLeave={handleMouseLeave}
@@ -125,7 +136,10 @@ export function TopNav({ session, isGuest, setGuestMode }: TopNavProps) {
             {/* Left: Logo + persistent Section switcher (the anchor — never moves) */}
             <div className="flex items-center gap-3">
                 <Layers className="w-5 h-5 text-primary-600 dark:text-primary-500 shrink-0" />
-                <nav className="flex items-center gap-0.5 p-1 bg-slate-100 dark:bg-slate-800/50 rounded-lg">
+                {/* Mobile: the section/filter pills live in the bottom nav, so show a
+                    simple context title here instead. */}
+                <span className="md:hidden text-base font-bold text-slate-800 dark:text-slate-100">{mobileTitle}</span>
+                <nav className="hidden md:flex items-center gap-0.5 p-1 bg-slate-100 dark:bg-slate-800/50 rounded-lg">
                     {SECTIONS.map(({ id, label, Icon, chord }) => {
                         const isActive = currentView === id;
                         return (
@@ -149,8 +163,9 @@ export function TopNav({ session, isGuest, setGuestMode }: TopNavProps) {
                 </nav>
             </div>
 
-            {/* Center: tabs for the CURRENT section (consistent placement for all sections) */}
-            <nav className="flex items-center gap-1 p-1 bg-slate-100 dark:bg-slate-800/50 rounded-lg">
+            {/* Center: tabs for the CURRENT section (consistent placement for all sections).
+                Hidden on mobile — the bottom nav owns section/filter switching there. */}
+            <nav className="hidden md:flex items-center gap-1 p-1 bg-slate-100 dark:bg-slate-800/50 rounded-lg">
                 {currentView === 'tasks' && taskMenuItems.map((item) => {
                     const isActive = filter === item;
                     let Icon = Inbox;
@@ -278,7 +293,7 @@ export function TopNav({ session, isGuest, setGuestMode }: TopNavProps) {
 
                 {/* User & Options */}
                 <div className="flex items-center gap-3 border-l border-slate-200 dark:border-slate-800 pl-4">
-                    <button title="Shortcuts" onClick={() => setShortcutsOpen(true)} className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-300">
+                    <button title="Shortcuts" onClick={() => setShortcutsOpen(true)} className="hidden md:block text-slate-400 hover:text-slate-600 dark:hover:text-slate-300">
                         <Keyboard className="w-4 h-4" />
                     </button>
 

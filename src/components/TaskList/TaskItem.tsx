@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React from 'react';
 import { motion, useMotionValue, useTransform } from 'framer-motion';
 import { CheckCircle2, Circle, Calendar, Hash, Flag, ChevronRight, ChevronDown, GripVertical } from 'lucide-react';
 import { Task, Priority } from '../../types';
@@ -7,6 +7,7 @@ import { formatDate } from '../../utils/nlp';
 import { SectionHeader } from '../SectionHeader';
 import { InlineEdit } from './InlineEdit';
 import { DragState, VisibleTask } from './types';
+import { useIsMobile } from '../../hooks/useIsMobile';
 
 const PriorityIcon = ({ priority }: { priority: Priority }) => {
     switch (priority) {
@@ -83,14 +84,9 @@ export const TaskItem: React.FC<TaskItemProps> = ({
     const opacity = useTransform(x, [0, 50, 100], [0, 0, 1]);
     const background = useTransform(x, [0, 100], ["rgba(22, 163, 74, 0)", "rgba(22, 163, 74, 0.2)"]);
 
-    // Detect mobile viewport - disable Framer Motion drag on mobile so dnd-kit works
-    const [isMobile, setIsMobile] = useState(false);
-    useEffect(() => {
-        const checkMobile = () => setIsMobile(window.innerWidth < 768);
-        checkMobile();
-        window.addEventListener('resize', checkMobile);
-        return () => window.removeEventListener('resize', checkMobile);
-    }, []);
+    // On mobile we attach the swipe-to-complete gesture and drop dnd-kit's drag
+    // listeners (touch reordering is desktop-only); on desktop both are wired up.
+    const isMobile = useIsMobile();
 
     // Visuals for Magnetic Drop based on dragState
     const isNestTarget = dragState?.type === 'nest' && dragState.targetId === task.id;
@@ -115,6 +111,9 @@ export const TaskItem: React.FC<TaskItemProps> = ({
     }
 
     const handleDragEnd = (_: any, info: any) => {
+        // Already mid-celebration (or completed)? Ignore — re-triggering the
+        // completion while the row is being removed is a needless race.
+        if (isCelebrating || task.completed) return;
         if (info.offset.x > 80) { // Threshold for complete
             handleToggle(task.id, task.completed);
         }
@@ -166,14 +165,17 @@ export const TaskItem: React.FC<TaskItemProps> = ({
                 {isNestTarget && <div className="absolute inset-0 border-2 border-blue-500 border-dashed rounded-md z-20 pointer-events-none" />}
 
                 <div className="flex items-center gap-2 flex-1 min-w-0">
-                    <GripVertical className="w-4 h-4 text-slate-300 dark:text-slate-600 opacity-0 group-hover:opacity-100 transition-opacity" />
+                    {/* Drag handle: hover-revealed on desktop, hidden on mobile (no pointer hover, no touch reorder) */}
+                    <GripVertical className="hidden md:block w-4 h-4 text-slate-300 dark:text-slate-600 opacity-0 group-hover:opacity-100 transition-opacity" />
 
+                    {/* Completion control. Desktop: tappable checkbox. Mobile: there's no
+                        checkbox — swipe the row right to complete (see the green reveal layer). */}
                     <button
                         onClick={(e) => {
                             e.stopPropagation();
                             handleToggle(task.id, task.completed);
                         }}
-                        className="relative flex-shrink-0 focus:outline-none"
+                        className={`${isMobile ? 'hidden' : ''} relative flex-shrink-0 focus:outline-none`}
                     >
                         {(task.completed || isCelebrating) ? (
                             <motion.span

@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { supabase } from '../utils/supabase';
 import { useTaskStore } from '../store/useTaskStore';
+import { useHabitStore } from '../store/useHabitStore';
 import { Layers, Loader2, AlertCircle, UserX } from 'lucide-react';
 
 export const Login = () => {
@@ -57,6 +58,7 @@ export const Login = () => {
 
   const handleGuestLogin = () => {
     setGuestMode(true);
+    useHabitStore.getState().setGuestMode(true);
     fetchTasks(); // Load from localStorage
   };
 
