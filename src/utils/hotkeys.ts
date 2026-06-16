@@ -10,7 +10,7 @@ export type HotkeyContext = 'global' | 'task-focused' | 'task-with-date';
 
 export interface Hotkey {
     id: string;
-    keys: string;           // Display format (macOS glyphs): "⌘K", "⌥↓", "g then i"
+    keys: string;           // Display format (macOS glyphs): "⌘K", "⌥↓", "⌘⇧V"
     description: string;
     category: HotkeyCategory;
     context?: HotkeyContext;
@@ -28,10 +28,6 @@ export const HOTKEYS: Hotkey[] = [
     { id: 'nav-up', keys: '↑', description: 'Move Focus Up', category: 'navigation' },
     { id: 'nav-section', keys: '⌘[ / ⌘]', description: 'Previous / Next Section', category: 'navigation' },
     { id: 'nav-sidebar', keys: '[ / ]', description: 'Previous / Next Tab', category: 'navigation' },
-    { id: 'go-inbox', keys: 'g then i', description: 'Go to Inbox', category: 'navigation' },
-    { id: 'go-today', keys: 'g then t', description: 'Go to Today', category: 'navigation' },
-    { id: 'go-upcoming', keys: 'g then u', description: 'Go to Upcoming', category: 'navigation' },
-    { id: 'go-review', keys: 'g then r', description: 'Go to Review', category: 'navigation' },
     { id: 'move-task-down', keys: '⌘↓', description: 'Move Task Down', category: 'navigation', context: 'task-focused' },
     { id: 'move-task-up', keys: '⌘↑', description: 'Move Task Up', category: 'navigation', context: 'task-focused' },
     { id: 'expand', keys: '→', description: 'Expand', category: 'navigation', context: 'task-focused' },
@@ -166,7 +162,7 @@ export function getHotkeyModalGroupsByView(view: 'tasks' | 'mail' | 'habits'): {
     return [
         { title: 'Most used', items: resolve(['new-task', 'complete', 'nav-down', 'nav-up', 'edit-title', 'set-date', 'delete', 'cmd-palette']) },
         { title: 'Organize', items: resolve(['indent', 'outdent', 'move-task-up', 'move-task-down', 'toggle-importance', 'clear-importance', 'push-tomorrow']) },
-        { title: 'Get around', items: resolve(['nav-section', 'nav-sidebar', 'go-inbox', 'go-today', 'go-upcoming', 'go-review', 'expand', 'collapse']) },
+        { title: 'Get around', items: resolve(['nav-section', 'nav-sidebar', 'expand', 'collapse']) },
         { title: 'Create & history', items: resolve(['new-subtask', 'batch-add', 'open-links', 'undo', 'redo', 'shortcuts-modal']) },
     ];
 }
