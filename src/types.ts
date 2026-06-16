@@ -34,11 +34,17 @@ export interface Habit {
   daysOfWeek: number[]; // 0=Monday, 6=Sunday
 }
 
+// Three-state daily outcome for a habit:
+//  - 'pending' = not yet evaluated (the default; excluded from success-rate stats)
+//  - 'done'    = tick / succeeded
+//  - 'failed'  = cross / failed
+export type HabitStatus = 'pending' | 'done' | 'failed';
+
 export interface HabitLog {
   id: string;
   habitId: string;
   date: string; // YYYY-MM-DD
-  completed: boolean; // true = succeeded, false = failed/skipped
+  status: HabitStatus;
   updatedAt: number;
 }
 

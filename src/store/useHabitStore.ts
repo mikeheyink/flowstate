@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
-import { Habit, HabitLog } from '../types';
+import { Habit, HabitLog, HabitStatus } from '../types';
 import { supabase } from '../utils/supabase';
 import { getWeekRange, getWeekStart, toLocalISO } from '../utils/habitDates';
 
@@ -31,7 +31,8 @@ interface HabitState {
   removeHabit: (id: string) => void; // soft-delete
   moveHabit: (id: string, direction: 'up' | 'down') => void; // reorder within the full list
   swapHabitOrder: (idA: string, idB: string) => void; // swap two habits' sort keys
-  logHabit: (habitId: string, date: string, completed: boolean) => void;
+  setHabitStatus: (habitId: string, date: string, status: HabitStatus) => void;
+  cycleHabitStatus: (habitId: string, date: string) => void; // pending→done→failed→pending
 
   // Queries
   getHabitsForWeek: (weekStr: string) => Habit[];
@@ -40,9 +41,11 @@ interface HabitState {
 
   // Stats
   getWeekStats: (weekStr: string) => {
-    totalApplicableDays: number;
-    totalCompleted: number;
-    percentage: number;
+    done: number;
+    failed: number;
+    evaluated: number; // done + failed
+    applicableDays: number;
+    percentage: number; // done / evaluated (success rate), 0 when nothing evaluated
   };
 
   setGuestMode: (isGuest: boolean) => void;
@@ -81,7 +84,9 @@ const mapLogFromDb = (row: any): HabitLog => ({
   id: row.id,
   habitId: row.habit_id,
   date: row.date,
-  completed: !!row.completed,
+  // Prefer the new status column; fall back to the legacy boolean for rows
+  // written before the migration (so a wrong deploy order degrades gracefully).
+  status: row.status ? (row.status as HabitStatus) : (row.completed ? 'done' : 'pending'),
   updatedAt: row.updated_at != null ? parseInt(row.updated_at) : Date.now(),
 });
 
@@ -90,10 +95,18 @@ const mapLogToDb = (log: Partial<HabitLog>) => {
   if (log.id !== undefined) dbObj.id = log.id;
   if (log.habitId !== undefined) dbObj.habit_id = log.habitId;
   if (log.date !== undefined) dbObj.date = log.date;
-  if (log.completed !== undefined) dbObj.completed = log.completed;
+  if (log.status !== undefined) {
+    dbObj.status = log.status;
+    // Keep the legacy NOT NULL `completed` column populated for backward compat.
+    dbObj.completed = log.status === 'done';
+  }
   if (log.updatedAt !== undefined) dbObj.updated_at = log.updatedAt;
   return dbObj;
 };
+
+// pending → done → failed → pending
+const nextStatus = (s: HabitStatus): HabitStatus =>
+  s === 'pending' ? 'done' : s === 'done' ? 'failed' : 'pending';
 
 // Shared sort: manual order first, createdAt as a stable tiebreaker.
 const byOrder = (a: Habit, b: Habit) =>
@@ -298,7 +311,12 @@ export const useHabitStore = create<HabitState>()(
         get().updateHabit(b.id, { order: aKey });
       },
 
-      logHabit: (habitId, date, completed) => {
+      cycleHabitStatus: (habitId, date) => {
+        const existing = get().habitLogs.find((l) => l.habitId === habitId && l.date === date);
+        get().setHabitStatus(habitId, date, nextStatus(existing?.status ?? 'pending'));
+      },
+
+      setHabitStatus: (habitId, date, status) => {
         const now = Date.now();
         const existing = get().habitLogs.find((l) => l.habitId === habitId && l.date === date);
 
@@ -308,14 +326,14 @@ export const useHabitStore = create<HabitState>()(
           id: existing?.id ?? generateId(),
           habitId,
           date,
-          completed,
+          status,
           updatedAt: now,
         };
 
         set((state) => ({
           habitLogs: existing
             ? state.habitLogs.map((l) =>
-                l.habitId === habitId && l.date === date ? { ...l, completed, updatedAt: now } : l
+                l.habitId === habitId && l.date === date ? { ...l, status, updatedAt: now } : l
               )
             : [...state.habitLogs, log],
         }));
@@ -364,8 +382,9 @@ export const useHabitStore = create<HabitState>()(
         const logsInWeek = get().getLogsForWeek(weekStr);
         const weekStart = getWeekStart(weekStr);
 
-        let totalApplicableDays = 0;
-        let totalCompleted = 0;
+        let applicableDays = 0;
+        let done = 0;
+        let failed = 0;
 
         // weekStart is Monday, so index i (0..6) already maps to day-of-week i.
         for (let i = 0; i < 7; i++) {
@@ -375,15 +394,19 @@ export const useHabitStore = create<HabitState>()(
 
           for (const habit of habitsInWeek) {
             if (!habit.daysOfWeek.includes(i)) continue;
-            totalApplicableDays++;
+            applicableDays++;
             const log = logsInWeek.find((l) => l.habitId === habit.id && l.date === dateStr);
-            if (log?.completed) totalCompleted++;
+            if (log?.status === 'done') done++;
+            else if (log?.status === 'failed') failed++;
           }
         }
 
-        const percentage = totalApplicableDays > 0 ? Math.round((totalCompleted / totalApplicableDays) * 100) : 0;
+        // Success rate = ticks / (ticks + crosses). Pending days are excluded
+        // entirely — leaving a day unmarked never counts against you, only a cross does.
+        const evaluated = done + failed;
+        const percentage = evaluated > 0 ? Math.round((done / evaluated) * 100) : 0;
 
-        return { totalApplicableDays, totalCompleted, percentage };
+        return { done, failed, evaluated, applicableDays, percentage };
       },
 
       setGuestMode: (isGuest) => set({ guestMode: isGuest }),
@@ -428,6 +451,29 @@ export const useHabitStore = create<HabitState>()(
     }),
     {
       name: 'habit-store',
+      version: 1,
+      // v0 → v1: logs carried a boolean `completed`; convert to the 3-state
+      // `status` (true → 'done', false → 'pending'). Also upgrade any queued
+      // habit_log writes so replaying an old-format op doesn't overwrite a row's
+      // status back to the 'pending' default.
+      migrate: (persisted: any, version: number) => {
+        if (!persisted || version >= 1) return persisted;
+        if (Array.isArray(persisted.habitLogs)) {
+          persisted.habitLogs = persisted.habitLogs.map((l: any) =>
+            l && 'status' in l
+              ? l
+              : { id: l.id, habitId: l.habitId, date: l.date, status: l.completed ? 'done' : 'pending', updatedAt: l.updatedAt }
+          );
+        }
+        if (Array.isArray(persisted.pendingOperations)) {
+          persisted.pendingOperations = persisted.pendingOperations.map((op: any) =>
+            op?.table === 'habit_logs' && op.data && !('status' in op.data) && 'completed' in op.data
+              ? { ...op, data: { ...op.data, status: op.data.completed ? 'done' : 'pending' } }
+              : op
+          );
+        }
+        return persisted;
+      },
       partialize: (state) => ({
         habits: state.habits,
         habitLogs: state.habitLogs,

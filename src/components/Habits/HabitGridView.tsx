@@ -18,7 +18,7 @@ export function HabitGridView({ onAddHabit, onEditHabit, onDeleteHabit }: HabitG
 
   const getHabitsForWeek = useHabitStore((state) => state.getHabitsForWeek);
   const getLogsForHabitInWeek = useHabitStore((state) => state.getLogsForHabitInWeek);
-  const logHabit = useHabitStore((state) => state.logHabit);
+  const cycleHabitStatus = useHabitStore((state) => state.cycleHabitStatus);
   const getWeekStats = useHabitStore((state) => state.getWeekStats);
   const moveHabit = useHabitStore((state) => state.moveHabit);
   // Subscribe to the raw data so the grid re-renders (and the memos recompute)
@@ -31,7 +31,8 @@ export function HabitGridView({ onAddHabit, onEditHabit, onDeleteHabit }: HabitG
   const weekDates = useMemo(() => getWeekDates(currentWeek), [currentWeek]);
   const stats = useMemo(() => getWeekStats(currentWeek), [currentWeek, allHabits, habitLogs]);
 
-  const goalMet = stats.percentage >= globalHabitGoal;
+  // A week "meets the goal" only when something was actually evaluated.
+  const goalMet = stats.evaluated > 0 && stats.percentage >= globalHabitGoal;
 
   const [focusedHabitIdx, setFocusedHabitIdx] = useState(0);
   const [focusedDayIdx, setFocusedDayIdx] = useState(0);
@@ -128,11 +129,9 @@ export function HabitGridView({ onAddHabit, onEditHabit, onDeleteHabit }: HabitG
   const handlePrevWeek = () => setCurrentWeek((w) => shiftWeek(w, -1));
   const handleNextWeek = () => setCurrentWeek((w) => shiftWeek(w, 1));
 
+  // Cycle pending → done → failed → pending.
   const handleToggleHabit = (habitId: string, dateStr: string) => {
-    const logs = getLogsForHabitInWeek(habitId, currentWeek);
-    const log = logs.find((l) => l.date === dateStr);
-    const newCompleted = !log?.completed;
-    logHabit(habitId, dateStr, newCompleted);
+    cycleHabitStatus(habitId, dateStr);
   };
 
   return (
@@ -176,13 +175,16 @@ export function HabitGridView({ onAddHabit, onEditHabit, onDeleteHabit }: HabitG
           <div>
             <div className="text-sm text-slate-600 dark:text-slate-400">This week</div>
             <div className="text-2xl font-bold">
-              {stats.totalCompleted} / {stats.totalApplicableDays}
+              {stats.done} <span className="text-slate-400 dark:text-slate-500">✓</span>
+              <span className="mx-1.5 text-slate-300 dark:text-slate-600">·</span>
+              {stats.failed} <span className="text-slate-400 dark:text-slate-500">✗</span>
             </div>
+            <div className="text-xs text-slate-400 dark:text-slate-500 mt-0.5">{stats.evaluated} of {stats.applicableDays} marked</div>
           </div>
           <div className="text-right">
-            <div className="text-sm text-slate-600 dark:text-slate-400">Completion</div>
+            <div className="text-sm text-slate-600 dark:text-slate-400">Success rate</div>
             <div className={`text-3xl font-bold ${goalMet ? 'text-green-600 dark:text-green-400' : 'text-orange-600 dark:text-orange-400'}`}>
-              {stats.percentage}%
+              {stats.evaluated > 0 ? `${stats.percentage}%` : '—'}
             </div>
           </div>
           <div className="text-right">
@@ -233,7 +235,7 @@ export function HabitGridView({ onAddHabit, onEditHabit, onDeleteHabit }: HabitG
             <tbody>
               {habits.map((habit, habitIdx) => {
                 const logs = getLogsForHabitInWeek(habit.id, currentWeek);
-                const completedCount = logs.filter((l) => l.completed).length;
+                const completedCount = logs.filter((l) => l.status === 'done').length;
 
                 return (
                   <tr key={habit.id} data-habit-row={habitIdx} className={`border-b border-slate-200 dark:border-slate-800 ${habitIdx === focusedHabitIdx ? 'bg-primary-50 dark:bg-primary-500/10' : 'hover:bg-slate-50 dark:hover:bg-slate-800/50'}`}>
@@ -254,21 +256,23 @@ export function HabitGridView({ onAddHabit, onEditHabit, onDeleteHabit }: HabitG
                         );
                       }
 
-                      const isCompleted = log?.completed;
+                      const status = log?.status ?? 'pending';
 
                       const isFocused = habitIdx === focusedHabitIdx && dayIdx === focusedDayIdx;
+                      const statusClass =
+                        status === 'done'
+                          ? 'bg-green-100 dark:bg-green-500/20 text-green-700 dark:text-green-400 hover:bg-green-200 dark:hover:bg-green-500/30'
+                          : status === 'failed'
+                            ? 'bg-red-100 dark:bg-red-500/20 text-red-700 dark:text-red-400 hover:bg-red-200 dark:hover:bg-red-500/30'
+                            : 'bg-slate-100 dark:bg-slate-800 text-slate-400 dark:text-slate-500 hover:bg-slate-200 dark:hover:bg-slate-700';
                       return (
                         <td key={dayIdx} className="text-center py-3 px-2">
                           <button
                             onClick={() => handleToggleHabit(habit.id, dateStr)}
-                            className={`w-10 h-10 rounded-lg inline-flex items-center justify-center align-middle transition-colors cursor-pointer ${
-                              isCompleted
-                                ? 'bg-green-100 dark:bg-green-500/20 text-green-700 dark:text-green-400 hover:bg-green-200 dark:hover:bg-green-500/30'
-                                : 'bg-slate-100 dark:bg-slate-800 text-slate-400 dark:text-slate-500 hover:bg-slate-200 dark:hover:bg-slate-700'
-                            } ${isFocused ? 'ring-2 ring-primary-400 font-bold' : ''}`}
-                            title={isCompleted ? 'Mark incomplete' : 'Mark complete (Space)'}
+                            className={`w-10 h-10 rounded-lg inline-flex items-center justify-center align-middle transition-colors cursor-pointer ${statusClass} ${isFocused ? 'ring-2 ring-primary-400 font-bold' : ''}`}
+                            title="Cycle pending → done → failed (Space/X)"
                           >
-                            {isCompleted ? '✓' : '○'}
+                            {status === 'done' ? '✓' : status === 'failed' ? '✗' : '○'}
                           </button>
                         </td>
                       );

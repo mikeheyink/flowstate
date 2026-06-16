@@ -5,9 +5,10 @@ import { getISOWeek, shiftWeek } from '../../utils/habitDates';
 
 interface WeekStat {
   week: string;
-  percentage: number;
-  completed: number;
-  total: number;
+  percentage: number; // success rate: done / (done + failed)
+  done: number;
+  failed: number;
+  evaluated: number; // done + failed
 }
 
 // The last `count` ISO weeks ending with the current one, oldest first.
@@ -31,7 +32,7 @@ export function HabitAnalyticsView() {
   const weekStats = useMemo<WeekStat[]>(
     () => weeks.map((w) => {
       const s = getWeekStatsFunc(w);
-      return { week: w, percentage: s.percentage, completed: s.totalCompleted, total: s.totalApplicableDays };
+      return { week: w, percentage: s.percentage, done: s.done, failed: s.failed, evaluated: s.evaluated };
     }),
     [weeks, getWeekStatsFunc, allHabits, habitLogs]
   );
@@ -45,14 +46,16 @@ export function HabitAnalyticsView() {
       let maxStreak = 0;
 
       for (let i = weeks.length - 1; i >= 0; i--) {
-        const weekStats = getWeekStatsFunc(weeks[i]);
         const habitLogs = getLogsForHabitInWeek(habit.id, weeks[i]);
-        const applicableDays = habitLogs.length;
+        const failed = habitLogs.filter((l) => l.status === 'failed').length;
+        const done = habitLogs.filter((l) => l.status === 'done').length;
+        const evaluated = done + failed;
 
-        if (applicableDays === 0) continue;
+        // Weeks with nothing evaluated neither extend nor break the streak.
+        if (evaluated === 0) continue;
 
-        const completed = habitLogs.filter((l) => l.completed).length;
-        if (completed === applicableDays) {
+        // A "perfect week" for a habit = at least one tick and zero crosses.
+        if (failed === 0) {
           currentStreak++;
           maxStreak = Math.max(maxStreak, currentStreak);
         } else {
@@ -71,19 +74,19 @@ export function HabitAnalyticsView() {
     const habitStats: { habit: any; avgCompletion: number }[] = [];
 
     for (const habit of habits) {
-      let totalCompleted = 0;
-      let totalApplicable = 0;
+      let totalDone = 0;
+      let totalFailed = 0;
 
       for (const week of weeks) {
         const logs = getLogsForHabitInWeek(habit.id, week);
-        const applicable = logs.length;
-        const completed = logs.filter((l) => l.completed).length;
-        totalApplicable += applicable;
-        totalCompleted += completed;
+        totalDone += logs.filter((l) => l.status === 'done').length;
+        totalFailed += logs.filter((l) => l.status === 'failed').length;
       }
 
-      const avgCompletion = totalApplicable > 0 ? (totalCompleted / totalApplicable) * 100 : 0;
-      habitStats.push({ habit, avgCompletion });
+      const evaluated = totalDone + totalFailed;
+      // Can't be "struggling" with a habit you've never evaluated — skip it.
+      if (evaluated === 0) continue;
+      habitStats.push({ habit, avgCompletion: (totalDone / evaluated) * 100 });
     }
 
     return habitStats.sort((a, b) => a.avgCompletion - b.avgCompletion).slice(0, 5);
@@ -93,6 +96,7 @@ export function HabitAnalyticsView() {
     let streak = 0;
     for (let i = weeks.length - 1; i >= 0; i--) {
       const stats = getWeekStatsFunc(weeks[i]);
+      if (stats.evaluated === 0) continue; // unmarked week: doesn't extend or break
       if (stats.percentage >= globalHabitGoal) {
         streak++;
       } else {
@@ -103,14 +107,11 @@ export function HabitAnalyticsView() {
   }, [weeks, getWeekStatsFunc, globalHabitGoal, allHabits, habitLogs]);
 
   const overallCompletion = useMemo(() => {
-    const totalStats = weekStats.reduce(
-      (acc, s) => ({
-        completed: acc.completed + s.completed,
-        total: acc.total + s.total,
-      }),
-      { completed: 0, total: 0 }
+    const totals = weekStats.reduce(
+      (acc, s) => ({ done: acc.done + s.done, evaluated: acc.evaluated + s.evaluated }),
+      { done: 0, evaluated: 0 }
     );
-    return totalStats.total > 0 ? Math.round((totalStats.completed / totalStats.total) * 100) : 0;
+    return totals.evaluated > 0 ? Math.round((totals.done / totals.evaluated) * 100) : 0;
   }, [weekStats]);
 
   return (
@@ -120,7 +121,7 @@ export function HabitAnalyticsView() {
       {/* Overall Stats */}
       <div className="grid grid-cols-3 gap-4 mb-8">
         <div className="bg-blue-50 dark:bg-blue-500/10 p-4 rounded-lg">
-          <div className="text-sm text-blue-700 dark:text-blue-300 mb-1">Overall Completion</div>
+          <div className="text-sm text-blue-700 dark:text-blue-300 mb-1">Overall Success Rate</div>
           <div className="text-3xl font-bold text-blue-900 dark:text-blue-200">{overallCompletion}%</div>
         </div>
         <div className="bg-green-50 dark:bg-green-500/10 p-4 rounded-lg">
@@ -138,15 +139,17 @@ export function HabitAnalyticsView() {
         <h3 className="text-lg font-semibold mb-4">12-Week Trend</h3>
         <div className="flex items-end gap-1 h-32 bg-slate-50 dark:bg-slate-800/50 p-4 rounded-lg">
           {weekStats.map((stat, idx) => {
-            const goalMet = stat.percentage >= globalHabitGoal;
+            const hasData = stat.evaluated > 0;
+            const goalMet = hasData && stat.percentage >= globalHabitGoal;
+            const barClass = !hasData
+              ? 'bg-slate-300 dark:bg-slate-700'
+              : goalMet ? 'bg-green-500' : 'bg-orange-500';
             return (
               <div key={idx} className="flex-1 flex flex-col items-center gap-1 justify-end h-full">
                 <div
-                  className={`w-full rounded-t transition-colors ${
-                    goalMet ? 'bg-green-500' : 'bg-orange-500'
-                  }`}
-                  style={{ height: `${Math.max(stat.percentage, 2)}%` }}
-                  title={`Week ${stat.week}: ${stat.percentage}%`}
+                  className={`w-full rounded-t transition-colors ${barClass}`}
+                  style={{ height: `${hasData ? Math.max(stat.percentage, 2) : 2}%` }}
+                  title={`Week ${stat.week}: ${hasData ? `${stat.percentage}% (${stat.done}✓ / ${stat.failed}✗)` : 'no data'}`}
                 />
                 <div className="text-xs text-slate-600 dark:text-slate-400 mt-1">{stat.week.split('-W')[1]}</div>
               </div>

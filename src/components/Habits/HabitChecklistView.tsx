@@ -19,7 +19,7 @@ export function HabitChecklistView({ onAddHabit }: HabitChecklistViewProps) {
 
   const getHabitsForWeek = useHabitStore((state) => state.getHabitsForWeek);
   const getLogsForHabitInWeek = useHabitStore((state) => state.getLogsForHabitInWeek);
-  const logHabit = useHabitStore((state) => state.logHabit);
+  const cycleHabitStatus = useHabitStore((state) => state.cycleHabitStatus);
   const swapHabitOrder = useHabitStore((state) => state.swapHabitOrder);
   // Subscribe to raw data so the list reflects adds/edits/toggles/reorders immediately.
   const allHabits = useHabitStore((state) => state.habits);
@@ -36,15 +36,13 @@ export function HabitChecklistView({ onAddHabit }: HabitChecklistViewProps) {
       .map((habit) => {
         const logs = getLogsForHabitInWeek(habit.id, currentWeek);
         const log = logs.find((l) => l.date === focusedDateStr);
-        return { habit, completed: log?.completed || false };
+        return { habit, status: log?.status ?? 'pending' };
       });
   }, [habits, focusedDayIndex, focusedDateStr, currentWeek, habitLogs]);
 
+  // Cycle pending → done → failed → pending.
   const handleToggleHabit = (habitId: string) => {
-    const logs = getLogsForHabitInWeek(habitId, currentWeek);
-    const log = logs.find((l) => l.date === focusedDateStr);
-    const newCompleted = !log?.completed;
-    logHabit(habitId, focusedDateStr, newCompleted);
+    cycleHabitStatus(habitId, focusedDateStr);
   };
 
   const handlePrevDay = () => setFocusedDayIndex((d) => Math.max(0, d - 1));
@@ -151,30 +149,39 @@ export function HabitChecklistView({ onAddHabit }: HabitChecklistViewProps) {
             <button onClick={onAddHabit} className="ml-1 text-primary-600 dark:text-primary-400 hover:underline">Add one</button>
           </div>
         ) : (
-          habitsForFocusedDay.map(({ habit, completed }, idx) => (
-            <button
-              key={habit.id}
-              data-checklist-idx={idx}
-              onClick={() => { setFocusedHabitIdx(idx); handleToggleHabit(habit.id); }}
-              className={`w-full p-4 rounded-lg text-left transition-colors scroll-mt-24 scroll-mb-28 ${
-                completed
-                  ? 'bg-green-100 dark:bg-green-500/20 text-green-900 dark:text-green-200 hover:bg-green-200 dark:hover:bg-green-500/30'
-                  : 'bg-slate-100 dark:bg-slate-800 text-slate-900 dark:text-slate-200 hover:bg-slate-200 dark:hover:bg-slate-700'
-              } ${idx === focusedHabitIdx ? 'ring-2 ring-primary-400' : ''}`}
-            >
-              <div className="flex items-center gap-3">
-                <div className={`w-6 h-6 rounded-full flex items-center justify-center font-bold ${
-                  completed ? 'bg-green-600 text-white' : 'bg-slate-300 dark:bg-slate-600 text-slate-600 dark:text-slate-300'
-                }`}>
-                  {completed ? '✓' : '○'}
+          habitsForFocusedDay.map(({ habit, status }, idx) => {
+            const rowClass =
+              status === 'done'
+                ? 'bg-green-100 dark:bg-green-500/20 text-green-900 dark:text-green-200 hover:bg-green-200 dark:hover:bg-green-500/30'
+                : status === 'failed'
+                  ? 'bg-red-100 dark:bg-red-500/20 text-red-900 dark:text-red-200 hover:bg-red-200 dark:hover:bg-red-500/30'
+                  : 'bg-slate-100 dark:bg-slate-800 text-slate-900 dark:text-slate-200 hover:bg-slate-200 dark:hover:bg-slate-700';
+            const badgeClass =
+              status === 'done'
+                ? 'bg-green-600 text-white'
+                : status === 'failed'
+                  ? 'bg-red-600 text-white'
+                  : 'bg-slate-300 dark:bg-slate-600 text-slate-600 dark:text-slate-300';
+            return (
+              <button
+                key={habit.id}
+                data-checklist-idx={idx}
+                onClick={() => { setFocusedHabitIdx(idx); handleToggleHabit(habit.id); }}
+                title="Tap to cycle: pending → done → failed"
+                className={`w-full p-4 rounded-lg text-left transition-colors scroll-mt-24 scroll-mb-28 ${rowClass} ${idx === focusedHabitIdx ? 'ring-2 ring-primary-400' : ''}`}
+              >
+                <div className="flex items-center gap-3">
+                  <div className={`w-6 h-6 rounded-full flex items-center justify-center font-bold ${badgeClass}`}>
+                    {status === 'done' ? '✓' : status === 'failed' ? '✗' : '○'}
+                  </div>
+                  <div className="flex-1">
+                    <div className="font-semibold">{habit.title}</div>
+                    <div className="text-sm opacity-75">{habit.type === 'do' ? '✓ Do' : '✗ Avoid'}</div>
+                  </div>
                 </div>
-                <div className="flex-1">
-                  <div className="font-semibold">{habit.title}</div>
-                  <div className="text-sm opacity-75">{habit.type === 'do' ? '✓ Do' : '✗ Avoid'}</div>
-                </div>
-              </div>
-            </button>
-          ))
+              </button>
+            );
+          })
         )}
       </div>
 
@@ -188,7 +195,7 @@ export function HabitChecklistView({ onAddHabit }: HabitChecklistViewProps) {
               const hLogs = getLogsForHabitInWeek(h.id, currentWeek);
               return hLogs.filter((l) => l.date === toLocalISO(weekDates[idx]));
             });
-            const completed = logs.filter((l) => l.completed).length;
+            const completed = logs.filter((l) => l.status === 'done').length;
             const total = dayHabits.length;
 
             return (
