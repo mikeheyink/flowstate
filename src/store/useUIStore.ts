@@ -1,4 +1,5 @@
 import { create } from 'zustand';
+import { persist } from 'zustand/middleware';
 
 export type FocusMode = 'sidebar' | 'main';
 export type QuickAddMode = 'create' | 'date' | 'tag';
@@ -48,7 +49,9 @@ interface UIState {
   isAnyOverlayOpen: () => boolean;
 }
 
-export const useUIStore = create<UIState>((set, get) => ({
+export const useUIStore = create<UIState>()(
+  persist(
+    (set, get) => ({
   isCmdOpen: false,
   isQuickAddOpen: false,
   isShortcutsOpen: false,
@@ -97,4 +100,18 @@ export const useUIStore = create<UIState>((set, get) => ({
     const s = get();
     return s.isCmdOpen || s.isShortcutsOpen || s.isQuickAddOpen || s.habitForm.open;
   },
-}));
+    }),
+    {
+      name: 'flowstate-ui',
+      // Persist only "where am I" navigation state — NOT transient modal/edit
+      // flags — so a refresh keeps you in the section/filter you were in instead
+      // of snapping back to Tasks/Today.
+      partialize: (state) => ({
+        currentView: state.currentView,
+        filter: state.filter,
+        habitView: state.habitView,
+        globalHabitGoal: state.globalHabitGoal,
+      }),
+    }
+  )
+);
