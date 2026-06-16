@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect } from 'react';
 import { useUIStore } from '../store/useUIStore';
 import { useTaskStore } from '../store/useTaskStore';
 import { useMailStore, filterEmails } from '../store/useMailStore';
@@ -39,9 +39,6 @@ export function useHotkeys() {
         // navigateEmail is an action, but we'll call it via getState() to ensure it's the latest
     } = useMailStore();
 
-    // Internal state for G-chord (G -> Key)
-    const [gPressed, setGPressed] = useState(false);
-    const gTimeoutRef = useRef<number | null>(null);
 
     useEffect(() => {
         const handleKeyDown = (e: KeyboardEvent) => {
@@ -137,27 +134,6 @@ export function useHotkeys() {
                     : (cur - 1 + sections.length) % sections.length;
                 setCurrentView(sections[next]);
                 toast(sections[next] === 'habits' ? 'Habits' : 'Tasks');
-                return;
-            }
-
-            // G-Chord Navigation (Global)
-            if (key === 'g' && !isCmd && !gPressed) {
-                setGPressed(true);
-                if (gTimeoutRef.current) clearTimeout(gTimeoutRef.current);
-                gTimeoutRef.current = window.setTimeout(() => setGPressed(false), 500);
-                return;
-            }
-
-            // G-chord resolves: jump to any section (and a specific tab for Tasks).
-            // This is the ONE way to move between sections — always two keys, always
-            // the same verb ("go to"), so it never collides with [ / ] tab cycling.
-            if (gPressed) {
-                setGPressed(false);
-                if (key === 'i') { setCurrentView('tasks'); setFilter('active'); toast('Tasks · Plan'); }
-                else if (key === 't') { setCurrentView('tasks'); setFilter('today'); toast('Tasks · Today'); }
-                else if (key === 'u') { setCurrentView('tasks'); setFilter('upcoming'); toast('Tasks · Upcoming'); }
-                else if (key === 'r') { setCurrentView('tasks'); setFilter('review'); toast('Tasks · Review'); }
-                else if (key === 'h') { setCurrentView('habits'); toast('Habits'); }
                 return;
             }
 
@@ -272,6 +248,5 @@ export function useHotkeys() {
         undo, redo, batchAddTasks,
         setCurrentView, setShortcutsOpen, setCmdOpen, setQuickAddOpen, toggleCmd,
         setFilter, setSelectedId, setFocusedIndex, setActiveTab,
-        gPressed
     ]);
 }
