@@ -190,12 +190,16 @@ function App() {
         }
     }, [isOnline, pendingCount, isGuest, processPendingOperations]);
 
-    // Replay any queued habit operations once we're back online and signed in.
+    // Replay any queued habit operations once we're back online. We intentionally
+    // do NOT gate on the task store's `isGuest` here (the two stores' guest flags
+    // can diverge, and that gate could strand a signed-in user's queue).
+    // processHabitPending() validates the authenticated user internally, and guest
+    // sessions never accrue habit ops in the first place — so this is safe.
     useEffect(() => {
-        if (isOnline && habitPendingCount > 0 && !isGuest) {
+        if (isOnline && habitPendingCount > 0) {
             processHabitPending();
         }
-    }, [isOnline, habitPendingCount, isGuest, processHabitPending]);
+    }, [isOnline, habitPendingCount, processHabitPending]);
 
     // Keyboard Shortcuts (Centralized Hook)
     useHotkeys();

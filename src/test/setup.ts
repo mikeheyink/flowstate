@@ -2,6 +2,24 @@ import '@testing-library/jest-dom/vitest';
 import { cleanup } from '@testing-library/react';
 import { afterEach, vi } from 'vitest';
 
+// Deterministic in-memory localStorage. zustand's persist middleware reaches for
+// `localStorage` at store-creation time, and the happy-dom one isn't reliably
+// present then — without this, any store.setState() throws "Cannot read
+// properties of undefined (reading 'setItem')".
+const __ls = new Map<string, string>();
+Object.defineProperty(globalThis, 'localStorage', {
+    configurable: true,
+    writable: true,
+    value: {
+        getItem: (k: string) => (__ls.has(k) ? __ls.get(k)! : null),
+        setItem: (k: string, v: string) => { __ls.set(k, String(v)); },
+        removeItem: (k: string) => { __ls.delete(k); },
+        clear: () => { __ls.clear(); },
+        key: (i: number) => [...__ls.keys()][i] ?? null,
+        get length() { return __ls.size; },
+    },
+});
+
 // Cleanup after each test
 afterEach(() => {
     cleanup();

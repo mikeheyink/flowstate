@@ -8,7 +8,7 @@ const generateId = () => Math.random().toString(36).substring(2, 9);
 
 interface PendingOperation {
   id: string;
-  type: 'insert' | 'update' | 'delete';
+  type: 'insert' | 'update' | 'delete' | 'upsert';
   table: string;
   data?: any;
   habitId?: string;
@@ -106,7 +106,7 @@ const queueOperation = async (
   executeOnline: () => Promise<any>
 ) => {
   const state = get();
-  if (state.guestMode) return;
+  if (state.guestMode) return; // No account to sync to.
 
   if (!navigator.onLine) {
     const op: PendingOperation = { ...operation, id: generateId() };
@@ -117,9 +117,22 @@ const queueOperation = async (
   try {
     await executeOnline();
   } catch (err) {
+    // Don't lose the write: surface it for debugging and queue it for replay
+    // once we're back online / authenticated. Silently swallowing here was why
+    // habit toggles never reached the DB.
+    console.warn('Habit sync failed, queuing for retry:', operation.type, operation.table, err);
     const op: PendingOperation = { ...operation, id: generateId() };
     set({ pendingOperations: [...state.pendingOperations, op] });
   }
+};
+
+// Resolve the authenticated user for a write. Throwing (rather than returning)
+// when there's no user means the caller's catch queues the op for replay instead
+// of silently dropping it.
+const requireUser = async () => {
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) throw new Error('Not authenticated — deferring habit write');
+  return user;
 };
 
 export const useHabitStore = create<HabitState>()(
@@ -129,7 +142,11 @@ export const useHabitStore = create<HabitState>()(
       habitLogs: [],
       isLoading: false,
       error: null,
-      guestMode: true,
+      // Default to sync-enabled (mirrors the task store). The auth flow flips this
+      // to true only for genuine guest sessions. The old `true` default — combined
+      // with not persisting the flag — meant every reload silently disabled habit
+      // sync, so toggles never reached the DB.
+      guestMode: false,
       pendingOperations: [],
 
       fetchHabits: async () => {
@@ -137,27 +154,68 @@ export const useHabitStore = create<HabitState>()(
         try {
           const { data: { user } } = await supabase.auth.getUser();
           if (!user) {
-            set({ habits: [], habitLogs: [], error: null, isLoading: false });
+            // No authenticated owner — leave local/guest state intact, just stop.
+            set({ error: null, isLoading: false });
             return;
           }
 
-          const { data: habitsData, error: habitsError } = await supabase
-            .from('habits')
-            .select('*')
-            .eq('user_id', user.id)
-            .is('archived_at', null);
-
-          const { data: logsData, error: logsError } = await supabase
-            .from('habit_logs')
-            .select('*')
-            .eq('user_id', user.id);
+          const [{ data: habitsData, error: habitsError }, { data: logsData, error: logsError }] =
+            await Promise.all([
+              supabase.from('habits').select('*').eq('user_id', user.id).is('archived_at', null),
+              supabase.from('habit_logs').select('*').eq('user_id', user.id),
+            ]);
 
           if (habitsError) throw habitsError;
           if (logsError) throw logsError;
 
+          const dbHabits = (habitsData || []).map(mapFromDb);
+          const dbLogs = (logsData || []).map(mapLogFromDb);
+
+          // Reconcile local → DB. Habit data only ever lived in localStorage while
+          // sync was broken, so a blind replace here would erase the user's history.
+          // Instead, push up anything the DB is missing (or that's locally fresher)
+          // via idempotent upserts — habits before logs to satisfy the FK — then
+          // merge. Once everything's synced this finds nothing to push.
+          const local = get();
+          const dbHabitIds = new Set(dbHabits.map((h) => h.id));
+          const localOnlyHabits = local.habits.filter((h) => !h.archivedAt && !dbHabitIds.has(h.id));
+
+          const knownHabitIds = new Set([...dbHabitIds, ...localOnlyHabits.map((h) => h.id)]);
+          const dbLogByKey = new Map(dbLogs.map((l) => [`${l.habitId}|${l.date}`, l]));
+          const localOnlyLogs = local.habitLogs.filter((l) => {
+            if (!knownHabitIds.has(l.habitId)) return false; // would violate FK
+            const dbLog = dbLogByKey.get(`${l.habitId}|${l.date}`);
+            return !dbLog || l.updatedAt > dbLog.updatedAt; // missing, or local is newer
+          });
+
+          if (localOnlyHabits.length > 0) {
+            const { error } = await supabase
+              .from('habits')
+              .upsert(localOnlyHabits.map((h) => ({ ...mapToDb(h), user_id: user.id })), { onConflict: 'id' });
+            if (error) throw error;
+          }
+          if (localOnlyLogs.length > 0) {
+            const { error } = await supabase
+              .from('habit_logs')
+              .upsert(
+                localOnlyLogs.map((l) => {
+                  // Reuse the existing DB row's id on conflict so we update in place
+                  // rather than churning the primary key.
+                  const dbLog = dbLogByKey.get(`${l.habitId}|${l.date}`);
+                  return { ...mapLogToDb({ ...l, id: dbLog?.id ?? l.id }), user_id: user.id };
+                }),
+                { onConflict: 'habit_id,date' }
+              );
+            if (error) throw error;
+          }
+
+          // Merge: DB is the base; locally-fresher logs and local-only habits win.
+          const mergedLogsByKey = new Map(dbLogByKey);
+          for (const l of localOnlyLogs) mergedLogsByKey.set(`${l.habitId}|${l.date}`, l);
+
           set({
-            habits: habitsData?.map(mapFromDb) || [],
-            habitLogs: logsData?.map(mapLogFromDb) || [],
+            habits: [...dbHabits, ...localOnlyHabits],
+            habitLogs: [...mergedLogsByKey.values()],
             error: null,
           });
         } catch (err: any) {
@@ -190,9 +248,9 @@ export const useHabitStore = create<HabitState>()(
           table: 'habits',
           data: mapToDb(habit),
         }, async () => {
-          const { data: { user } } = await supabase.auth.getUser();
-          if (!user) return;
-          await supabase.from('habits').insert([{ ...mapToDb(habit), user_id: user.id }]);
+          const user = await requireUser();
+          const { error } = await supabase.from('habits').insert([{ ...mapToDb(habit), user_id: user.id }]);
+          if (error) throw error;
         });
       },
 
@@ -207,7 +265,9 @@ export const useHabitStore = create<HabitState>()(
           habitId: id,
           data: mapToDb(updates),
         }, async () => {
-          await supabase.from('habits').update(mapToDb(updates)).eq('id', id);
+          const user = await requireUser();
+          const { error } = await supabase.from('habits').update(mapToDb(updates)).eq('id', id).eq('user_id', user.id);
+          if (error) throw error;
         });
       },
 
@@ -239,51 +299,42 @@ export const useHabitStore = create<HabitState>()(
       },
 
       logHabit: (habitId, date, completed) => {
+        const now = Date.now();
+        const existing = get().habitLogs.find((l) => l.habitId === habitId && l.date === date);
+
+        // Reuse the existing row's id so the DB row keeps a stable primary key;
+        // only mint a new id for a genuinely new (habit, date) entry.
         const log: HabitLog = {
-          id: generateId(),
+          id: existing?.id ?? generateId(),
           habitId,
           date,
           completed,
-          updatedAt: Date.now(),
+          updatedAt: now,
         };
 
-        // Check if log already exists for this habit+date, update instead
-        const existing = get().habitLogs.find((l) => l.habitId === habitId && l.date === date);
+        set((state) => ({
+          habitLogs: existing
+            ? state.habitLogs.map((l) =>
+                l.habitId === habitId && l.date === date ? { ...l, completed, updatedAt: now } : l
+              )
+            : [...state.habitLogs, log],
+        }));
 
-        if (existing) {
-          set((state) => ({
-            habitLogs: state.habitLogs.map((l) =>
-              l.habitId === habitId && l.date === date ? { ...l, completed, updatedAt: Date.now() } : l
-            ),
-          }));
-
-          queueOperation(set, get, {
-            type: 'update',
-            table: 'habit_logs',
-            // Include the id so offline replay updates this row only.
-            data: { id: existing.id, completed, updated_at: Date.now() },
-          }, async () => {
-            const { data: { user } } = await supabase.auth.getUser();
-            if (!user) return;
-            await supabase
-              .from('habit_logs')
-              .update({ completed, updated_at: Date.now() })
-              .eq('user_id', user.id)
-              .eq('id', existing.id);
-          });
-        } else {
-          set((state) => ({ habitLogs: [...state.habitLogs, log] }));
-
-          queueOperation(set, get, {
-            type: 'insert',
-            table: 'habit_logs',
-            data: mapLogToDb(log),
-          }, async () => {
-            const { data: { user } } = await supabase.auth.getUser();
-            if (!user) return;
-            await supabase.from('habit_logs').insert([{ ...mapLogToDb(log), user_id: user.id }]);
-          });
-        }
+        // One idempotent upsert keyed on the (habit_id, date) unique constraint.
+        // This is safe whether the row exists locally, in the DB, on another
+        // device, or not at all — so retries and cross-device toggles can't fail
+        // on a duplicate-key error the way a blind insert would.
+        queueOperation(set, get, {
+          type: 'upsert',
+          table: 'habit_logs',
+          data: mapLogToDb(log),
+        }, async () => {
+          const user = await requireUser();
+          const { error } = await supabase
+            .from('habit_logs')
+            .upsert({ ...mapLogToDb(log), user_id: user.id }, { onConflict: 'habit_id,date' });
+          if (error) throw error;
+        });
       },
 
       getHabitsForWeek: (weekStr) => {
@@ -345,29 +396,34 @@ export const useHabitStore = create<HabitState>()(
         if (!user) return; // can't replay without an authenticated owner
 
         const state = get();
+        const remaining: PendingOperation[] = [];
         for (const op of state.pendingOperations) {
           try {
             if (op.table === 'habits') {
               if (op.type === 'insert') {
-                await supabase.from('habits').insert([{ ...op.data, user_id: user.id }]);
+                const { error } = await supabase.from('habits').insert([{ ...op.data, user_id: user.id }]);
+                if (error) throw error;
               } else if (op.type === 'update') {
-                await supabase.from('habits').update(op.data).eq('id', op.habitId).eq('user_id', user.id);
+                const { error } = await supabase.from('habits').update(op.data).eq('id', op.habitId).eq('user_id', user.id);
+                if (error) throw error;
               }
             } else if (op.table === 'habit_logs') {
-              if (op.type === 'insert') {
-                await supabase.from('habit_logs').insert([{ ...op.data, user_id: user.id }]);
-              } else if (op.type === 'update') {
-                // op.data carries the row id so this scopes to the single log.
-                await supabase.from('habit_logs').update(op.data).eq('id', op.data.id).eq('user_id', user.id);
-              }
+              // Always upsert (keyed on habit_id,date) so replaying an op that
+              // already partially landed can't fail on the unique constraint.
+              const { error } = await supabase
+                .from('habit_logs')
+                .upsert({ ...op.data, user_id: user.id }, { onConflict: 'habit_id,date' });
+              if (error) throw error;
             }
           } catch (err) {
-            console.error('Failed to process pending operation:', err);
-            return;
+            // Keep this op (and don't drop the rest) so a single bad write can't
+            // strand the whole queue. It'll be retried on the next replay.
+            console.warn('Failed to replay habit operation, will retry:', op.type, op.table, err);
+            remaining.push(op);
           }
         }
 
-        set({ pendingOperations: [] });
+        set({ pendingOperations: remaining });
       },
     }),
     {
@@ -376,6 +432,7 @@ export const useHabitStore = create<HabitState>()(
         habits: state.habits,
         habitLogs: state.habitLogs,
         pendingOperations: state.pendingOperations,
+        guestMode: state.guestMode,
       }),
     }
   )
