@@ -14,6 +14,10 @@ export interface VisibleTask extends Task {
     isHeader?: boolean;
     count?: number;
     effectiveOrder?: number;
+    // For Upcoming day-group headers: the concrete date that group represents
+    // (the earliest task's date in the bucket). Lets "add a task while focused on
+    // a day header" pre-fill that day as the due date.
+    bucketDate?: Date;
 }
 
 export type ViewFilter = 'active' | 'today' | 'upcoming' | 'review';
@@ -309,6 +313,34 @@ export function groupByBucket(
     });
 
     return groups;
+}
+
+/**
+ * Compute the default field values a newly-created task should inherit from the
+ * view it's being added in and the row that was focused at the time.
+ *
+ *  - Today view   → due today (so it lands in Today immediately).
+ *  - Upcoming view → due the same day as the focused task/day-group header.
+ *  - Important     → inherit the important flag from the focused task.
+ *
+ * The reference is anything carrying a dueDate / importantOrder — a real task,
+ * or a synthetic day-group header (which exposes its day via dueDate). A typed
+ * date in the input still wins over these defaults (applied in the store).
+ */
+export function getCreationDefaults(
+    filter: ViewFilter,
+    reference: { dueDate?: Date | null; importantOrder?: number | null } | null,
+    referenceDate: Date = new Date()
+): { dueDate: Date | null; important: boolean } {
+    let dueDate: Date | null = null;
+
+    if (filter === 'today') {
+        dueDate = startOfDay(referenceDate);
+    } else if (filter === 'upcoming' && reference?.dueDate) {
+        dueDate = new Date(reference.dueDate);
+    }
+
+    return { dueDate, important: !!reference?.importantOrder };
 }
 
 /**

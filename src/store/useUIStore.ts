@@ -3,6 +3,10 @@ import { persist } from 'zustand/middleware';
 
 export type FocusMode = 'sidebar' | 'main';
 export type QuickAddMode = 'create' | 'date' | 'tag';
+export interface QuickAddDefaults {
+  dueDate?: Date | null;
+  important?: boolean;
+}
 export type CurrentView = 'tasks' | 'mail' | 'habits';
 export type HabitView = 'grid' | 'checklist' | 'analytics';
 
@@ -13,6 +17,9 @@ interface UIState {
   quickAddParentId: string | null;
   quickAddMode: QuickAddMode;
   quickAddTaskId: string | null;
+  // Field values a task created via Quick Add should inherit from the view/row it
+  // was opened from (due date, importance). Null when there's nothing to inherit.
+  quickAddDefaults: QuickAddDefaults | null;
   editingTaskId: string | null;
   filter: 'active' | 'today' | 'upcoming' | 'review';
   focusMode: FocusMode;
@@ -30,7 +37,7 @@ interface UIState {
   toggleGroup: (id: string) => void;
 
   setCmdOpen: (open: boolean) => void;
-  setQuickAddOpen: (open: boolean, parentId?: string | null, mode?: QuickAddMode, taskId?: string | null) => void;
+  setQuickAddOpen: (open: boolean, parentId?: string | null, mode?: QuickAddMode, taskId?: string | null, defaults?: QuickAddDefaults | null) => void;
   setShortcutsOpen: (open: boolean) => void;
   setEditingTaskId: (id: string | null) => void;
   setFilter: (filter: 'active' | 'today' | 'upcoming' | 'review') => void;
@@ -58,6 +65,7 @@ export const useUIStore = create<UIState>()(
   quickAddParentId: null,
   quickAddMode: 'create',
   quickAddTaskId: null,
+  quickAddDefaults: null,
   editingTaskId: null,
   filter: 'today',
   focusMode: 'main',
@@ -75,8 +83,8 @@ export const useUIStore = create<UIState>()(
   }),
 
   setCmdOpen: (open) => set({ isCmdOpen: open }),
-  setQuickAddOpen: (open, parentId = null, mode = 'create', taskId = null) =>
-    set({ isQuickAddOpen: open, quickAddParentId: parentId, quickAddMode: mode, quickAddTaskId: taskId }),
+  setQuickAddOpen: (open, parentId = null, mode = 'create', taskId = null, defaults = null) =>
+    set({ isQuickAddOpen: open, quickAddParentId: parentId, quickAddMode: mode, quickAddTaskId: taskId, quickAddDefaults: defaults }),
   setShortcutsOpen: (open) => set({ isShortcutsOpen: open }),
   setEditingTaskId: (id) => set({ editingTaskId: id }),
   setFilter: (filter) => set({ filter }),

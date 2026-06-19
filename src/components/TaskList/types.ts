@@ -11,6 +11,8 @@ export interface VisibleTask extends Task {
     isHeader?: boolean;
     effectiveOrder?: number;
     count?: number;
+    // For Upcoming day-group headers: the concrete date that group represents.
+    bucketDate?: Date;
 }
 
 export type ViewFilter = 'active' | 'today' | 'upcoming' | 'review';

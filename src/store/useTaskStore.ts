@@ -46,7 +46,7 @@ interface TaskState {
 
   // Actions
   fetchTasks: () => Promise<void>;
-  addTask: (rawInput: string, parentId?: string | null, afterTaskId?: string | null, options?: { skipHistory?: boolean }) => void;
+  addTask: (rawInput: string, parentId?: string | null, afterTaskId?: string | null, options?: { skipHistory?: boolean; defaultDueDate?: Date | null; important?: boolean }) => void;
   restoreTask: (task: Task, options?: { skipHistory?: boolean }) => void; // Internal use for undo
   batchAddTasks: (rawInputs: string[]) => void;
   updateTask: (id: string, updates: Partial<Task>, options?: { skipHistory?: boolean }) => void;
@@ -249,6 +249,22 @@ export const useTaskStore = create<TaskState>()(
 
         // 1. Calculate state
         const state = get();
+
+        // A date typed into the input wins; otherwise inherit the view's default
+        // (e.g. today in Today, the focused day in Upcoming).
+        const finalDueDate = dueDate ?? options.defaultDueDate ?? null;
+
+        // Inherit importance from the focused row — but only when the task has a
+        // due date, since the Important list (and toggleImportance) require one.
+        let importantOrder: number | null = null;
+        if (options.important && finalDueDate) {
+          const maxImportant = state.tasks.reduce(
+            (m, t) => (t.importantOrder && !t.archived && !t.completed ? Math.max(m, t.importantOrder) : m),
+            0
+          );
+          importantOrder = maxImportant + 1;
+        }
+
         const newTask: Task = {
           id: generateId(),
           parentId: parentId,
@@ -256,7 +272,8 @@ export const useTaskStore = create<TaskState>()(
           title,
           priority,
           tags,
-          dueDate,
+          dueDate: finalDueDate,
+          importantOrder,
           completed: false,
           archived: false,
           createdAt: Date.now(),

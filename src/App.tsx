@@ -20,6 +20,7 @@ import { useUIStore } from './store/useUIStore';
 import { useHotkeys } from './hooks/useHotkeys';
 import { useOnlineStatus } from './store/useOnlineStatus';
 import { celebrate } from './utils/celebrate';
+import { getCreationDefaults } from './utils/taskSort';
 import { supabase } from './utils/supabase';
 
 function App() {
@@ -314,8 +315,12 @@ function App() {
                         // In views like Review the "focus" can be a section header
                         // (e.g. a week group), which would orphan the new task.
                         const { focusedId, tasks } = useTaskStore.getState();
-                        const parentId = focusedId && tasks.some(t => t.id === focusedId) ? focusedId : null;
-                        setQuickAddOpen(true, parentId);
+                        const focusedTask = focusedId ? tasks.find(t => t.id === focusedId) ?? null : null;
+                        const parentId = focusedTask ? focusedTask.id : null;
+                        // Same context inheritance as Enter: today in Today, the
+                        // focused task's day in Upcoming, plus its importance.
+                        const defaults = getCreationDefaults(filter, focusedTask);
+                        setQuickAddOpen(true, parentId, 'create', null, defaults);
                     }}
                     className={`${currentView === 'mail' ? 'hidden' : 'md:hidden'} fixed bottom-20 right-5 w-14 h-14 bg-primary-600 text-white rounded-full shadow-lg flex items-center justify-center hover:bg-primary-500 active:scale-95 transition-all z-40`}
                     aria-label={currentView === 'habits' ? 'Add Habit' : 'Add Task'}

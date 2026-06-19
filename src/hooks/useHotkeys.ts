@@ -187,17 +187,15 @@ export function useHotkeys() {
             // ----------------------------------------------------------------
             if (uiState.currentView === 'tasks') {
 
-                // Quick Add
+                // Quick Add.
+                // The list views (Inbox/Today/Upcoming) own Enter via
+                // useTaskListKeyboard — it has the focused row + day-group context
+                // and sets the inherited due date / importance. Handling Enter here
+                // too would clobber that with a context-free open, so we only act in
+                // views where that hook isn't mounted (Weekly Review).
                 if (key === 'enter' && !isCmd && !isAlt && !isShift) {
+                    if (uiState.filter !== 'review') return; // TaskList handles it
                     e.preventDefault();
-                    // Context-aware add
-                    if (taskState.focusedId && uiState.focusMode === 'main') {
-                        const task = taskState.tasks.find(t => t.id === taskState.focusedId);
-                        if (task) {
-                            setQuickAddOpen(true, task.parentId || null, 'create', taskState.focusedId);
-                            return;
-                        }
-                    }
                     setQuickAddOpen(true);
                     return;
                 }

@@ -3,6 +3,7 @@ import { useTaskStore } from '../../store/useTaskStore';
 import { useUIStore } from '../../store/useUIStore';
 import { toast } from '../Toaster';
 import { VisibleTask } from './types';
+import { getCreationDefaults, ViewFilter } from '../../utils/taskSort';
 // Hotkeys are centrally defined in utils/hotkeys.ts
 // This handler implements the actual key bindings - keep in sync with registry
 
@@ -212,15 +213,35 @@ export function useTaskListKeyboard({
                         }
                     }
                     break;
-                case 'enter':
-                    if (currentTask && currentTask.isHeader && toggleGroup) {
-                        e.preventDefault();
-                        toggleGroup(currentTask.id);
-                        return;
+                case 'enter': {
+                    const viewFilter = filter as ViewFilter;
+                    if (currentTask && currentTask.isHeader) {
+                        // In Upcoming, a day-group header stands for a concrete day —
+                        // Enter adds a task due that day. (Arrows / click still toggle.)
+                        if (viewFilter === 'upcoming' && currentTask.bucketDate) {
+                            e.preventDefault();
+                            const defaults = getCreationDefaults(viewFilter, { dueDate: currentTask.bucketDate });
+                            setQuickAddOpen(true, null, 'create', null, defaults);
+                            return;
+                        }
+                        if (toggleGroup) {
+                            e.preventDefault();
+                            toggleGroup(currentTask.id);
+                            return;
+                        }
                     }
                     if (isCmd) { if (currentId) setQuickAddOpen(true, currentId); }
-                    else { if (currentId) setQuickAddOpen(true, currentTask.parentId || null, 'create', currentId); else setQuickAddOpen(true); }
+                    else if (currentId) {
+                        // New task inherits the focused row's day / importance.
+                        const defaults = getCreationDefaults(viewFilter, currentTask);
+                        setQuickAddOpen(true, currentTask.parentId || null, 'create', currentId, defaults);
+                    } else {
+                        // Empty / nothing focused (e.g. an empty Today list) — still
+                        // inherit the view's default (today in Today).
+                        setQuickAddOpen(true, null, 'create', null, getCreationDefaults(viewFilter, null));
+                    }
                     break;
+                }
                 case 'tab':
                     e.preventDefault();
                     if (currentSelectedIds.length > 1) {

@@ -16,6 +16,7 @@ import {
     sortUpcoming,
     groupByBucket,
     createSectionHeader,
+    getCreationDefaults,
 } from '../taskSort';
 import { Task } from '../../types';
 
@@ -244,6 +245,39 @@ describe('taskSort utilities', () => {
             expect(header.title).toBe('Test Section');
             expect(header.count).toBe(5);
             expect(header.depth).toBe(0);
+        });
+    });
+
+    describe('getCreationDefaults', () => {
+        const ref = new Date(2026, 5, 19, 15, 0, 0); // Fri 19 Jun 2026, 3pm
+
+        it('defaults to today (midnight) in the Today view', () => {
+            const { dueDate, important } = getCreationDefaults('today', null, ref);
+            expect(dueDate).toEqual(startOfDay(ref));
+            expect(important).toBe(false);
+        });
+
+        it('inherits importance from the focused row in Today', () => {
+            const { dueDate, important } = getCreationDefaults('today', { importantOrder: 3 }, ref);
+            expect(dueDate).toEqual(startOfDay(ref));
+            expect(important).toBe(true);
+        });
+
+        it('inherits the focused day in the Upcoming view', () => {
+            const day = new Date(2026, 5, 22, 9, 0, 0);
+            const { dueDate } = getCreationDefaults('upcoming', { dueDate: day }, ref);
+            expect(dueDate).toEqual(day);
+        });
+
+        it('gives no due date in Upcoming when nothing is focused', () => {
+            const { dueDate } = getCreationDefaults('upcoming', null, ref);
+            expect(dueDate).toBeNull();
+        });
+
+        it('never sets a due date in the Inbox (active) view', () => {
+            const day = new Date(2026, 5, 22);
+            const { dueDate } = getCreationDefaults('active', { dueDate: day, importantOrder: 1 }, ref);
+            expect(dueDate).toBeNull();
         });
     });
 });

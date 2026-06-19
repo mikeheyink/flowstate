@@ -73,7 +73,11 @@ export function useVisibleTasks({ tasks, filter, expandedGroups }: UseVisibleTas
                 const groupTasks = groups.get(bucket) || [];
                 const headerId = `header-${bucket}`;
 
-                result.push(createSectionHeader(headerId, bucket, groupTasks.length));
+                const header = createSectionHeader(headerId, bucket, groupTasks.length);
+                // Tasks are sorted ascending by date, so the first is the earliest
+                // day in this bucket — what a task added "to this group" should be due.
+                if (groupTasks[0]?.dueDate) header.bucketDate = new Date(groupTasks[0].dueDate);
+                result.push(header);
 
                 if (expandedGroups.has(headerId)) {
                     groupTasks.forEach(task => {

@@ -22,6 +22,7 @@ export const QuickAdd: React.FC<QuickAddProps> = ({ isOpen, onClose }) => {
   const quickAddParentId = useUIStore((state) => state.quickAddParentId);
   const quickAddMode = useUIStore((state) => state.quickAddMode);
   const quickAddTaskId = useUIStore((state) => state.quickAddTaskId);
+  const quickAddDefaults = useUIStore((state) => state.quickAddDefaults);
   const setQuickAddOpen = useUIStore((state) => state.setQuickAddOpen);
 
   // Get contexts
@@ -53,7 +54,10 @@ export const QuickAdd: React.FC<QuickAddProps> = ({ isOpen, onClose }) => {
 
     if (quickAddMode === 'create') {
       // If quickAddTaskId is present in 'create' mode, it is the 'insertAfter' task ID.
-      addTask(value, quickAddParentId, quickAddTaskId);
+      addTask(value, quickAddParentId, quickAddTaskId, {
+        defaultDueDate: quickAddDefaults?.dueDate ?? null,
+        important: quickAddDefaults?.important ?? false,
+      });
     } else if (quickAddMode === 'date') {
       // Parse only date/time from input
       const { dueDate } = parseTaskInput(value);
