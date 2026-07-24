@@ -6,6 +6,7 @@
  */
 
 import { Task } from '../types';
+import { QuadrantKey, quadrantOf, sortQuadrant } from './quad';
 
 // VisibleTask extends Task with UI-specific properties
 export interface VisibleTask extends Task {
@@ -14,6 +15,10 @@ export interface VisibleTask extends Task {
     isHeader?: boolean;
     count?: number;
     effectiveOrder?: number;
+    // For Upcoming day-group headers: the concrete date that group represents
+    // (the earliest task's date in the bucket). Lets "add a task while focused on
+    // a day header" pre-fill that day as the due date.
+    bucketDate?: Date;
 }
 
 export type ViewFilter = 'active' | 'today' | 'upcoming' | 'review';
@@ -162,16 +167,16 @@ export function filterActive(tasks: Task[]): Task[] {
 }
 
 /**
- * Filter tasks for the Today view (due today or overdue, not completed)
+ * Filter tasks for the Today view (due today or overdue, not completed) and
+ * split them into the four Eisenhower quadrants, each sorted by quadOrder.
  */
-export function filterToday(tasks: Task[], referenceDate: Date = new Date()): {
-    important: Task[];
-    outstanding: Task[];
-} {
+export function filterTodayQuad(
+    tasks: Task[],
+    referenceDate: Date = new Date()
+): Record<QuadrantKey, Task[]> {
     const endToday = endOfDay(referenceDate);
 
-    const important: Task[] = [];
-    const outstanding: Task[] = [];
+    const groups: Record<QuadrantKey, Task[]> = { q1: [], q2: [], q3: [], q4: [] };
 
     tasks.forEach(t => {
         if (t.archived || t.completed || !t.dueDate) return;
@@ -180,15 +185,15 @@ export function filterToday(tasks: Task[], referenceDate: Date = new Date()): {
 
         // Due today or overdue
         if (dDate < endToday) {
-            if (t.importantOrder) {
-                important.push(t);
-            } else {
-                outstanding.push(t);
-            }
+            groups[quadrantOf(t)].push(t);
         }
     });
 
-    return { important, outstanding };
+    (Object.keys(groups) as QuadrantKey[]).forEach(k => {
+        groups[k] = sortQuadrant(groups[k]);
+    });
+
+    return groups;
 }
 
 /**
@@ -209,67 +214,6 @@ export function filterUpcoming(tasks: Task[], referenceDate: Date = new Date()):
 // ============================================================================
 
 /**
- * Sort important tasks by their importantOrder
- */
-export function sortImportant(tasks: Task[]): Task[] {
-    return [...tasks].sort((a, b) => (a.importantOrder || 0) - (b.importantOrder || 0));
-}
-
-/**
- * Sort outstanding tasks for Today view
- * Tasks with todayOrder are sorted by that, others are placed after
- */
-export function sortOutstandingForToday(
-    tasks: Task[],
-    referenceDate: Date = new Date()
-): VisibleTask[] {
-    const startToday = startOfDay(referenceDate);
-
-    const hasOrder = (t: Task) => t.todayOrder !== undefined && t.todayOrder !== null;
-
-    const withOrder = tasks.filter(hasOrder);
-    const withoutOrder = tasks.filter(t => !hasOrder(t));
-
-    // Sort unordered: overdue first, then by createdAt
-    withoutOrder.sort((a, b) => {
-        const dateA = new Date(a.dueDate!);
-        const dateB = new Date(b.dueDate!);
-        const isOverdueA = dateA < startToday;
-        const isOverdueB = dateB < startToday;
-
-        if (isOverdueA !== isOverdueB) return isOverdueA ? -1 : 1;
-        return a.createdAt - b.createdAt;
-    });
-
-    // Sort ordered tasks by todayOrder
-    withOrder.sort((a, b) => (a.todayOrder || 0) - (b.todayOrder || 0));
-
-    // Calculate effective order for all tasks
-    const maxOrder = withOrder.length > 0
-        ? Math.max(...withOrder.map(t => t.todayOrder || 0))
-        : 0;
-
-    const orderedVisible: VisibleTask[] = withOrder.map(t => ({
-        ...t,
-        depth: 0,
-        hasChildren: false,
-        effectiveOrder: t.todayOrder!
-    }));
-
-    const unorderedVisible: VisibleTask[] = withoutOrder.map((t, i) => ({
-        ...t,
-        depth: 0,
-        hasChildren: false,
-        effectiveOrder: maxOrder + ((i + 1) * 10000)
-    }));
-
-    const result = [...orderedVisible, ...unorderedVisible];
-    result.sort((a, b) => (a.effectiveOrder || 0) - (b.effectiveOrder || 0));
-
-    return result;
-}
-
-/**
  * Sort upcoming tasks: by date, then important first, then by hierarchy
  */
 export function sortUpcoming(tasks: Task[], taskMap: Map<string, Task>): Task[] {
@@ -281,13 +225,9 @@ export function sortUpcoming(tasks: Task[], taskMap: Map<string, Task>): Task[] 
         if (dA.getTime() !== dB.getTime()) return dA.getTime() - dB.getTime();
 
         // Important items first within date
-        const isImportantA = !!a.importantOrder;
-        const isImportantB = !!b.importantOrder;
+        const isImportantA = !!a.important;
+        const isImportantB = !!b.important;
         if (isImportantA !== isImportantB) return isImportantA ? -1 : 1;
-
-        if (isImportantA && isImportantB) {
-            return (a.importantOrder || 0) - (b.importantOrder || 0);
-        }
 
         return compareHierarchy(a, b, taskMap);
     });
@@ -309,6 +249,35 @@ export function groupByBucket(
     });
 
     return groups;
+}
+
+/**
+ * Compute the default field values a newly-created task should inherit from the
+ * view it's being added in and the row that was focused at the time.
+ *
+ *  - Today view    → due today (so it lands in Today immediately).
+ *  - Upcoming view → due the same day as the focused task/day-group header.
+ *  - Flags         → inherit urgent/important from the focused task, so a task
+ *                    created inside a quadrant lands in that same quadrant.
+ *
+ * The reference is anything carrying a dueDate / flags — a real task, or a
+ * synthetic day-group header (which exposes its day via dueDate). A typed
+ * date in the input still wins over these defaults (applied in the store).
+ */
+export function getCreationDefaults(
+    filter: ViewFilter,
+    reference: { dueDate?: Date | null; urgent?: boolean; important?: boolean } | null,
+    referenceDate: Date = new Date()
+): { dueDate: Date | null; urgent: boolean; important: boolean } {
+    let dueDate: Date | null = null;
+
+    if (filter === 'today') {
+        dueDate = startOfDay(referenceDate);
+    } else if (filter === 'upcoming' && reference?.dueDate) {
+        dueDate = new Date(reference.dueDate);
+    }
+
+    return { dueDate, urgent: !!reference?.urgent, important: !!reference?.important };
 }
 
 /**

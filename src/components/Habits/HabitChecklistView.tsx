@@ -2,6 +2,7 @@ import React, { useState, useMemo, useEffect } from 'react';
 import { ChevronLeft, ChevronRight, Plus } from 'lucide-react';
 import { useHabitStore } from '../../store/useHabitStore';
 import { useUIStore } from '../../store/useUIStore';
+import { useObjectiveStore } from '../../store/useObjectiveStore';
 import { getISOWeek, getWeekDates, toLocalISO } from '../../utils/habitDates';
 
 interface HabitChecklistViewProps {
@@ -24,6 +25,9 @@ export function HabitChecklistView({ onAddHabit }: HabitChecklistViewProps) {
   // Subscribe to raw data so the list reflects adds/edits/toggles/reorders immediately.
   const allHabits = useHabitStore((state) => state.habits);
   const habitLogs = useHabitStore((state) => state.habitLogs);
+  // Objective lookup for the subtle "why" edge on each row.
+  const objectives = useObjectiveStore((state) => state.objectives);
+  const objectiveById = useMemo(() => new Map(objectives.map(o => [o.id, o])), [objectives]);
 
   const habits = useMemo(() => getHabitsForWeek(currentWeek), [currentWeek, allHabits]);
   const weekDates = useMemo(() => getWeekDates(currentWeek), [currentWeek]);
@@ -167,9 +171,17 @@ export function HabitChecklistView({ onAddHabit }: HabitChecklistViewProps) {
                 key={habit.id}
                 data-checklist-idx={idx}
                 onClick={() => { setFocusedHabitIdx(idx); handleToggleHabit(habit.id); }}
-                title="Tap to cycle: pending → done → failed"
-                className={`w-full p-4 rounded-lg text-left transition-colors scroll-mt-24 scroll-mb-28 ${rowClass} ${idx === focusedHabitIdx ? 'ring-2 ring-primary-400' : ''}`}
+                // Long-press/hover surfaces the why; tap still cycles the status.
+                title={[objectiveById.get(habit.objectiveId || '')?.title, habit.why].filter(Boolean).join(' — ') || 'Tap to cycle: pending → done → failed'}
+                className={`relative w-full p-4 rounded-lg text-left transition-colors scroll-mt-24 scroll-mb-28 ${rowClass} ${idx === focusedHabitIdx ? 'ring-2 ring-primary-400' : ''}`}
               >
+                {/* 3px objective-colored edge — the silent "why" indicator */}
+                {habit.objectiveId && objectiveById.get(habit.objectiveId) && (
+                  <span
+                    className="absolute left-0 top-3 bottom-3 w-[3px] rounded-full"
+                    style={{ backgroundColor: objectiveById.get(habit.objectiveId)!.color }}
+                  />
+                )}
                 <div className="flex items-center gap-3">
                   <div className={`w-6 h-6 rounded-full flex items-center justify-center font-bold ${badgeClass}`}>
                     {status === 'done' ? '✓' : status === 'failed' ? '✗' : '○'}

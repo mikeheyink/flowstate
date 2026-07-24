@@ -9,14 +9,12 @@ import {
     endOfDay,
     getUpcomingBucketName,
     filterActive,
-    filterToday,
+    filterTodayQuad,
     filterUpcoming,
-    sortImportant,
-    sortOutstandingForToday,
-    sortUpcoming,
-    groupByBucket,
     createSectionHeader,
+    getCreationDefaults,
 } from '../taskSort';
+import { quadrantOf, quadrantFlags, sortQuadrant, topOfQuadrant } from '../quad';
 import { Task } from '../../types';
 
 // Helper to create test tasks
@@ -173,23 +171,20 @@ describe('taskSort utilities', () => {
         });
     });
 
-    describe('filterToday', () => {
-        it('should separate important and outstanding tasks', () => {
+    describe('filterTodayQuad', () => {
+        it('splits due-today tasks into the four quadrants by flags', () => {
             const today = new Date('2026-02-02');
-            const important = createTask({
-                title: 'Important',
-                dueDate: today,
-                importantOrder: 1
-            });
-            const outstanding = createTask({
-                title: 'Outstanding',
-                dueDate: today
-            });
+            const q1 = createTask({ title: 'Q1', dueDate: today, urgent: true, important: true });
+            const q2 = createTask({ title: 'Q2', dueDate: today, important: true });
+            const q3 = createTask({ title: 'Q3', dueDate: today, urgent: true });
+            const q4 = createTask({ title: 'Q4', dueDate: today });
 
-            const result = filterToday([important, outstanding], today);
+            const result = filterTodayQuad([q1, q2, q3, q4], today);
 
-            expect(result.important).toHaveLength(1);
-            expect(result.outstanding).toHaveLength(1);
+            expect(result.q1.map(t => t.title)).toEqual(['Q1']);
+            expect(result.q2.map(t => t.title)).toEqual(['Q2']);
+            expect(result.q3.map(t => t.title)).toEqual(['Q3']);
+            expect(result.q4.map(t => t.title)).toEqual(['Q4']);
         });
 
         it('should include overdue tasks', () => {
@@ -199,9 +194,31 @@ describe('taskSort utilities', () => {
                 dueDate: new Date('2026-02-01')
             });
 
-            const result = filterToday([overdue], today);
+            const result = filterTodayQuad([overdue], today);
 
-            expect(result.outstanding).toHaveLength(1);
+            expect(result.q4).toHaveLength(1);
+        });
+
+        it('excludes completed, archived, undated and future-due tasks', () => {
+            const today = new Date('2026-02-02');
+            const done = createTask({ dueDate: today, completed: true });
+            const archived = createTask({ dueDate: today, archived: true });
+            const undated = createTask({});
+            const future = createTask({ dueDate: new Date('2026-02-05') });
+
+            const result = filterTodayQuad([done, archived, undated, future], today);
+
+            expect(result.q1.length + result.q2.length + result.q3.length + result.q4.length).toBe(0);
+        });
+
+        it('sorts each quadrant by quadOrder', () => {
+            const today = new Date('2026-02-02');
+            const second = createTask({ title: 'Second', dueDate: today, important: true, quadOrder: 2000 });
+            const first = createTask({ title: 'First', dueDate: today, important: true, quadOrder: 1000 });
+
+            const result = filterTodayQuad([second, first], today);
+
+            expect(result.q2.map(t => t.title)).toEqual(['First', 'Second']);
         });
     });
 
@@ -224,15 +241,37 @@ describe('taskSort utilities', () => {
         });
     });
 
-    describe('sortImportant', () => {
-        it('should sort by importantOrder', () => {
-            const task1 = createTask({ title: 'Second', importantOrder: 2 });
-            const task2 = createTask({ title: 'First', importantOrder: 1 });
+    describe('quad utilities', () => {
+        it('quadrantOf derives the quadrant from the two flags', () => {
+            expect(quadrantOf({ urgent: true, important: true })).toBe('q1');
+            expect(quadrantOf({ urgent: false, important: true })).toBe('q2');
+            expect(quadrantOf({ urgent: true, important: false })).toBe('q3');
+            expect(quadrantOf({})).toBe('q4');
+        });
 
-            const result = sortImportant([task1, task2]);
+        it('quadrantFlags is the inverse of quadrantOf', () => {
+            (['q1', 'q2', 'q3', 'q4'] as const).forEach(k => {
+                expect(quadrantOf(quadrantFlags(k))).toBe(k);
+            });
+        });
 
-            expect(result[0].title).toBe('First');
-            expect(result[1].title).toBe('Second');
+        it('sortQuadrant orders by quadOrder, unplaced (createdAt fallback) last', () => {
+            const placed2 = createTask({ title: 'placed2', quadOrder: 2000 });
+            const placed1 = createTask({ title: 'placed1', quadOrder: 1000 });
+            const unplaced = createTask({ title: 'unplaced', quadOrder: null }); // createdAt ≈ now, huge
+
+            const result = sortQuadrant([unplaced, placed2, placed1]);
+
+            expect(result.map(t => t.title)).toEqual(['placed1', 'placed2', 'unplaced']);
+        });
+
+        it('topOfQuadrant lands above every current member', () => {
+            const members = [
+                createTask({ quadOrder: 1000 }),
+                createTask({ quadOrder: 5000 }),
+            ];
+            expect(topOfQuadrant(members)).toBe(0);
+            expect(topOfQuadrant([])).toBe(0);
         });
     });
 
@@ -244,6 +283,42 @@ describe('taskSort utilities', () => {
             expect(header.title).toBe('Test Section');
             expect(header.count).toBe(5);
             expect(header.depth).toBe(0);
+        });
+    });
+
+    describe('getCreationDefaults', () => {
+        const ref = new Date(2026, 5, 19, 15, 0, 0); // Fri 19 Jun 2026, 3pm
+
+        it('defaults to today (midnight) in the Today view', () => {
+            const { dueDate, important, urgent } = getCreationDefaults('today', null, ref);
+            expect(dueDate).toEqual(startOfDay(ref));
+            expect(important).toBe(false);
+            expect(urgent).toBe(false);
+        });
+
+        it('inherits the Eisenhower flags from the focused row in Today', () => {
+            const { dueDate, important, urgent } = getCreationDefaults('today', { urgent: true, important: true }, ref);
+            expect(dueDate).toEqual(startOfDay(ref));
+            expect(important).toBe(true);
+            expect(urgent).toBe(true);
+        });
+
+        it('inherits the focused day in the Upcoming view', () => {
+            const day = new Date(2026, 5, 22, 9, 0, 0);
+            const { dueDate } = getCreationDefaults('upcoming', { dueDate: day }, ref);
+            expect(dueDate).toEqual(day);
+        });
+
+        it('gives no due date in Upcoming when nothing is focused', () => {
+            const { dueDate } = getCreationDefaults('upcoming', null, ref);
+            expect(dueDate).toBeNull();
+        });
+
+        it('never sets a due date in the Inbox (active) view', () => {
+            const day = new Date(2026, 5, 22);
+            const { dueDate, important } = getCreationDefaults('active', { dueDate: day, important: true }, ref);
+            expect(dueDate).toBeNull();
+            expect(important).toBe(true); // flags still inherit
         });
     });
 });

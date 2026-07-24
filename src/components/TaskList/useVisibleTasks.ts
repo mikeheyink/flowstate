@@ -1,6 +1,7 @@
 import { useMemo, useRef, useEffect } from 'react';
 import { Task } from '../../types';
-import { ViewFilter, buildTaskMap, buildChildrenMap, filterActive, flattenTree, filterToday, sortImportant, sortOutstandingForToday, filterUpcoming, sortUpcoming, createSectionHeader, getUpcomingBucketName } from '../../utils/taskSort';
+import { ViewFilter, buildTaskMap, buildChildrenMap, filterActive, flattenTree, filterTodayQuad, filterUpcoming, sortUpcoming, createSectionHeader, getUpcomingBucketName } from '../../utils/taskSort';
+import { QUADRANTS } from '../../utils/quad';
 import { VisibleTask } from './types';
 
 interface UseVisibleTasksProps {
@@ -20,29 +21,19 @@ export function useVisibleTasks({ tasks, filter, expandedGroups }: UseVisibleTas
             return flattenTree(childrenMap);
         }
 
-        // --- VIEW: TODAY ---
+        // --- VIEW: TODAY (Eisenhower quad) ---
         if (filter === 'today') {
-            const { important, outstanding } = filterToday(tasks);
-
-            const importantSorted = sortImportant(important);
-            const outstandingSorted = sortOutstandingForToday(outstanding);
-
+            const groups = filterTodayQuad(tasks);
             const result: VisibleTask[] = [];
 
-            if (importantSorted.length > 0) {
-                const headerId = 'header-important';
-                result.push(createSectionHeader(headerId, 'Important', importantSorted.length));
-                if (expandedGroups.has(headerId)) {
-                    importantSorted.forEach(t => result.push({ ...t, depth: 0, hasChildren: false }));
-                }
-            }
-
-            if (outstandingSorted.length > 0) {
-                const headerId = 'header-outstanding';
-                result.push(createSectionHeader(headerId, 'Other', outstandingSorted.length));
-                if (expandedGroups.has(headerId)) {
-                    outstandingSorted.forEach(t => result.push(t));
-                }
+            // All four quadrants are always present (even empty): the desktop
+            // board renders a panel per header, the 1–4 jumps need a target, and
+            // reading order (Q1→Q4) doubles as the ↓/↑ navigation order. Quad
+            // sections don't collapse — the board is the collapse.
+            for (const q of QUADRANTS) {
+                const items = groups[q.key];
+                result.push(createSectionHeader(q.headerId, q.title, items.length));
+                items.forEach(t => result.push({ ...t, depth: 0, hasChildren: false }));
             }
 
             return result;
@@ -73,7 +64,11 @@ export function useVisibleTasks({ tasks, filter, expandedGroups }: UseVisibleTas
                 const groupTasks = groups.get(bucket) || [];
                 const headerId = `header-${bucket}`;
 
-                result.push(createSectionHeader(headerId, bucket, groupTasks.length));
+                const header = createSectionHeader(headerId, bucket, groupTasks.length);
+                // Tasks are sorted ascending by date, so the first is the earliest
+                // day in this bucket — what a task added "to this group" should be due.
+                if (groupTasks[0]?.dueDate) header.bucketDate = new Date(groupTasks[0].dueDate);
+                result.push(header);
 
                 if (expandedGroups.has(headerId)) {
                     groupTasks.forEach(task => {

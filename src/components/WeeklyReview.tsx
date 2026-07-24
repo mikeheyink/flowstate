@@ -1,9 +1,8 @@
 import React, { useEffect, useRef, useState, useMemo, useCallback } from 'react';
 import { useTaskStore } from '../store/useTaskStore';
 import { useUIStore } from '../store/useUIStore';
-import { useCoachStore } from '../store/useCoachStore';
 import { Task } from '../types';
-import { CheckCircle2, ChevronRight, ChevronDown, Flag, MessageCircle } from 'lucide-react';
+import { CheckCircle2, ChevronRight, ChevronDown } from 'lucide-react';
 import { formatDate } from '../utils/nlp';
 import { SectionHeader } from './SectionHeader';
 
@@ -69,8 +68,6 @@ export const WeeklyReview: React.FC = () => {
 
     const focusMode = useUIStore((state) => state.focusMode);
     const setFocusMode = useUIStore((state) => state.setFocusMode);
-
-    const setCoachOpen = useCoachStore((state) => state.setOpen);
 
     const [expandedWeeks, setExpandedWeeks] = useState<Set<string>>(new Set());
     const [initialized, setInitialized] = useState(false);
@@ -379,16 +376,13 @@ export const WeeklyReview: React.FC = () => {
                                 {task.title}
                             </span>
 
-                            {/* Importance indicator */}
-                            {task.importantOrder && (
-                                <span className="text-xs font-bold text-amber-500" title="Was marked important">
-                                    !
-                                </span>
+                            {/* Eisenhower flags at completion time */}
+                            {task.urgent && (
+                                <span className="text-[10px] font-bold text-amber-500" title="Was urgent">U</span>
                             )}
-
-                            {/* Priority indicator */}
-                            {task.priority === 1 && <Flag className="w-3 h-3 text-red-500 shrink-0" />}
-                            {task.priority === 2 && <Flag className="w-3 h-3 text-yellow-500 shrink-0" />}
+                            {task.important && (
+                                <span className="text-[10px] font-bold text-primary-500" title="Was important">I</span>
+                            )}
 
                             {/* Completion date */}
                             {task.completedAt && (

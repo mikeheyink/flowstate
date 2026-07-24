@@ -8,6 +8,7 @@ import { toast } from './Toaster';
 
 // Modular Components & Hooks
 import { TaskItem } from './TaskList/TaskItem';
+import { QuadBoard } from './TaskList/QuadBoard';
 import { TaskListProps, VisibleTask } from './TaskList/types';
 import { useVisibleTasks } from './TaskList/useVisibleTasks';
 import { useTaskListKeyboard } from './TaskList/useTaskListKeyboard';
@@ -21,7 +22,7 @@ export const TaskList: React.FC<TaskListProps> = ({ filter }) => {
     tasks,
     focusedId, setFocusedId,
     selectedIds,
-    toggleTask, updateTask, deleteTask, toggleExpand, setExpandedAll, toggleImportance, clearImportance
+    toggleTask, updateTask, deleteTask, toggleExpand, setExpandedAll
   } = useTaskStore();
 
   const {
@@ -112,6 +113,41 @@ export const TaskList: React.FC<TaskListProps> = ({ filter }) => {
         <div className="flex gap-4 text-xs font-mono">
           <span>Hit <kbd className="bg-slate-200 dark:bg-slate-800 px-1 rounded">Enter</kbd> to add</span>
         </div>
+      </div>
+    );
+  }
+
+  // --- TODAY: the Eisenhower quad board ---
+  // No drag-and-drop here — u/i toggles move tasks between quadrants and
+  // ⌘↑/⌘↓ reorders within one; dragging across a 2×2 grid earns nothing.
+  if (filter === 'today') {
+    return (
+      <div ref={listRef} className="pb-24">
+        <QuadBoard
+          visibleTasks={visibleTasks}
+          renderRow={(task, index) => (
+            <TaskItem
+              task={task}
+              index={index}
+              isFocused={focusedId === task.id}
+              isSelected={selectedIds.includes(task.id)}
+              isCelebrating={celebratingId === task.id}
+              isEditing={editingTaskId === task.id}
+              focusMode={focusMode}
+              paddingLeft="0.5rem"
+              setFocusedId={setFocusedId}
+              setFocusMode={setFocusMode}
+              toggleExpand={toggleExpand}
+              handleToggle={handleToggle}
+              filter={filter}
+              tasks={tasks}
+              updateTask={updateTask}
+              setEditingTaskId={setEditingTaskId}
+              expandedGroups={expandedGroups}
+              toggleGroup={toggleGroup}
+            />
+          )}
+        />
       </div>
     );
   }

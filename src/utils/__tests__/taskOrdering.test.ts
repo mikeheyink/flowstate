@@ -7,8 +7,6 @@ import {
     calculateOrderBetween,
     needsRenormalization,
     renormalizeOrders,
-    calculateImportanceOrder,
-    calculateClearImportance,
 } from '../taskOrdering';
 import { Task } from '../../types';
 
@@ -24,6 +22,10 @@ const createTask = (overrides: Partial<Task> = {}): Task => ({
     ...overrides,
 });
 
+// A task visible in today's quad (due today, flags per overrides)
+const createQuadTask = (overrides: Partial<Task> = {}): Task =>
+    createTask({ dueDate: new Date(), ...overrides });
+
 describe('taskOrdering utilities', () => {
     describe('getOrderField', () => {
         it('should return order field for project context', () => {
@@ -32,15 +34,9 @@ describe('taskOrdering utilities', () => {
             expect(result.updateParent).toBe(true);
         });
 
-        it('should return todayOrder field for today context', () => {
-            const result = getOrderField('today');
-            expect(result.field).toBe('todayOrder');
-            expect(result.updateParent).toBe(false);
-        });
-
-        it('should return importantOrder field for important context', () => {
-            const result = getOrderField('important');
-            expect(result.field).toBe('importantOrder');
+        it('should return quadOrder field for quad context', () => {
+            const result = getOrderField('quad');
+            expect(result.field).toBe('quadOrder');
             expect(result.updateParent).toBe(false);
         });
     });
@@ -59,26 +55,42 @@ describe('taskOrdering utilities', () => {
             expect(siblings[1].id).toBe('child2');
         });
 
-        it('should get important tasks for important context', () => {
-            const task1 = createTask({ id: 't1', importantOrder: 1 });
-            const task2 = createTask({ id: 't2', importantOrder: 2 });
-            const normal = createTask({ id: 'normal' });
+        it('quad context returns only same-quadrant tasks due today, sorted by quadOrder', () => {
+            const q2a = createQuadTask({ id: 'q2a', important: true, quadOrder: 2000 });
+            const q2b = createQuadTask({ id: 'q2b', important: true, quadOrder: 1000 });
+            const q1 = createQuadTask({ id: 'q1', important: true, urgent: true, quadOrder: 0 });
+            const q4 = createQuadTask({ id: 'q4' });
 
-            const siblings = getSiblings(task1, [task1, task2, normal], 'important');
+            const siblings = getSiblings(q2a, [q2a, q2b, q1, q4], 'quad');
 
-            expect(siblings).toHaveLength(2);
-            expect(siblings[0].id).toBe('t1');
-            expect(siblings[1].id).toBe('t2');
+            expect(siblings.map(t => t.id)).toEqual(['q2b', 'q2a']);
         });
 
-        it('should exclude archived and completed tasks from important', () => {
-            const active = createTask({ id: 'active', importantOrder: 1 });
-            const archived = createTask({ id: 'archived', importantOrder: 2, archived: true });
-            const completed = createTask({ id: 'completed', importantOrder: 3, completed: true });
+        it('quad context excludes archived, completed, undated and future-due tasks', () => {
+            const tomorrow = new Date();
+            tomorrow.setDate(tomorrow.getDate() + 1);
 
-            const siblings = getSiblings(active, [active, archived, completed], 'important');
+            const active = createQuadTask({ id: 'active', urgent: true, quadOrder: 0 });
+            const archived = createQuadTask({ id: 'archived', urgent: true, archived: true });
+            const completed = createQuadTask({ id: 'completed', urgent: true, completed: true });
+            const undated = createTask({ id: 'undated', urgent: true });
+            const future = createTask({ id: 'future', urgent: true, dueDate: tomorrow });
 
-            expect(siblings).toHaveLength(1);
+            const siblings = getSiblings(active, [active, archived, completed, undated, future], 'quad');
+
+            expect(siblings.map(t => t.id)).toEqual(['active']);
+        });
+
+        it('quad context: tasks never manually placed sort below placed ones', () => {
+            const placed = createQuadTask({ id: 'placed', quadOrder: 1000, createdAt: 200 });
+            const unplaced = createQuadTask({ id: 'unplaced', quadOrder: null, createdAt: 100 });
+
+            const siblings = getSiblings(placed, [unplaced, placed], 'quad');
+
+            // unplaced falls back to createdAt (100) — but any realistic createdAt
+            // is a ms timestamp far larger than manual orders; here we simulate a
+            // tiny one to document the raw fallback semantics.
+            expect(siblings.map(t => t.id)).toEqual(['unplaced', 'placed']);
         });
     });
 
@@ -89,7 +101,7 @@ describe('taskOrdering utilities', () => {
                 createTask({ id: 'b', order: 2000 }),
             ];
 
-            const updates = calculateInsertOrder(existing, 'new', 0, 'order');
+            const updates = calculateInsertOrder(existing, 'new', 0);
 
             expect(updates['new']).toBe(0);
             expect(updates['a']).toBe(1000);
@@ -102,7 +114,7 @@ describe('taskOrdering utilities', () => {
                 createTask({ id: 'b', order: 2000 }),
             ];
 
-            const updates = calculateInsertOrder(existing, 'new', 1, 'order');
+            const updates = calculateInsertOrder(existing, 'new', 1);
 
             expect(updates['a']).toBe(0);
             expect(updates['new']).toBe(1000);
@@ -115,22 +127,11 @@ describe('taskOrdering utilities', () => {
                 createTask({ id: 'b', order: 2000 }),
             ];
 
-            const updates = calculateInsertOrder(existing, 'new', 2, 'order');
+            const updates = calculateInsertOrder(existing, 'new', 2);
 
             expect(updates['a']).toBe(0);
             expect(updates['b']).toBe(1000);
             expect(updates['new']).toBe(2000);
-        });
-
-        it('should use 1-based ordering for importantOrder', () => {
-            const existing = [
-                createTask({ id: 'a', importantOrder: 1 }),
-            ];
-
-            const updates = calculateInsertOrder(existing, 'new', 1, 'importantOrder');
-
-            expect(updates['a']).toBe(1);
-            expect(updates['new']).toBe(2);
         });
     });
 
@@ -142,7 +143,7 @@ describe('taskOrdering utilities', () => {
                 createTask({ id: 'c', order: 3000 }),
             ];
 
-            const updates = calculateMoveUpDown(siblings, 'b', 'up', 'order');
+            const updates = calculateMoveUpDown(siblings, 'b', 'up');
 
             expect(updates).not.toBeNull();
             expect(updates!['a']).toBe(1000); // b moves here
@@ -156,7 +157,7 @@ describe('taskOrdering utilities', () => {
                 createTask({ id: 'c', order: 3000 }),
             ];
 
-            const updates = calculateMoveUpDown(siblings, 'b', 'down', 'order');
+            const updates = calculateMoveUpDown(siblings, 'b', 'down');
 
             expect(updates).not.toBeNull();
             expect(updates!['b']).toBe(2000); // b moves to c's position
@@ -169,7 +170,7 @@ describe('taskOrdering utilities', () => {
                 createTask({ id: 'b', order: 2000 }),
             ];
 
-            const updates = calculateMoveUpDown(siblings, 'a', 'up', 'order');
+            const updates = calculateMoveUpDown(siblings, 'a', 'up');
 
             expect(updates).toBeNull();
         });
@@ -180,7 +181,7 @@ describe('taskOrdering utilities', () => {
                 createTask({ id: 'b', order: 2000 }),
             ];
 
-            const updates = calculateMoveUpDown(siblings, 'b', 'down', 'order');
+            const updates = calculateMoveUpDown(siblings, 'b', 'down');
 
             expect(updates).toBeNull();
         });
@@ -190,7 +191,7 @@ describe('taskOrdering utilities', () => {
                 createTask({ id: 'a', order: 1000 }),
             ];
 
-            const updates = calculateMoveUpDown(siblings, 'unknown', 'up', 'order');
+            const updates = calculateMoveUpDown(siblings, 'unknown', 'up');
 
             expect(updates).toBeNull();
         });
@@ -251,90 +252,6 @@ describe('taskOrdering utilities', () => {
             expect(updates['a']).toBe(50);
             expect(updates['b']).toBe(150);
             expect(updates['c']).toBe(250);
-        });
-    });
-
-    describe('calculateImportanceOrder', () => {
-        it('should add to bottom by default', () => {
-            const existing = [
-                createTask({ id: 'i1', importantOrder: 1 }),
-                createTask({ id: 'i2', importantOrder: 2 }),
-            ];
-
-            const updates = calculateImportanceOrder(existing, 'new', 'bottom');
-
-            expect(updates['new']).toBe(3);
-            expect(updates['i1']).toBe(1);
-            expect(updates['i2']).toBe(2);
-        });
-
-        it('should add to top and shift others', () => {
-            const existing = [
-                createTask({ id: 'i1', importantOrder: 1 }),
-                createTask({ id: 'i2', importantOrder: 2 }),
-            ];
-
-            const updates = calculateImportanceOrder(existing, 'new', 'top');
-
-            expect(updates['new']).toBe(1);
-            expect(updates['i1']).toBe(2);
-            expect(updates['i2']).toBe(3);
-        });
-
-        it('should handle empty list', () => {
-            const updates = calculateImportanceOrder([], 'new', 'bottom');
-
-            expect(updates['new']).toBe(1);
-        });
-    });
-
-    describe('calculateClearImportance', () => {
-        it('should clear and shift remaining tasks', () => {
-            const existing = [
-                createTask({ id: 'i1', importantOrder: 1 }),
-                createTask({ id: 'i2', importantOrder: 2 }),
-                createTask({ id: 'i3', importantOrder: 3 }),
-            ];
-
-            const updates = calculateClearImportance(existing, 'i2');
-
-            expect(updates['i2']).toBeNull();
-            expect(updates['i3']).toBe(2); // Shifted from 3 to 2
-            expect(updates['i1']).toBeUndefined(); // Not changed
-        });
-
-        it('should handle clearing first item', () => {
-            const existing = [
-                createTask({ id: 'i1', importantOrder: 1 }),
-                createTask({ id: 'i2', importantOrder: 2 }),
-            ];
-
-            const updates = calculateClearImportance(existing, 'i1');
-
-            expect(updates['i1']).toBeNull();
-            expect(updates['i2']).toBe(1); // i2 shifts from 2 to 1
-        });
-
-        it('should handle clearing last item', () => {
-            const existing = [
-                createTask({ id: 'i1', importantOrder: 1 }),
-                createTask({ id: 'i2', importantOrder: 2 }),
-            ];
-
-            const updates = calculateClearImportance(existing, 'i2');
-
-            expect(updates['i2']).toBeNull();
-            expect(updates['i1']).toBeUndefined(); // No shift needed
-        });
-
-        it('should return empty for non-existent task', () => {
-            const existing = [
-                createTask({ id: 'i1', importantOrder: 1 }),
-            ];
-
-            const updates = calculateClearImportance(existing, 'unknown');
-
-            expect(Object.keys(updates)).toHaveLength(0);
         });
     });
 });

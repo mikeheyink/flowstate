@@ -4,6 +4,7 @@ import { useTaskStore } from '../store/useTaskStore';
 import { useMailStore, filterEmails } from '../store/useMailStore';
 import { toast } from '../components/Toaster';
 import { useHabitStore } from '../store/useHabitStore';
+import { setGChordPending, markKeyConsumed } from '../utils/keyChord';
 
 export function useHotkeys() {
     const {
@@ -130,21 +131,28 @@ export function useHotkeys() {
             // preventDefault stops the browser navigating history.
             if (isCmd && (key === '[' || key === ']')) {
                 e.preventDefault();
-                const sections = ['tasks', 'habits'] as const;
+                const sections = ['tasks', 'habits', 'objectives'] as const;
+                const labels: Record<string, string> = { tasks: 'Tasks', habits: 'Habits', objectives: 'Objectives' };
                 const cur = Math.max(0, sections.indexOf(uiState.currentView as any));
                 const next = key === ']'
                     ? (cur + 1) % sections.length
                     : (cur - 1 + sections.length) % sections.length;
                 setCurrentView(sections[next]);
-                toast(sections[next] === 'habits' ? 'Habits' : 'Tasks');
+                toast(labels[sections[next]]);
                 return;
             }
 
             // G-Chord Navigation (Global)
+            // The shared pending/consumed flags (keyChord.ts) stop the chord's
+            // second key from also firing single-letter task actions (u/i).
             if (key === 'g' && !isCmd && !gPressed) {
                 setGPressed(true);
+                setGChordPending(true);
                 if (gTimeoutRef.current) clearTimeout(gTimeoutRef.current);
-                gTimeoutRef.current = window.setTimeout(() => setGPressed(false), 500);
+                gTimeoutRef.current = window.setTimeout(() => {
+                    setGPressed(false);
+                    setGChordPending(false);
+                }, 500);
                 return;
             }
 
@@ -153,11 +161,14 @@ export function useHotkeys() {
             // the same verb ("go to"), so it never collides with [ / ] tab cycling.
             if (gPressed) {
                 setGPressed(false);
+                setGChordPending(false);
+                markKeyConsumed(e);
                 if (key === 'i') { setCurrentView('tasks'); setFilter('active'); toast('Tasks · Plan'); }
                 else if (key === 't') { setCurrentView('tasks'); setFilter('today'); toast('Tasks · Today'); }
                 else if (key === 'u') { setCurrentView('tasks'); setFilter('upcoming'); toast('Tasks · Upcoming'); }
                 else if (key === 'r') { setCurrentView('tasks'); setFilter('review'); toast('Tasks · Review'); }
                 else if (key === 'h') { setCurrentView('habits'); toast('Habits'); }
+                else if (key === 'o') { setCurrentView('objectives'); toast('Objectives'); }
                 return;
             }
 
@@ -187,17 +198,15 @@ export function useHotkeys() {
             // ----------------------------------------------------------------
             if (uiState.currentView === 'tasks') {
 
-                // Quick Add
+                // Quick Add.
+                // The list views (Inbox/Today/Upcoming) own Enter via
+                // useTaskListKeyboard — it has the focused row + day-group context
+                // and sets the inherited due date / importance. Handling Enter here
+                // too would clobber that with a context-free open, so we only act in
+                // views where that hook isn't mounted (Weekly Review).
                 if (key === 'enter' && !isCmd && !isAlt && !isShift) {
+                    if (uiState.filter !== 'review') return; // TaskList handles it
                     e.preventDefault();
-                    // Context-aware add
-                    if (taskState.focusedId && uiState.focusMode === 'main') {
-                        const task = taskState.tasks.find(t => t.id === taskState.focusedId);
-                        if (task) {
-                            setQuickAddOpen(true, task.parentId || null, 'create', taskState.focusedId);
-                            return;
-                        }
-                    }
                     setQuickAddOpen(true);
                     return;
                 }

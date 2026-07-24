@@ -1,7 +1,7 @@
 import React from 'react';
 import { motion, useMotionValue, useTransform } from 'framer-motion';
-import { CheckCircle2, Circle, Calendar, Hash, Flag, ChevronRight, ChevronDown, GripVertical } from 'lucide-react';
-import { Task, Priority } from '../../types';
+import { CheckCircle2, Circle, Calendar, Hash, ChevronRight, ChevronDown, GripVertical } from 'lucide-react';
+import { Task } from '../../types';
 import { FocusMode } from '../../store/useUIStore';
 import { formatDate } from '../../utils/nlp';
 import { SectionHeader } from '../SectionHeader';
@@ -9,13 +9,29 @@ import { InlineEdit } from './InlineEdit';
 import { DragState, VisibleTask } from './types';
 import { useIsMobile } from '../../hooks/useIsMobile';
 
-const PriorityIcon = ({ priority }: { priority: Priority }) => {
-    switch (priority) {
-        case 1: return <Flag className="w-4 h-4 text-red-500 fill-red-500/20" />;
-        case 2: return <Flag className="w-4 h-4 text-yellow-500 fill-yellow-500/20" />;
-        case 3: return <Flag className="w-4 h-4 text-blue-500 fill-blue-500/20" />;
-        default: return null;
-    }
+/**
+ * Eisenhower flag chip ("U" amber / "I" iris).
+ * At rest a chip renders only when its flag is ON — hundreds of unflagged Plan
+ * rows stay perfectly clean. On the *focused* row both chips render, unset ones
+ * as faint outlines, so the full toggle state is visible exactly at the moment
+ * of decision (u/i work from any view).
+ */
+const FlagChip = ({ kind, on }: { kind: 'urgent' | 'important'; on: boolean }) => {
+    const palette = kind === 'urgent'
+        ? (on
+            ? 'bg-amber-500/15 text-amber-600 dark:text-amber-400'
+            : 'border border-amber-500/30 text-amber-500/50 dark:text-amber-400/40')
+        : (on
+            ? 'bg-primary-500/15 text-primary-600 dark:text-primary-400'
+            : 'border border-primary-500/30 text-primary-500/50 dark:text-primary-400/40');
+    return (
+        <span
+            className={`inline-flex items-center justify-center w-[18px] h-[18px] rounded text-[10px] font-bold leading-none ${palette}`}
+            title={kind === 'urgent' ? 'Urgent (U)' : 'Important (I)'}
+        >
+            {kind === 'urgent' ? 'U' : 'I'}
+        </span>
+    );
 };
 
 // Build full parent path string (e.g., "Project > Feature > Subtask")
@@ -212,7 +228,6 @@ export const TaskItem: React.FC<TaskItemProps> = ({
                                     <span className={`text-[14.5px] font-medium truncate ${task.completed ? 'text-slate-400 line-through decoration-success-500/70' : 'text-slate-900 dark:text-slate-100'}`}>
                                         {task.title}
                                     </span>
-                                    <PriorityIcon priority={task.priority} />
                                     {task.hasChildren && (
                                         <button
                                             onClick={(e) => {
@@ -259,6 +274,26 @@ export const TaskItem: React.FC<TaskItemProps> = ({
 
                     </div>
                 </div>
+
+                {/* Eisenhower flags, right-aligned. Mobile gets compact dots
+                    (space is tight); desktop gets the U/I chips. */}
+                {!isEditing && (
+                    isMobile ? (
+                        (task.urgent || task.important) && (
+                            <div className="flex items-center gap-1 ml-2 flex-shrink-0">
+                                {task.urgent && <span className="w-1.5 h-1.5 rounded-full bg-amber-500" />}
+                                {task.important && <span className="w-1.5 h-1.5 rounded-full bg-primary-500" />}
+                            </div>
+                        )
+                    ) : (
+                        (task.urgent || task.important || isFocused) && (
+                            <div className="flex items-center gap-1 ml-2 flex-shrink-0">
+                                {(task.urgent || isFocused) && <FlagChip kind="urgent" on={!!task.urgent} />}
+                                {(task.important || isFocused) && <FlagChip kind="important" on={!!task.important} />}
+                            </div>
+                        )
+                    )
+                )}
             </motion.div>
         </div>
     );

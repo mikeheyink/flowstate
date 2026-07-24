@@ -3,6 +3,9 @@ import { useTaskStore } from '../../store/useTaskStore';
 import { useUIStore } from '../../store/useUIStore';
 import { toast } from '../Toaster';
 import { VisibleTask } from './types';
+import { getCreationDefaults, ViewFilter } from '../../utils/taskSort';
+import { QUADRANTS, quadrantFlags } from '../../utils/quad';
+import { isGChordPending, isKeyConsumed } from '../../utils/keyChord';
 // Hotkeys are centrally defined in utils/hotkeys.ts
 // This handler implements the actual key bindings - keep in sync with registry
 
@@ -37,8 +40,8 @@ export function useTaskListKeyboard({
         batchChangeParent,
         batchComplete,
         batchMove,
-        toggleImportance,
-        clearImportance,
+        toggleUrgent,
+        toggleImportant,
         selectTask,
         clearSelection,
         pushTodayToTomorrow,
@@ -57,6 +60,10 @@ export function useTaskListKeyboard({
             if (focusMode !== 'main') return;
             if (editingTaskIdRef.current) return;
             if (document.activeElement?.tagName === 'INPUT' || document.activeElement?.tagName === 'TEXTAREA') return;
+            // A pending/resolving g-chord ("g then i" → go to Inbox) owns the next
+            // keypress — without this, the chord's second key would also fire the
+            // single-letter actions below (i = toggle Important, u = Urgent).
+            if (isKeyConsumed(e) || isGChordPending()) return;
 
             const currentTasks = visibleTasksRef.current;
             const currentId = focusedIdRef.current;
@@ -123,8 +130,9 @@ export function useTaskListKeyboard({
                         // Skip reordering in Upcoming view — order is determined by date
                         if (filter === 'upcoming') return;
 
-                        const isToday = filter === 'today';
-                        const context = isToday ? 'today' : 'project';
+                        // In Today, ⌘↓ moves within the current quadrant (stops at
+                        // its edge — flags are the only way to cross quadrants).
+                        const context = filter === 'today' ? 'quad' : 'project';
                         // Move the whole selection together when multiple are selected.
                         if (currentSelectedIds.length > 1) {
                             batchMove('down', { context });
@@ -160,8 +168,7 @@ export function useTaskListKeyboard({
                         // Skip reordering in Upcoming view — order is determined by date
                         if (filter === 'upcoming') return;
 
-                        const isToday = filter === 'today';
-                        const context = isToday ? 'today' : 'project';
+                        const context = filter === 'today' ? 'quad' : 'project';
                         // Move the whole selection together when multiple are selected.
                         if (currentSelectedIds.length > 1) {
                             batchMove('up', { context });
@@ -212,15 +219,48 @@ export function useTaskListKeyboard({
                         }
                     }
                     break;
-                case 'enter':
-                    if (currentTask && currentTask.isHeader && toggleGroup) {
-                        e.preventDefault();
-                        toggleGroup(currentTask.id);
-                        return;
+                case 'enter': {
+                    const viewFilter = filter as ViewFilter;
+                    if (currentTask && currentTask.isHeader) {
+                        // In Upcoming, a day-group header stands for a concrete day —
+                        // Enter adds a task due that day. (Arrows / click still toggle.)
+                        if (viewFilter === 'upcoming' && currentTask.bucketDate) {
+                            e.preventDefault();
+                            const defaults = getCreationDefaults(viewFilter, { dueDate: currentTask.bucketDate });
+                            setQuickAddOpen(true, null, 'create', null, defaults);
+                            return;
+                        }
+                        // In Today, a quadrant header stands for its flags — Enter
+                        // adds a task due today, landing in that quadrant.
+                        const quad = QUADRANTS.find(q => q.headerId === currentTask.id);
+                        if (viewFilter === 'today' && quad) {
+                            e.preventDefault();
+                            const defaults = getCreationDefaults(viewFilter, quadrantFlags(quad.key));
+                            setQuickAddOpen(true, null, 'create', null, defaults);
+                            return;
+                        }
+                        if (toggleGroup) {
+                            e.preventDefault();
+                            toggleGroup(currentTask.id);
+                            return;
+                        }
                     }
-                    if (isCmd) { if (currentId) setQuickAddOpen(true, currentId); }
-                    else { if (currentId) setQuickAddOpen(true, currentTask.parentId || null, 'create', currentId); else setQuickAddOpen(true); }
+                    if (isCmd) {
+                        // Subtask under the focused row — inherits its day/importance
+                        // the same way a sibling would.
+                        if (currentId) setQuickAddOpen(true, currentId, 'create', null, getCreationDefaults(viewFilter, currentTask));
+                    }
+                    else if (currentId) {
+                        // New task inherits the focused row's day / importance.
+                        const defaults = getCreationDefaults(viewFilter, currentTask);
+                        setQuickAddOpen(true, currentTask.parentId || null, 'create', currentId, defaults);
+                    } else {
+                        // Empty / nothing focused (e.g. an empty Today list) — still
+                        // inherit the view's default (today in Today).
+                        setQuickAddOpen(true, null, 'create', null, getCreationDefaults(viewFilter, null));
+                    }
                     break;
+                }
                 case 'tab':
                     e.preventDefault();
                     if (currentSelectedIds.length > 1) {
@@ -294,18 +334,35 @@ export function useTaskListKeyboard({
                 case 'o':
                     if (isCmd && currentId) { e.preventDefault(); const text = (currentTask.title + " " + (currentTask.notes || "")); const match = text.match(/(https?:\/\/[^\s]+)/g); if (match && match[0]) window.open(match[0], '_blank'); }
                     break;
-                case '1':
-                    if (currentId && !editingTaskIdRef.current) {
+                // Eisenhower flags — work in every task view, not just Today.
+                // Toggling moves the task to the top of its new quadrant; focus
+                // stays on the task (it's tracked by id), so it follows the move.
+                case 'u':
+                    if (!isCmd && !isAlt && currentId && !currentTask?.isHeader) {
                         e.preventDefault();
-                        toggleImportance(currentId);
+                        if (currentSelectedIds.length > 1) currentSelectedIds.forEach(id => toggleUrgent(id));
+                        else toggleUrgent(currentId);
                     }
                     break;
-                case '0':
-                    if (currentId && !editingTaskIdRef.current) {
+                case 'i':
+                    if (!isCmd && !isAlt && currentId && !currentTask?.isHeader) {
                         e.preventDefault();
-                        clearImportance(currentId);
+                        if (currentSelectedIds.length > 1) currentSelectedIds.forEach(id => toggleImportant(id));
+                        else toggleImportant(currentId);
                     }
                     break;
+                // 1–4: jump focus to a quadrant in the Today board (its first
+                // task, or the header itself when it's empty).
+                case '1': case '2': case '3': case '4': {
+                    if (filter !== 'today' || isCmd || isAlt) break;
+                    e.preventDefault();
+                    const quad = QUADRANTS[parseInt(key, 10) - 1];
+                    const headerIdx = currentTasks.findIndex(t => t.id === quad.headerId);
+                    if (headerIdx === -1) break;
+                    const firstTask = currentTasks[headerIdx + 1];
+                    navigate(firstTask && !firstTask.isHeader ? headerIdx + 1 : headerIdx);
+                    break;
+                }
             }
         };
 
@@ -315,7 +372,7 @@ export function useTaskListKeyboard({
         focusMode, filter, expandedGroups, tasks,
         setFocusedId, toggleTask, archiveTask, toggleExpand, setExpandedAll,
         changeParent, batchChangeParent, batchComplete, batchMove,
-        toggleImportance, clearImportance, setFocusMode, setQuickAddOpen,
+        toggleUrgent, toggleImportant, setFocusMode, setQuickAddOpen,
         selectTask, clearSelection, setEditingTaskId,
         pushTodayToTomorrow, requestComplete
     ]);

@@ -1,5 +1,5 @@
 import React from 'react';
-import { Inbox, Calendar as CalendarIcon, CalendarClock, ClipboardList, Flame } from 'lucide-react';
+import { Inbox, Calendar as CalendarIcon, CalendarClock, ClipboardList, Flame, Compass } from 'lucide-react';
 import { useUIStore } from '../store/useUIStore';
 import { useTaskStore } from '../store/useTaskStore';
 
@@ -9,7 +9,8 @@ import { useTaskStore } from '../store/useTaskStore';
 // so desktop is completely untouched.
 type Dest =
     | { kind: 'task'; filter: 'active' | 'today' | 'upcoming' | 'review'; label: string; Icon: React.ComponentType<any> }
-    | { kind: 'habits'; label: string; Icon: React.ComponentType<any> };
+    | { kind: 'habits'; label: string; Icon: React.ComponentType<any> }
+    | { kind: 'objectives'; label: string; Icon: React.ComponentType<any> };
 
 const DESTS: Dest[] = [
     { kind: 'task', filter: 'today', label: 'Today', Icon: CalendarIcon },
@@ -17,6 +18,7 @@ const DESTS: Dest[] = [
     { kind: 'task', filter: 'upcoming', label: 'Upcoming', Icon: CalendarClock },
     { kind: 'task', filter: 'review', label: 'Review', Icon: ClipboardList },
     { kind: 'habits', label: 'Habits', Icon: Flame },
+    { kind: 'objectives', label: 'Values', Icon: Compass },
 ];
 
 export function MobileNav() {
@@ -25,6 +27,8 @@ export function MobileNav() {
     const go = (dest: Dest) => {
         if (dest.kind === 'habits') {
             setCurrentView('habits');
+        } else if (dest.kind === 'objectives') {
+            setCurrentView('objectives');
         } else {
             setCurrentView('tasks');
             setFilter(dest.filter);
@@ -37,7 +41,9 @@ export function MobileNav() {
     const isActive = (dest: Dest) =>
         dest.kind === 'habits'
             ? currentView === 'habits'
-            : currentView === 'tasks' && filter === dest.filter;
+            : dest.kind === 'objectives'
+                ? currentView === 'objectives'
+                : currentView === 'tasks' && filter === dest.filter;
 
     return (
         <nav

@@ -32,6 +32,8 @@ export const HOTKEYS: Hotkey[] = [
     { id: 'go-today', keys: 'g then t', description: 'Go to Today', category: 'navigation' },
     { id: 'go-upcoming', keys: 'g then u', description: 'Go to Upcoming', category: 'navigation' },
     { id: 'go-review', keys: 'g then r', description: 'Go to Review', category: 'navigation' },
+    { id: 'go-habits', keys: 'g then h', description: 'Go to Habits', category: 'navigation' },
+    { id: 'go-objectives', keys: 'g then o', description: 'Go to Objectives', category: 'navigation' },
     { id: 'move-task-down', keys: '⌘↓', description: 'Move Task Down', category: 'navigation', context: 'task-focused' },
     { id: 'move-task-up', keys: '⌘↑', description: 'Move Task Up', category: 'navigation', context: 'task-focused' },
     { id: 'expand', keys: '→', description: 'Expand', category: 'navigation', context: 'task-focused' },
@@ -53,8 +55,9 @@ export const HOTKEYS: Hotkey[] = [
     { id: 'set-date', keys: 'D', description: 'Set Due Date', category: 'organization', context: 'task-focused', showInPalette: true },
     { id: 'push-tomorrow', keys: '⇧T', description: 'Push Today’s Tasks to Tomorrow', category: 'organization' },
     { id: 'add-tags', keys: 'L', description: 'Add Tags', category: 'organization', context: 'task-focused', showInModal: false }, // Not implemented yet
-    { id: 'toggle-importance', keys: '1', description: 'Mark as Important', category: 'organization', context: 'task-with-date', showInPalette: true },
-    { id: 'clear-importance', keys: '0', description: 'Clear Importance', category: 'organization', context: 'task-with-date', showInPalette: true },
+    { id: 'toggle-urgent', keys: 'U', description: 'Toggle Urgent', category: 'organization', context: 'task-focused', showInPalette: true },
+    { id: 'toggle-important', keys: 'I', description: 'Toggle Important', category: 'organization', context: 'task-focused', showInPalette: true },
+    { id: 'quad-jump', keys: '1–4', description: 'Jump to Quadrant (Today)', category: 'navigation' },
 
     // === Editing ===
     { id: 'edit-title', keys: 'E', description: 'Edit Title', category: 'editing', context: 'task-focused' },
@@ -108,8 +111,8 @@ export function getHotkeySections(): { title: string; category: HotkeyCategory; 
 export function getHotkeyModalGroups(): { title: string; items: Hotkey[] }[] {
     const groups: { title: string; ids: string[] }[] = [
         { title: 'Most used', ids: ['new-task', 'complete', 'nav-down', 'nav-up', 'edit-title', 'set-date', 'delete', 'cmd-palette'] },
-        { title: 'Organize', ids: ['indent', 'outdent', 'move-task-up', 'move-task-down', 'toggle-importance', 'clear-importance', 'push-tomorrow'] },
-        { title: 'Navigate', ids: ['nav-sidebar', 'expand', 'collapse', 'expand-all', 'collapse-all'] },
+        { title: 'Organize', ids: ['toggle-urgent', 'toggle-important', 'indent', 'outdent', 'move-task-up', 'move-task-down', 'push-tomorrow'] },
+        { title: 'Navigate', ids: ['quad-jump', 'nav-sidebar', 'expand', 'collapse', 'expand-all', 'collapse-all'] },
         { title: 'Create & history', ids: ['new-subtask', 'batch-add', 'open-links', 'undo', 'redo', 'shortcuts-modal'] },
     ];
     return groups.map(g => ({
@@ -165,8 +168,8 @@ export function getHotkeyModalGroupsByView(view: 'tasks' | 'mail' | 'habits'): {
     // Tasks view (default)
     return [
         { title: 'Most used', items: resolve(['new-task', 'complete', 'nav-down', 'nav-up', 'edit-title', 'set-date', 'delete', 'cmd-palette']) },
-        { title: 'Organize', items: resolve(['indent', 'outdent', 'move-task-up', 'move-task-down', 'toggle-importance', 'clear-importance', 'push-tomorrow']) },
-        { title: 'Get around', items: resolve(['nav-section', 'nav-sidebar', 'go-inbox', 'go-today', 'go-upcoming', 'go-review', 'expand', 'collapse']) },
+        { title: 'Organize', items: resolve(['toggle-urgent', 'toggle-important', 'indent', 'outdent', 'move-task-up', 'move-task-down', 'push-tomorrow']) },
+        { title: 'Get around', items: resolve(['quad-jump', 'nav-section', 'nav-sidebar', 'go-inbox', 'go-today', 'go-upcoming', 'go-review', 'go-habits', 'go-objectives', 'expand', 'collapse']) },
         { title: 'Create & history', items: resolve(['new-subtask', 'batch-add', 'open-links', 'undo', 'redo', 'shortcuts-modal']) },
     ];
 }

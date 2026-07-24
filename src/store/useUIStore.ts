@@ -3,7 +3,12 @@ import { persist } from 'zustand/middleware';
 
 export type FocusMode = 'sidebar' | 'main';
 export type QuickAddMode = 'create' | 'date' | 'tag';
-export type CurrentView = 'tasks' | 'mail' | 'habits';
+export interface QuickAddDefaults {
+  dueDate?: Date | null;
+  important?: boolean;
+  urgent?: boolean;
+}
+export type CurrentView = 'tasks' | 'mail' | 'habits' | 'objectives';
 export type HabitView = 'grid' | 'checklist' | 'analytics';
 
 interface UIState {
@@ -13,6 +18,9 @@ interface UIState {
   quickAddParentId: string | null;
   quickAddMode: QuickAddMode;
   quickAddTaskId: string | null;
+  // Field values a task created via Quick Add should inherit from the view/row it
+  // was opened from (due date, importance). Null when there's nothing to inherit.
+  quickAddDefaults: QuickAddDefaults | null;
   editingTaskId: string | null;
   filter: 'active' | 'today' | 'upcoming' | 'review';
   focusMode: FocusMode;
@@ -25,12 +33,20 @@ interface UIState {
   // modal is up and suppress grid navigation behind it.
   habitForm: { open: boolean; editingId: string | null };
 
+  // Daily soft-start: on the first open of each day the app shows the
+  // Objectives page once; any key/tap dismisses to Today. Silent by design —
+  // this is the one values-touchpoint, not a notification.
+  lastSoftStartDate: string | null; // local YYYY-MM-DD of the last shown soft start
+  softStartActive: boolean; // transient — never persisted
+  beginSoftStart: (today: string) => void;
+  dismissSoftStart: () => void;
+
   // UI-only expansion state for headers
   expandedGroups: Set<string>;
   toggleGroup: (id: string) => void;
 
   setCmdOpen: (open: boolean) => void;
-  setQuickAddOpen: (open: boolean, parentId?: string | null, mode?: QuickAddMode, taskId?: string | null) => void;
+  setQuickAddOpen: (open: boolean, parentId?: string | null, mode?: QuickAddMode, taskId?: string | null, defaults?: QuickAddDefaults | null) => void;
   setShortcutsOpen: (open: boolean) => void;
   setEditingTaskId: (id: string | null) => void;
   setFilter: (filter: 'active' | 'today' | 'upcoming' | 'review') => void;
@@ -58,6 +74,7 @@ export const useUIStore = create<UIState>()(
   quickAddParentId: null,
   quickAddMode: 'create',
   quickAddTaskId: null,
+  quickAddDefaults: null,
   editingTaskId: null,
   filter: 'today',
   focusMode: 'main',
@@ -65,6 +82,20 @@ export const useUIStore = create<UIState>()(
   habitView: 'grid',
   globalHabitGoal: 80,
   habitForm: { open: false, editingId: null },
+
+  lastSoftStartDate: null,
+  softStartActive: false,
+  beginSoftStart: (today) => set({
+    softStartActive: true,
+    lastSoftStartDate: today,
+    currentView: 'objectives',
+  }),
+  dismissSoftStart: () => set({
+    softStartActive: false,
+    currentView: 'tasks',
+    filter: 'today',
+    focusMode: 'main',
+  }),
 
   expandedGroups: new Set(['header-important', 'header-outstanding']),
   toggleGroup: (id) => set((state) => {
@@ -75,8 +106,8 @@ export const useUIStore = create<UIState>()(
   }),
 
   setCmdOpen: (open) => set({ isCmdOpen: open }),
-  setQuickAddOpen: (open, parentId = null, mode = 'create', taskId = null) =>
-    set({ isQuickAddOpen: open, quickAddParentId: parentId, quickAddMode: mode, quickAddTaskId: taskId }),
+  setQuickAddOpen: (open, parentId = null, mode = 'create', taskId = null, defaults = null) =>
+    set({ isQuickAddOpen: open, quickAddParentId: parentId, quickAddMode: mode, quickAddTaskId: taskId, quickAddDefaults: defaults }),
   setShortcutsOpen: (open) => set({ isShortcutsOpen: open }),
   setEditingTaskId: (id) => set({ editingTaskId: id }),
   setFilter: (filter) => set({ filter }),
@@ -111,6 +142,7 @@ export const useUIStore = create<UIState>()(
         filter: state.filter,
         habitView: state.habitView,
         globalHabitGoal: state.globalHabitGoal,
+        lastSoftStartDate: state.lastSoftStartDate,
       }),
     }
   )

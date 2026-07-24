@@ -1,10 +1,10 @@
 import React, { useEffect, useState } from 'react';
-import { Search, Plus, Trash2, CheckCircle, SunMoon, MessageCircle, Calendar, CalendarClock, Star, StarOff, Edit3, Undo, Redo, ClipboardList, Flame } from 'lucide-react';
+import { Search, Plus, Trash2, CheckCircle, SunMoon, Calendar, CalendarClock, Star, Zap, Edit3, Undo, Redo, ClipboardList, Flame, Compass } from 'lucide-react';
 import { useTaskStore } from '../store/useTaskStore';
 import { useHabitStore } from '../store/useHabitStore';
 import { useUIStore } from '../store/useUIStore';
-import { useCoachStore } from '../store/useCoachStore';
 import { getHotkeyById } from '../utils/hotkeys';
+import { getCreationDefaults } from '../utils/taskSort';
 import { toast } from './Toaster';
 
 interface Action {
@@ -20,8 +20,7 @@ export const CommandPalette: React.FC<{ isOpen: boolean; onClose: () => void }> 
   const [query, setQuery] = useState('');
   const [selectedIndex, setSelectedIndex] = useState(0);
   const { currentView, filter, setCurrentView, setQuickAddOpen, setEditingTaskId, openNewHabit } = useUIStore();
-  const { tasks, focusedId, toggleTask, archiveTask, toggleImportance, clearImportance, undo, redo, pushTodayToTomorrow } = useTaskStore();
-  const setCoachOpen = useCoachStore((state) => state.setOpen);
+  const { tasks, focusedId, toggleTask, archiveTask, toggleUrgent, toggleImportant, undo, redo, pushTodayToTomorrow } = useTaskStore();
 
   // Build actions list - context-dependent
   const actions: Action[] = [];
@@ -60,27 +59,23 @@ export const CommandPalette: React.FC<{ isOpen: boolean; onClose: () => void }> 
           section: 'Task'
         });
 
-        if (task.dueDate) {
-          if (!task.importantOrder) {
-            actions.push({
-              id: 'toggle-importance',
-              title: 'Mark Important',
-              icon: <Star className="w-4 h-4" />,
-              shortcut: getHotkeyById('toggle-importance')?.keys,
-              perform: () => toggleImportance(focusedId),
-              section: 'Task'
-            });
-          } else {
-            actions.push({
-              id: 'clear-importance',
-              title: 'Unmark Important',
-              icon: <StarOff className="w-4 h-4" />,
-              shortcut: getHotkeyById('clear-importance')?.keys,
-              perform: () => clearImportance(focusedId),
-              section: 'Task'
-            });
-          }
-        }
+        // Eisenhower flags — manual, independent of due date.
+        actions.push({
+          id: 'toggle-urgent',
+          title: task.urgent ? 'Unmark Urgent' : 'Mark Urgent',
+          icon: <Zap className="w-4 h-4" />,
+          shortcut: getHotkeyById('toggle-urgent')?.keys,
+          perform: () => toggleUrgent(focusedId),
+          section: 'Task'
+        });
+        actions.push({
+          id: 'toggle-important',
+          title: task.important ? 'Unmark Important' : 'Mark Important',
+          icon: <Star className="w-4 h-4" />,
+          shortcut: getHotkeyById('toggle-important')?.keys,
+          perform: () => toggleImportant(focusedId),
+          section: 'Task'
+        });
 
         actions.push({
           id: 'delete-task',
@@ -108,22 +103,20 @@ export const CommandPalette: React.FC<{ isOpen: boolean; onClose: () => void }> 
       });
     }
 
-    // Create new task
+    // Create new task — mirror the Enter-key behavior: land next to the focused
+    // row and inherit the view's context (due today in Today, the focused row's
+    // day in Upcoming, plus its importance) instead of opening context-free.
     actions.push({
       id: 'new-task',
       title: 'New Task',
       icon: <Plus className="w-4 h-4" />,
       shortcut: getHotkeyById('new-task')?.keys,
-      perform: () => setQuickAddOpen(true),
+      perform: () => {
+        const focusedTask = focusedId ? tasks.find(t => t.id === focusedId) ?? null : null;
+        const defaults = getCreationDefaults(filter, focusedTask);
+        setQuickAddOpen(true, focusedTask?.parentId ?? null, 'create', focusedTask?.id ?? null, defaults);
+      },
       section: 'Create'
-    });
-
-    actions.push({
-      id: 'review-coach',
-      title: 'Review with Coach',
-      icon: <MessageCircle className="w-4 h-4" />,
-      perform: () => setCoachOpen(true),
-      section: 'Tools'
     });
 
   } else if (currentView === 'habits') {
@@ -155,8 +148,18 @@ export const CommandPalette: React.FC<{ isOpen: boolean; onClose: () => void }> 
       id: 'go-habits',
       title: 'Go to Habits',
       icon: <Flame className="w-4 h-4" />,
-      shortcut: '⌘]',
+      shortcut: 'g h',
       perform: () => setCurrentView('habits'),
+      section: 'Go to'
+    });
+  }
+  if (currentView !== 'objectives') {
+    actions.push({
+      id: 'go-objectives',
+      title: 'Go to Objectives',
+      icon: <Compass className="w-4 h-4" />,
+      shortcut: 'g o',
+      perform: () => setCurrentView('objectives'),
       section: 'Go to'
     });
   }
