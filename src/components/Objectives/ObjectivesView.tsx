@@ -3,17 +3,18 @@ import { Plus } from 'lucide-react';
 import { useObjectiveStore } from '../../store/useObjectiveStore';
 import { useUIStore } from '../../store/useUIStore';
 import { Objective } from '../../types';
+import { MiniMarkdown } from '../../utils/miniMarkdown';
 
 /**
- * The Objectives page — the "why" layer. Deliberately calm and read-mostly:
- * a page you *return to*, not a dashboard. Once a day it doubles as the
- * soft-start screen (any key dismisses to Today).
+ * The Objectives page — the "why" layer. Calm and read-mostly: a page you
+ * *return to*. Two modes:
+ *  - Normal: title + always-visible essence + markdown detail; inline editing.
+ *  - Soft-start (once a day): a stripped, meditative view — just the five
+ *    essences, no chrome. Any key/tap dismisses to Today (handled in App).
  *
- * Keyboard: ↑/↓ move between objectives · E or Enter edit · Esc done ·
- * ⌘↑/⌘↓ reorder · A add.
+ * Keyboard (normal mode): ↑/↓ move · E/Enter edit · Esc done · ⌘↑/⌘↓ reorder · A add.
  */
 
-// Palette offered when adding a new objective (cycles).
 const NEW_OBJECTIVE_COLORS = ['#0EA5E9', '#F43F5E', '#10B981', '#F59E0B', '#8B5CF6', '#6674E4'];
 
 export function ObjectivesView() {
@@ -34,14 +35,13 @@ export function ObjectivesView() {
     const editingRef = useRef<string | null>(null);
     useEffect(() => { editingRef.current = editingId; }, [editingId]);
 
-    // Guest sessions never run fetchObjectives, so seed from here too.
     useEffect(() => { seedIfEmpty(); }, [seedIfEmpty]);
 
     useEffect(() => {
         const handleKeyDown = (e: KeyboardEvent) => {
             if (softStartActive) return; // the soft-start dismiss handler owns keys
             if (isAnyOverlayOpen()) return;
-            if (editingRef.current) return; // inputs own their keys while editing
+            if (editingRef.current) return;
             if (document.activeElement?.tagName === 'INPUT' || document.activeElement?.tagName === 'TEXTAREA') return;
 
             const key = e.key.toLowerCase();
@@ -50,13 +50,12 @@ export function ObjectivesView() {
                 .filter(o => !o.archivedAt)
                 .sort((a, b) => a.order - b.order || a.createdAt - b.createdAt);
             if (list.length === 0) return;
-
             const idx = list.findIndex(o => o.id === focusedId);
 
             if (key === 'arrowdown') {
                 e.preventDefault();
                 if (isCmd && focusedId) { moveObjective(focusedId, 'down'); return; }
-                setFocusedId(list[Math.min(idx + 1, list.length - 1) < 0 ? 0 : Math.min(idx + 1, list.length - 1)].id);
+                setFocusedId(list[idx < 0 ? 0 : Math.min(idx + 1, list.length - 1)].id);
             } else if (key === 'arrowup') {
                 e.preventDefault();
                 if (isCmd && focusedId) { moveObjective(focusedId, 'up'); return; }
@@ -73,9 +72,31 @@ export function ObjectivesView() {
         return () => window.removeEventListener('keydown', handleKeyDown);
     }, [focusedId, softStartActive, isAnyOverlayOpen, moveObjective, addObjective]);
 
+    // ── Soft-start: the meditative morning ritual ──────────────────────────
+    if (softStartActive) {
+        return (
+            <div className="min-h-full flex flex-col items-center justify-center px-6 py-16">
+                <div className="w-full max-w-lg space-y-8">
+                    {objectives.map((o) => (
+                        <div key={o.id} className="flex items-start gap-4">
+                            <span className="w-2.5 h-2.5 rounded-full mt-2 flex-shrink-0" style={{ backgroundColor: o.color }} />
+                            <div>
+                                <div className="text-xs uppercase tracking-widest text-slate-400 dark:text-slate-500 mb-0.5">{o.title}</div>
+                                <div className="font-display text-2xl md:text-3xl font-semibold text-slate-800 dark:text-slate-100 leading-snug">
+                                    {o.essence || o.title}
+                                </div>
+                            </div>
+                        </div>
+                    ))}
+                </div>
+                <p className="mt-16 text-sm text-slate-400 dark:text-slate-500 animate-pulse">Press any key to begin the day</p>
+            </div>
+        );
+    }
+
+    // ── Normal: full editable page ─────────────────────────────────────────
     return (
         <div className="max-w-2xl mx-auto px-6 pb-32 pt-4">
-            {/* Quiet page heading — the content is the hero, not the chrome */}
             <div className="flex items-baseline justify-between mb-10">
                 <h1 className="font-display text-lg font-semibold text-slate-400 dark:text-slate-500 tracking-wide uppercase">
                     Objectives
@@ -89,7 +110,7 @@ export function ObjectivesView() {
                 </button>
             </div>
 
-            <div className="space-y-10">
+            <div className="space-y-8">
                 {objectives.map((o, i) => (
                     <ObjectiveCard
                         key={o.id}
@@ -101,26 +122,14 @@ export function ObjectivesView() {
                         onEdit={() => { setFocusedId(o.id); setEditingId(o.id); }}
                         onDoneEditing={() => setEditingId(null)}
                         onUpdate={(updates) => updateObjective(o.id, updates)}
-                        onRemove={() => {
-                            if (confirm(`Remove “${o.title}”?`)) removeObjective(o.id);
-                        }}
+                        onRemove={() => { if (confirm(`Remove “${o.title}”?`)) removeObjective(o.id); }}
                     />
                 ))}
             </div>
 
-            {softStartActive && (
-                <div className="fixed bottom-10 left-0 right-0 text-center pointer-events-none">
-                    <p className="text-sm text-slate-400 dark:text-slate-500 animate-pulse">
-                        Press any key to begin the day
-                    </p>
-                </div>
-            )}
-
-            {!softStartActive && (
-                <p className="mt-14 text-center text-[11px] text-slate-300 dark:text-slate-600 font-mono">
-                    ↑↓ move · E edit · ⌘↑⌘↓ reorder · A add
-                </p>
-            )}
+            <p className="mt-14 text-center text-[11px] text-slate-300 dark:text-slate-600 font-mono">
+                ↑↓ move · E edit · ⌘↑⌘↓ reorder · A add
+            </p>
         </div>
     );
 }
@@ -139,12 +148,14 @@ interface ObjectiveCardProps {
 
 function ObjectiveCard({ objective, index, isFocused, isEditing, onFocus, onEdit, onDoneEditing, onUpdate, onRemove }: ObjectiveCardProps) {
     const [title, setTitle] = useState(objective.title);
+    const [essence, setEssence] = useState(objective.essence || '');
     const [body, setBody] = useState(objective.body);
     const titleRef = useRef<HTMLInputElement>(null);
 
     useEffect(() => {
         if (isEditing) {
             setTitle(objective.title);
+            setEssence(objective.essence || '');
             setBody(objective.body);
             setTimeout(() => titleRef.current?.focus(), 30);
         }
@@ -152,40 +163,42 @@ function ObjectiveCard({ objective, index, isFocused, isEditing, onFocus, onEdit
     }, [isEditing]);
 
     const commit = () => {
-        const t = title.trim();
-        onUpdate({ title: t || objective.title, body });
+        onUpdate({ title: title.trim() || objective.title, essence: essence.trim(), body });
         onDoneEditing();
     };
 
     if (isEditing) {
         return (
             <div className="rounded-2xl ring-1 ring-primary-500/40 bg-white dark:bg-slate-850 p-5 -mx-5">
-                <div className="flex items-center gap-3 mb-3">
+                <div className="flex items-center gap-3 mb-2">
                     <span className="w-2.5 h-2.5 rounded-full flex-shrink-0" style={{ backgroundColor: objective.color }} />
                     <input
                         ref={titleRef}
                         value={title}
                         onChange={(e) => setTitle(e.target.value)}
-                        onKeyDown={(e) => {
-                            if (e.key === 'Enter') { e.preventDefault(); commit(); }
-                            if (e.key === 'Escape') { e.preventDefault(); commit(); }
-                        }}
-                        className="flex-1 bg-transparent font-display text-xl font-semibold text-slate-900 dark:text-slate-100 outline-none border-b border-slate-200 dark:border-slate-700 focus:border-primary-500 pb-1"
+                        placeholder="Title"
+                        onKeyDown={(e) => { if (e.key === 'Escape') { e.preventDefault(); commit(); } }}
+                        className="flex-1 bg-transparent font-display text-lg font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wide outline-none"
                     />
                 </div>
+                <input
+                    value={essence}
+                    onChange={(e) => setEssence(e.target.value)}
+                    placeholder="Essence — one north-star line (shown every morning)"
+                    onKeyDown={(e) => { if (e.key === 'Enter' || e.key === 'Escape') { e.preventDefault(); commit(); } }}
+                    className="w-full bg-transparent font-display text-xl font-semibold text-slate-900 dark:text-slate-100 outline-none border-b border-slate-200 dark:border-slate-700 focus:border-primary-500 pb-1 mb-3"
+                />
                 <textarea
                     value={body}
                     onChange={(e) => setBody(e.target.value)}
-                    onKeyDown={(e) => {
-                        if (e.key === 'Escape') { e.preventDefault(); commit(); }
-                    }}
+                    onKeyDown={(e) => { if (e.key === 'Escape') { e.preventDefault(); commit(); } }}
                     rows={Math.max(3, body.split('\n').length + 1)}
+                    placeholder="Detail — supports • bullets and **bold**"
                     className="w-full bg-transparent text-[15px] leading-relaxed text-slate-600 dark:text-slate-300 outline-none resize-y"
-                    placeholder="What does this mean? What will you do?"
                 />
                 <div className="flex items-center justify-between mt-3">
                     <div className="flex items-center gap-1.5">
-                        {['#0EA5E9', '#F43F5E', '#10B981', '#F59E0B', '#8B5CF6', '#6674E4'].map(c => (
+                        {NEW_OBJECTIVE_COLORS.map(c => (
                             <button
                                 key={c}
                                 onClick={() => onUpdate({ color: c })}
@@ -214,17 +227,20 @@ function ObjectiveCard({ objective, index, isFocused, isEditing, onFocus, onEdit
             {isFocused && (
                 <div className="absolute left-0 top-4 bottom-4 w-[3px] rounded-full" style={{ backgroundColor: objective.color }} />
             )}
-            <div className="flex items-center gap-3">
-                <span className="w-2.5 h-2.5 rounded-full flex-shrink-0" style={{ backgroundColor: objective.color }} />
-                <h2 className="font-display text-xl font-semibold text-slate-900 dark:text-slate-100">
-                    <span className="text-slate-300 dark:text-slate-600 font-normal mr-2">{index + 1}</span>
-                    {objective.title}
-                </h2>
+            <div className="flex items-center gap-2 mb-1">
+                <span className="w-2 h-2 rounded-full flex-shrink-0" style={{ backgroundColor: objective.color }} />
+                <span className="text-[11px] uppercase tracking-widest text-slate-400 dark:text-slate-500">
+                    <span className="mr-1.5">{index + 1}</span>{objective.title}
+                </span>
             </div>
+            {/* Essence — the always-visible north star */}
+            <h2 className="font-display text-xl md:text-2xl font-semibold text-slate-900 dark:text-slate-100 leading-snug ml-[18px]">
+                {objective.essence || objective.title}
+            </h2>
             {objective.body && (
-                <p className="mt-2.5 ml-[22px] text-[15px] leading-relaxed text-slate-600 dark:text-slate-400 whitespace-pre-wrap">
-                    {objective.body}
-                </p>
+                <div className="mt-2 ml-[18px] text-[15px] leading-relaxed text-slate-600 dark:text-slate-400">
+                    <MiniMarkdown text={objective.body} />
+                </div>
             )}
         </article>
     );

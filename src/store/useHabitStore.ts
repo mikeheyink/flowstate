@@ -26,7 +26,7 @@ interface HabitState {
 
   // Actions
   fetchHabits: () => Promise<void>;
-  addHabit: (title: string, type: 'do' | 'dont-do', daysOfWeek: number[], appliesFromWeek: string, extras?: { objectiveId?: string | null; why?: string }) => void;
+  addHabit: (title: string, type: 'do' | 'dont-do', daysOfWeek: number[], appliesFromWeek: string, extras?: { objectiveIds?: string[]; why?: string }) => void;
   updateHabit: (id: string, updates: Partial<Habit>) => void;
   removeHabit: (id: string) => void; // soft-delete
   moveHabit: (id: string, direction: 'up' | 'down') => void; // reorder within the full list
@@ -64,7 +64,9 @@ const mapFromDb = (dbHabit: any): Habit => ({
   appliesFromWeek: dbHabit.applies_from_week,
   appliesUntilWeek: dbHabit.applies_until_week,
   daysOfWeek: dbHabit.days_of_week || [],
-  objectiveId: dbHabit.objective_id ?? null,
+  // Prefer the array column; fall back to the legacy single objective_id for
+  // rows written before multi-select (so a wrong deploy order degrades gracefully).
+  objectiveIds: dbHabit.objective_ids ?? (dbHabit.objective_id ? [dbHabit.objective_id] : []),
   why: dbHabit.why ?? undefined,
 });
 
@@ -79,7 +81,7 @@ const mapToDb = (habit: Partial<Habit>) => {
   if (habit.appliesFromWeek !== undefined) dbObj.applies_from_week = habit.appliesFromWeek;
   if (habit.appliesUntilWeek !== undefined) dbObj.applies_until_week = habit.appliesUntilWeek;
   if (habit.daysOfWeek !== undefined) dbObj.days_of_week = habit.daysOfWeek;
-  if (habit.objectiveId !== undefined) dbObj.objective_id = habit.objectiveId;
+  if (habit.objectiveIds !== undefined) dbObj.objective_ids = habit.objectiveIds;
   if (habit.why !== undefined) dbObj.why = habit.why;
   return dbObj;
 };
@@ -256,7 +258,7 @@ export const useHabitStore = create<HabitState>()(
           appliesFromWeek,
           appliesUntilWeek: null,
           daysOfWeek,
-          objectiveId: extras.objectiveId ?? null,
+          objectiveIds: extras.objectiveIds ?? [],
           why: extras.why,
         };
 
@@ -457,26 +459,36 @@ export const useHabitStore = create<HabitState>()(
     }),
     {
       name: 'habit-store',
-      version: 1,
+      version: 2,
       // v0 → v1: logs carried a boolean `completed`; convert to the 3-state
       // `status` (true → 'done', false → 'pending'). Also upgrade any queued
       // habit_log writes so replaying an old-format op doesn't overwrite a row's
       // status back to the 'pending' default.
+      // v1 → v2: single objectiveId → objectiveIds array (multi-select).
       migrate: (persisted: any, version: number) => {
-        if (!persisted || version >= 1) return persisted;
-        if (Array.isArray(persisted.habitLogs)) {
-          persisted.habitLogs = persisted.habitLogs.map((l: any) =>
-            l && 'status' in l
-              ? l
-              : { id: l.id, habitId: l.habitId, date: l.date, status: l.completed ? 'done' : 'pending', updatedAt: l.updatedAt }
-          );
+        if (!persisted) return persisted;
+        if (version < 1) {
+          if (Array.isArray(persisted.habitLogs)) {
+            persisted.habitLogs = persisted.habitLogs.map((l: any) =>
+              l && 'status' in l
+                ? l
+                : { id: l.id, habitId: l.habitId, date: l.date, status: l.completed ? 'done' : 'pending', updatedAt: l.updatedAt }
+            );
+          }
+          if (Array.isArray(persisted.pendingOperations)) {
+            persisted.pendingOperations = persisted.pendingOperations.map((op: any) =>
+              op?.table === 'habit_logs' && op.data && !('status' in op.data) && 'completed' in op.data
+                ? { ...op, data: { ...op.data, status: op.data.completed ? 'done' : 'pending' } }
+                : op
+            );
+          }
         }
-        if (Array.isArray(persisted.pendingOperations)) {
-          persisted.pendingOperations = persisted.pendingOperations.map((op: any) =>
-            op?.table === 'habit_logs' && op.data && !('status' in op.data) && 'completed' in op.data
-              ? { ...op, data: { ...op.data, status: op.data.completed ? 'done' : 'pending' } }
-              : op
-          );
+        if (version < 2 && Array.isArray(persisted.habits)) {
+          persisted.habits = persisted.habits.map((h: any) => {
+            if (!h || 'objectiveIds' in h) return h;
+            const { objectiveId, ...rest } = h;
+            return { ...rest, objectiveIds: objectiveId ? [objectiveId] : [] };
+          });
         }
         return persisted;
       },

@@ -131,7 +131,7 @@ export function useHotkeys() {
             // preventDefault stops the browser navigating history.
             if (isCmd && (key === '[' || key === ']')) {
                 e.preventDefault();
-                const sections = ['tasks', 'habits', 'objectives'] as const;
+                const sections = ['objectives', 'tasks', 'habits'] as const;
                 const labels: Record<string, string> = { tasks: 'Tasks', habits: 'Habits', objectives: 'Objectives' };
                 const cur = Math.max(0, sections.indexOf(uiState.currentView as any));
                 const next = key === ']'

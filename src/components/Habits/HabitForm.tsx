@@ -7,7 +7,7 @@ const DAYS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
 
 interface HabitFormProps {
   habit?: Habit;
-  onSubmit: (data: { title: string; type: 'do' | 'dont-do'; daysOfWeek: number[]; objectiveId: string | null; why: string }) => void;
+  onSubmit: (data: { title: string; type: 'do' | 'dont-do'; daysOfWeek: number[]; objectiveIds: string[]; why: string }) => void;
   onClose: () => void;
 }
 
@@ -15,8 +15,12 @@ export function HabitForm({ habit, onSubmit, onClose }: HabitFormProps) {
   const [title, setTitle] = useState(habit?.title || '');
   const [type, setType] = useState<'do' | 'dont-do'>(habit?.type || 'do');
   const [daysOfWeek, setDaysOfWeek] = useState<number[]>(habit?.daysOfWeek || [0, 1, 2, 3, 4]); // Default Mon-Fri
-  const [objectiveId, setObjectiveId] = useState<string | null>(habit?.objectiveId ?? null);
+  const [objectiveIds, setObjectiveIds] = useState<string[]>(habit?.objectiveIds ?? []);
   const [why, setWhy] = useState(habit?.why || '');
+
+  const toggleObjective = (id: string) => {
+    setObjectiveIds((prev) => (prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]));
+  };
 
   const objectives = useObjectiveStore((s) => s.objectives)
     .filter(o => !o.archivedAt)
@@ -42,7 +46,7 @@ export function HabitForm({ habit, onSubmit, onClose }: HabitFormProps) {
       alert('Please select at least one day');
       return;
     }
-    onSubmit({ title: title.trim(), type, daysOfWeek, objectiveId, why: why.trim() });
+    onSubmit({ title: title.trim(), type, daysOfWeek, objectiveIds, why: why.trim() });
   };
 
   const toggleDay = (day: number) => {
@@ -130,51 +134,49 @@ export function HabitForm({ habit, onSubmit, onClose }: HabitFormProps) {
             </div>
           </div>
 
-          {/* Objective link — the habit's "why". Optional; drives the colored
-              edge in the views and the per-objective analytics rollup. */}
+          {/* Objective links — a habit can serve several. Drives the stacked
+              colored edge in the views and the per-objective analytics rollup. */}
           {objectives.length > 0 && (
             <div>
-              <label className="block text-sm font-medium mb-2">Objective</label>
+              <label className="block text-sm font-medium mb-2">
+                Objectives <span className="font-normal text-slate-400">(pick any that apply)</span>
+              </label>
               <div className="flex flex-wrap gap-1.5">
-                <button
-                  type="button"
-                  onClick={() => setObjectiveId(null)}
-                  className={`px-2.5 py-1 rounded-full text-xs font-medium transition-colors border ${objectiveId === null
-                    ? 'border-slate-400 dark:border-slate-500 text-slate-700 dark:text-slate-200 bg-slate-100 dark:bg-slate-800'
-                    : 'border-slate-200 dark:border-slate-700 text-slate-400 hover:text-slate-600 dark:hover:text-slate-300'
-                    }`}
-                >
-                  None
-                </button>
-                {objectives.map((o) => (
-                  <button
-                    key={o.id}
-                    type="button"
-                    onClick={() => setObjectiveId(o.id)}
-                    className={`flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium transition-colors border ${objectiveId === o.id
-                      ? 'border-slate-400 dark:border-slate-500 text-slate-800 dark:text-slate-100 bg-slate-100 dark:bg-slate-800'
-                      : 'border-slate-200 dark:border-slate-700 text-slate-500 hover:text-slate-700 dark:hover:text-slate-300'
-                      }`}
-                  >
-                    <span className="w-2 h-2 rounded-full" style={{ backgroundColor: o.color }} />
-                    {o.title}
-                  </button>
-                ))}
+                {objectives.map((o) => {
+                  const selected = objectiveIds.includes(o.id);
+                  return (
+                    <button
+                      key={o.id}
+                      type="button"
+                      onClick={() => toggleObjective(o.id)}
+                      className={`flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium transition-colors border ${selected
+                        ? 'border-slate-400 dark:border-slate-500 text-slate-800 dark:text-slate-100 bg-slate-100 dark:bg-slate-800'
+                        : 'border-slate-200 dark:border-slate-700 text-slate-500 hover:text-slate-700 dark:hover:text-slate-300'
+                        }`}
+                    >
+                      <span
+                        className={`w-2 h-2 rounded-full transition-opacity ${selected ? '' : 'opacity-40'}`}
+                        style={{ backgroundColor: o.color }}
+                      />
+                      {o.title}
+                    </button>
+                  );
+                })}
               </div>
             </div>
           )}
 
-          {/* One-line why — shown on hover in the habit views */}
+          {/* Detail / why — multi-line, markdown-lite, shown in the hover card */}
           <div>
             <label className="block text-sm font-medium mb-2">
-              Why <span className="font-normal text-slate-400">(optional — shown on hover)</span>
+              Detail <span className="font-normal text-slate-400">(optional — shown on hover; supports • bullets and **bold**)</span>
             </label>
-            <input
-              type="text"
+            <textarea
               value={why}
               onChange={(e) => setWhy(e.target.value)}
-              placeholder="e.g., Presence at dinner → the person I want to be for the family"
-              className="w-full px-3 py-2 border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500"
+              rows={Math.max(3, why.split('\n').length)}
+              placeholder={"e.g.\nIn every meeting today I:\n- Was on time and 100% present\n- Asked questions; spoke less and later"}
+              className="w-full px-3 py-2 border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500 resize-y"
             />
           </div>
 

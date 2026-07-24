@@ -16,9 +16,9 @@ interface TopNavProps {
 // Top-level sections — the persistent anchor. Switch with ⌘[ / ⌘].
 // (Mail exists in the codebase but isn't shipped yet, so it's not offered here.)
 const SECTIONS: { id: CurrentView; label: string; Icon: React.ComponentType<any>; chord: string }[] = [
+    { id: 'objectives', label: 'Objectives', Icon: Compass, chord: '⌘[ / ⌘]' },
     { id: 'tasks', label: 'Tasks', Icon: ClipboardList, chord: '⌘[ / ⌘]' },
     { id: 'habits', label: 'Habits', Icon: Flame, chord: '⌘[ / ⌘]' },
-    { id: 'objectives', label: 'Objectives', Icon: Compass, chord: '⌘[ / ⌘]' },
 ];
 
 export function TopNav({ session, isGuest, setGuestMode }: TopNavProps) {

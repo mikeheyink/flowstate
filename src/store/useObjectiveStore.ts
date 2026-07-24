@@ -35,43 +35,50 @@ interface ObjectiveState {
 }
 
 // Mike's five objectives — the initial content of the page. Editable in-app;
-// this is a starting point, not a schema.
+// this is a starting point, not a schema. `essence` is the always-visible north
+// star; `body` is markdown detail.
 export const SEED_OBJECTIVES: Omit<Objective, 'id' | 'createdAt' | 'archivedAt'>[] = [
   {
     title: 'Peace',
     color: '#0EA5E9',
     order: 0,
-    body: 'Increase my patient acceptance of every moment, so that I can experience peace.',
+    essence: 'Accept each moment as it is.',
+    body: 'Increase my patient acceptance of every moment, so that peace is the baseline — not the reward.',
   },
   {
     title: 'Love',
     color: '#F43F5E',
     order: 1,
-    body: 'Love my immediate family, broader family, friends and colleagues.',
+    essence: 'Show up fully for the people in my life.',
+    body: 'Love my **immediate family**, **broader family**, **friends** and **colleagues**.',
   },
   {
     title: 'Health & Strength',
     color: '#10B981',
     order: 2,
-    body: 'Increase my health, strength and fitness.\n\nMeasurable goals: enter an event that is exciting — MUT? Otter Trail?',
+    essence: 'Build a body ready for adventure.',
+    body: 'Increase my health, strength and fitness.\n\n**Measurable goal:** enter one exciting event.\n- MUT?\n- Otter Trail?',
   },
   {
     title: 'Elite performance at Yellow',
     color: '#F59E0B',
     order: 3,
-    body: 'A. Decisions, strategy, resource allocation and innovation — decision quality, problem-solving, entrepreneurship and vision.\nB. Leadership — help people in my team achieve their potential, thrive and be happy.\nC. Technology — leverage technology for better outcomes and execution.\nD. People — attract and select the best; set them up for team success.\nE. Partners — cultivate a strong external reputation; attract and retain the best partners.',
+    essence: 'Elite performance — through others.',
+    body: '- **A · Decisions & strategy** — decision quality, resource allocation, problem-solving, entrepreneurship and vision.\n- **B · Leadership** — help my team achieve their potential, thrive and be happy.\n- **C · Technology** — leverage it for better outcomes and execution.\n- **D · People** — attract and select the best; set them up for team success.\n- **E · Partners** — cultivate a strong external reputation; attract and retain the best.',
   },
   {
     title: 'Adventure',
     color: '#8B5CF6',
     order: 4,
-    body: 'Be a kid and get excited about every day. Plan adventures — big and small — every day.\n\nWeekly/monthly adventure planning check-in. Daily: “What is today’s adventure?”',
+    essence: 'Be a kid — plan something every day.',
+    body: 'Get excited about every day. Plan adventures, big and small.\n\n- Weekly / monthly adventure-planning check-in.\n- Daily: “What is today’s adventure?”',
   },
 ];
 
 const mapFromDb = (row: any): Objective => ({
   id: row.id,
   title: row.title,
+  essence: row.essence ?? '',
   body: row.body ?? '',
   color: row.color ?? '#6674E4',
   order: row.order != null ? parseFloat(row.order) : 0,
@@ -83,6 +90,7 @@ const mapToDb = (o: Partial<Objective>) => {
   const dbObj: any = {};
   if (o.id !== undefined) dbObj.id = o.id;
   if (o.title !== undefined) dbObj.title = o.title;
+  if (o.essence !== undefined) dbObj.essence = o.essence;
   if (o.body !== undefined) dbObj.body = o.body;
   if (o.color !== undefined) dbObj.color = o.color;
   if (o.order !== undefined) dbObj.order = o.order;
@@ -209,6 +217,7 @@ export const useObjectiveStore = create<ObjectiveState>()(
         const objective: Objective = {
           id: generateId(),
           title,
+          essence: '',
           body: '',
           color,
           order: maxOrder + 1,

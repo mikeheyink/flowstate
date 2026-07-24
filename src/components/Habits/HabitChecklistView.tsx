@@ -3,6 +3,8 @@ import { ChevronLeft, ChevronRight, Plus } from 'lucide-react';
 import { useHabitStore } from '../../store/useHabitStore';
 import { useUIStore } from '../../store/useUIStore';
 import { useObjectiveStore } from '../../store/useObjectiveStore';
+import { ObjectiveEdge, HabitDetailButton } from './HabitDetail';
+import { Habit, Objective } from '../../types';
 import { getISOWeek, getWeekDates, toLocalISO } from '../../utils/habitDates';
 
 interface HabitChecklistViewProps {
@@ -28,6 +30,8 @@ export function HabitChecklistView({ onAddHabit }: HabitChecklistViewProps) {
   // Objective lookup for the subtle "why" edge on each row.
   const objectives = useObjectiveStore((state) => state.objectives);
   const objectiveById = useMemo(() => new Map(objectives.map(o => [o.id, o])), [objectives]);
+  const habitObjectives = (h: Habit): Objective[] =>
+    (h.objectiveIds ?? []).map((id) => objectiveById.get(id)).filter((o): o is Objective => !!o);
 
   const habits = useMemo(() => getHabitsForWeek(currentWeek), [currentWeek, allHabits]);
   const weekDates = useMemo(() => getWeekDates(currentWeek), [currentWeek]);
@@ -171,23 +175,20 @@ export function HabitChecklistView({ onAddHabit }: HabitChecklistViewProps) {
                 key={habit.id}
                 data-checklist-idx={idx}
                 onClick={() => { setFocusedHabitIdx(idx); handleToggleHabit(habit.id); }}
-                // Long-press/hover surfaces the why; tap still cycles the status.
-                title={[objectiveById.get(habit.objectiveId || '')?.title, habit.why].filter(Boolean).join(' — ') || 'Tap to cycle: pending → done → failed'}
+                title="Tap to cycle: pending → done → failed"
                 className={`relative w-full p-4 rounded-lg text-left transition-colors scroll-mt-24 scroll-mb-28 ${rowClass} ${idx === focusedHabitIdx ? 'ring-2 ring-primary-400' : ''}`}
               >
-                {/* 3px objective-colored edge — the silent "why" indicator */}
-                {habit.objectiveId && objectiveById.get(habit.objectiveId) && (
-                  <span
-                    className="absolute left-0 top-3 bottom-3 w-[3px] rounded-full"
-                    style={{ backgroundColor: objectiveById.get(habit.objectiveId)!.color }}
-                  />
-                )}
+                {/* Stacked objective-colored edge — the silent "why" indicator */}
+                <ObjectiveEdge objectives={habitObjectives(habit)} />
                 <div className="flex items-center gap-3">
                   <div className={`w-6 h-6 rounded-full flex items-center justify-center font-bold ${badgeClass}`}>
                     {status === 'done' ? '✓' : status === 'failed' ? '✗' : '○'}
                   </div>
                   <div className="flex-1">
-                    <div className="font-semibold">{habit.title}</div>
+                    <div className="flex items-center gap-1.5">
+                      <span className="font-semibold">{habit.title}</span>
+                      <HabitDetailButton habit={habit} objectives={habitObjectives(habit)} />
+                    </div>
                     <div className="text-sm opacity-75">{habit.type === 'do' ? '✓ Do' : '✗ Avoid'}</div>
                   </div>
                 </div>
