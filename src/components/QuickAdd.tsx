@@ -57,6 +57,7 @@ export const QuickAdd: React.FC<QuickAddProps> = ({ isOpen, onClose }) => {
       addTask(value, quickAddParentId, quickAddTaskId, {
         defaultDueDate: quickAddDefaults?.dueDate ?? null,
         important: quickAddDefaults?.important ?? false,
+        urgent: quickAddDefaults?.urgent ?? false,
       });
     } else if (quickAddMode === 'date') {
       // Parse only date/time from input
@@ -87,6 +88,18 @@ export const QuickAdd: React.FC<QuickAddProps> = ({ isOpen, onClose }) => {
   };
 
   if (!isOpen) return null;
+
+  // Human label for an inherited due date: "Today" / "Tomorrow" / "Mon 3 Aug".
+  const formatDefaultDate = (d: Date) => {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const day = new Date(d);
+    day.setHours(0, 0, 0, 0);
+    const diffDays = Math.round((day.getTime() - today.getTime()) / 86400000);
+    if (diffDays === 0) return 'Today';
+    if (diffDays === 1) return 'Tomorrow';
+    return day.toLocaleDateString(undefined, { weekday: 'short', day: 'numeric', month: 'short' });
+  };
 
   const getPlaceholder = () => {
     if (quickAddMode === 'date') return "Type a date (e.g., 'Friday 2pm', 'in 3 days')...";
@@ -137,9 +150,9 @@ export const QuickAdd: React.FC<QuickAddProps> = ({ isOpen, onClose }) => {
                 <button
                   type="button"
                   onClick={() => {
-                    // Outdent: Go to grandparent
+                    // Outdent: Go to grandparent (keep the inherited defaults alive)
                     if (parentTask) {
-                      setQuickAddOpen(true, parentTask.parentId || null, 'create', quickAddTaskId);
+                      setQuickAddOpen(true, parentTask.parentId || null, 'create', quickAddTaskId, quickAddDefaults);
                     }
                   }}
                   disabled={!parentTask}
@@ -156,7 +169,7 @@ export const QuickAdd: React.FC<QuickAddProps> = ({ isOpen, onClose }) => {
                     siblings.sort((a, b) => (a.order ?? 0) - (b.order ?? 0));
                     const lastSibling = siblings[siblings.length - 1];
                     if (lastSibling) {
-                      setQuickAddOpen(true, lastSibling.id, 'create', quickAddTaskId);
+                      setQuickAddOpen(true, lastSibling.id, 'create', quickAddTaskId, quickAddDefaults);
                     }
                   }}
                   disabled={tasks.filter(t => t.parentId === quickAddParentId).length === 0}
@@ -189,6 +202,23 @@ export const QuickAdd: React.FC<QuickAddProps> = ({ isOpen, onClose }) => {
           <div className="mt-3 text-center">
             <p className="text-xs text-slate-500 dark:text-slate-400 font-mono">
               {parentTask && <span className="mr-2 text-primary-600 dark:text-primary-400 bg-primary-100 dark:bg-primary-400/10 px-1.5 py-0.5 rounded">Adding Subtask</span>}
+              {/* Inherited-context chips — make the invisible defaults visible.
+                  A date typed in the input still overrides the inherited one. */}
+              {quickAddDefaults?.dueDate && (
+                <span className="mr-2 text-slate-600 dark:text-slate-300 bg-slate-200/70 dark:bg-slate-800 px-1.5 py-0.5 rounded">
+                  Due {formatDefaultDate(new Date(quickAddDefaults.dueDate))}
+                </span>
+              )}
+              {quickAddDefaults?.urgent && (
+                <span className="mr-2 text-amber-600 dark:text-amber-400 bg-amber-100 dark:bg-amber-400/10 px-1.5 py-0.5 rounded">
+                  U Urgent
+                </span>
+              )}
+              {quickAddDefaults?.important && (
+                <span className="mr-2 text-primary-600 dark:text-primary-400 bg-primary-100 dark:bg-primary-400/10 px-1.5 py-0.5 rounded">
+                  I Important
+                </span>
+              )}
               Try: <span className="text-slate-600 dark:text-slate-500">Call Mom</span> <span className="text-primary-600 dark:text-primary-400">next Friday</span> <span className="text-primary-600 dark:text-primary-400">#personal</span>
             </p>
           </div>

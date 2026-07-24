@@ -15,7 +15,7 @@ export function celebrate() {
         scalar: 0.8,
         ticks: 110,
         origin: { y: 0.72 },
-        colors: ['#15A66A', '#2BC98A', '#3F6896', '#5680B0'],
+        colors: ['#15A66A', '#2BC98A', '#4F5CD1', '#6674E4'],
         disableForReducedMotion: true,
     });
 }

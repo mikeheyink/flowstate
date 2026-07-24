@@ -6,8 +6,9 @@ export type QuickAddMode = 'create' | 'date' | 'tag';
 export interface QuickAddDefaults {
   dueDate?: Date | null;
   important?: boolean;
+  urgent?: boolean;
 }
-export type CurrentView = 'tasks' | 'mail' | 'habits';
+export type CurrentView = 'tasks' | 'mail' | 'habits' | 'objectives';
 export type HabitView = 'grid' | 'checklist' | 'analytics';
 
 interface UIState {
@@ -31,6 +32,14 @@ interface UIState {
   // and global hotkeys can open it, and so keyboard handlers can tell when a
   // modal is up and suppress grid navigation behind it.
   habitForm: { open: boolean; editingId: string | null };
+
+  // Daily soft-start: on the first open of each day the app shows the
+  // Objectives page once; any key/tap dismisses to Today. Silent by design —
+  // this is the one values-touchpoint, not a notification.
+  lastSoftStartDate: string | null; // local YYYY-MM-DD of the last shown soft start
+  softStartActive: boolean; // transient — never persisted
+  beginSoftStart: (today: string) => void;
+  dismissSoftStart: () => void;
 
   // UI-only expansion state for headers
   expandedGroups: Set<string>;
@@ -73,6 +82,20 @@ export const useUIStore = create<UIState>()(
   habitView: 'grid',
   globalHabitGoal: 80,
   habitForm: { open: false, editingId: null },
+
+  lastSoftStartDate: null,
+  softStartActive: false,
+  beginSoftStart: (today) => set({
+    softStartActive: true,
+    lastSoftStartDate: today,
+    currentView: 'objectives',
+  }),
+  dismissSoftStart: () => set({
+    softStartActive: false,
+    currentView: 'tasks',
+    filter: 'today',
+    focusMode: 'main',
+  }),
 
   expandedGroups: new Set(['header-important', 'header-outstanding']),
   toggleGroup: (id) => set((state) => {
@@ -119,6 +142,7 @@ export const useUIStore = create<UIState>()(
         filter: state.filter,
         habitView: state.habitView,
         globalHabitGoal: state.globalHabitGoal,
+        lastSoftStartDate: state.lastSoftStartDate,
       }),
     }
   )

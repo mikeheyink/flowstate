@@ -26,7 +26,7 @@ interface HabitState {
 
   // Actions
   fetchHabits: () => Promise<void>;
-  addHabit: (title: string, type: 'do' | 'dont-do', daysOfWeek: number[], appliesFromWeek: string) => void;
+  addHabit: (title: string, type: 'do' | 'dont-do', daysOfWeek: number[], appliesFromWeek: string, extras?: { objectiveId?: string | null; why?: string }) => void;
   updateHabit: (id: string, updates: Partial<Habit>) => void;
   removeHabit: (id: string) => void; // soft-delete
   moveHabit: (id: string, direction: 'up' | 'down') => void; // reorder within the full list
@@ -64,6 +64,8 @@ const mapFromDb = (dbHabit: any): Habit => ({
   appliesFromWeek: dbHabit.applies_from_week,
   appliesUntilWeek: dbHabit.applies_until_week,
   daysOfWeek: dbHabit.days_of_week || [],
+  objectiveId: dbHabit.objective_id ?? null,
+  why: dbHabit.why ?? undefined,
 });
 
 const mapToDb = (habit: Partial<Habit>) => {
@@ -77,6 +79,8 @@ const mapToDb = (habit: Partial<Habit>) => {
   if (habit.appliesFromWeek !== undefined) dbObj.applies_from_week = habit.appliesFromWeek;
   if (habit.appliesUntilWeek !== undefined) dbObj.applies_until_week = habit.appliesUntilWeek;
   if (habit.daysOfWeek !== undefined) dbObj.days_of_week = habit.daysOfWeek;
+  if (habit.objectiveId !== undefined) dbObj.objective_id = habit.objectiveId;
+  if (habit.why !== undefined) dbObj.why = habit.why;
   return dbObj;
 };
 
@@ -238,7 +242,7 @@ export const useHabitStore = create<HabitState>()(
         }
       },
 
-      addHabit: (title, type, daysOfWeek, appliesFromWeek) => {
+      addHabit: (title, type, daysOfWeek, appliesFromWeek, extras = {}) => {
         const now = Date.now();
         // New habits go to the bottom of the current list.
         const maxOrder = get().habits.reduce((m, h) => Math.max(m, h.order ?? h.createdAt), 0);
@@ -252,6 +256,8 @@ export const useHabitStore = create<HabitState>()(
           appliesFromWeek,
           appliesUntilWeek: null,
           daysOfWeek,
+          objectiveId: extras.objectiveId ?? null,
+          why: extras.why,
         };
 
         set((state) => ({ habits: [...state.habits, habit] }));

@@ -4,7 +4,6 @@ import { Command, Layers, Inbox, CheckSquare, Archive, Calendar as CalendarIcon,
 import { TaskList } from './components/TaskList';
 import { WeeklyReview } from './components/WeeklyReview';
 import { CommandPalette } from './components/CommandPalette';
-import { CoachChat } from './components/CoachChat';
 import { QuickAdd } from './components/QuickAdd';
 import { ShortcutsModal } from './components/ShortcutsModal';
 import { Toaster, toast } from './components/Toaster';
@@ -14,8 +13,10 @@ import { MobileNav } from './components/MobileNav';
 import { InboxZero } from './components/InboxZero';
 import { MailView } from './components/Mail/MailView';
 import { HabitsView } from './components/Habits/HabitsView';
+import { ObjectivesView } from './components/Objectives/ObjectivesView';
 import { useTaskStore } from './store/useTaskStore';
 import { useHabitStore } from './store/useHabitStore';
+import { useObjectiveStore } from './store/useObjectiveStore';
 import { useUIStore } from './store/useUIStore';
 import { useHotkeys } from './hooks/useHotkeys';
 import { useOnlineStatus } from './store/useOnlineStatus';
@@ -45,6 +46,9 @@ function App() {
 
     const fetchTasks = useTaskStore((state) => state.fetchTasks);
     const fetchHabits = useHabitStore((state) => state.fetchHabits);
+    const fetchObjectives = useObjectiveStore((state) => state.fetchObjectives);
+    const objectivePendingCount = useObjectiveStore((state) => state.pendingOperations.length);
+    const processObjectivePending = useObjectiveStore((state) => state.processPendingOperations);
     const habitPendingCount = useHabitStore((state) => state.pendingOperations.length);
     const processHabitPending = useHabitStore((state) => state.processPendingOperations);
     const undo = useTaskStore((state) => state.undo);
@@ -66,6 +70,7 @@ function App() {
     const setGuestModeBoth = React.useCallback((mode: boolean) => {
         setGuestMode(mode);
         useHabitStore.getState().setGuestMode(mode);
+        useObjectiveStore.getState().setGuestMode(mode);
     }, [setGuestMode]);
 
     // Online status for sync indicator
@@ -129,8 +134,10 @@ function App() {
                 // A real session means we have an authenticated owner — leave guest
                 // mode so habit (and task) writes sync to Supabase.
                 useHabitStore.getState().setGuestMode(false);
+                useObjectiveStore.getState().setGuestMode(false);
                 fetchTasks();
                 fetchHabits();
+                fetchObjectives();
             }
         }).catch(err => {
             console.error('Unexpected Auth Error:', err);
@@ -145,8 +152,10 @@ function App() {
             setSession(session);
             if (session) {
                 useHabitStore.getState().setGuestMode(false);
+                useObjectiveStore.getState().setGuestMode(false);
                 fetchTasks();
                 fetchHabits();
+                fetchObjectives();
             }
             setAuthLoading(false);
 
@@ -167,7 +176,7 @@ function App() {
         });
 
         return () => subscription.unsubscribe();
-    }, [fetchTasks, fetchHabits]);
+    }, [fetchTasks, fetchHabits, fetchObjectives]);
 
     // Celebrate the milestone: fire one subtle confetti burst the moment the
     // list goes from "has tasks" to "all done" (Today cleared / Inbox Zero).
@@ -201,6 +210,45 @@ function App() {
             processHabitPending();
         }
     }, [isOnline, habitPendingCount, processHabitPending]);
+
+    // Same replay path for queued objective writes.
+    useEffect(() => {
+        if (isOnline && objectivePendingCount > 0) {
+            processObjectivePending();
+        }
+    }, [isOnline, objectivePendingCount, processObjectivePending]);
+
+    // Daily soft-start: the first open of each day lands on Objectives — the
+    // one values-touchpoint of the day. Any key or tap dismisses to Today.
+    const softStartActive = useUIStore((s) => s.softStartActive);
+    useEffect(() => {
+        if (authLoading) return;
+        if (!session && !isGuest) return; // only once the app proper is visible
+        const d = new Date();
+        const today = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+        const ui = useUIStore.getState();
+        if (ui.lastSoftStartDate !== today) {
+            ui.beginSoftStart(today);
+        }
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [authLoading, session, isGuest]);
+
+    useEffect(() => {
+        if (!softStartActive) return;
+        // Capture phase + stopPropagation: the dismissing key/tap must not also
+        // trigger hotkeys or focus handlers underneath.
+        const dismiss = (e: Event) => {
+            e.stopPropagation();
+            if (e instanceof KeyboardEvent) e.preventDefault();
+            useUIStore.getState().dismissSoftStart();
+        };
+        window.addEventListener('keydown', dismiss, { capture: true });
+        window.addEventListener('pointerdown', dismiss, { capture: true });
+        return () => {
+            window.removeEventListener('keydown', dismiss, { capture: true });
+            window.removeEventListener('pointerdown', dismiss, { capture: true });
+        };
+    }, [softStartActive]);
 
     // Keyboard Shortcuts (Centralized Hook)
     useHotkeys();
@@ -294,6 +342,8 @@ function App() {
                                 <div className="max-w-5xl mx-auto h-full">
                                     <MailView />
                                 </div>
+                            ) : currentView === 'objectives' ? (
+                                <ObjectivesView />
                             ) : (
                                 <HabitsView />
                             )}
@@ -322,7 +372,7 @@ function App() {
                         const defaults = getCreationDefaults(filter, focusedTask);
                         setQuickAddOpen(true, parentId, 'create', null, defaults);
                     }}
-                    className={`${currentView === 'mail' ? 'hidden' : 'md:hidden'} fixed bottom-20 right-5 w-14 h-14 bg-primary-600 text-white rounded-full shadow-lg flex items-center justify-center hover:bg-primary-500 active:scale-95 transition-all z-40`}
+                    className={`${(currentView === 'mail' || currentView === 'objectives') ? 'hidden' : 'md:hidden'} fixed bottom-20 right-5 w-14 h-14 bg-primary-600 text-white rounded-full shadow-lg flex items-center justify-center hover:bg-primary-500 active:scale-95 transition-all z-40`}
                     aria-label={currentView === 'habits' ? 'Add Habit' : 'Add Task'}
                 >
                     <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -339,7 +389,6 @@ function App() {
             <InboxZero show={showInboxZero} />
             <CommandPalette isOpen={isCmdOpen} onClose={() => setCmdOpen(false)} />
             <ShortcutsModal isOpen={isShortcutsOpen} onClose={() => setShortcutsOpen(false)} />
-            <CoachChat />
             <Toaster />
         </div>
     );

@@ -93,13 +93,16 @@ export function useTaskListDnd({ visibleTasks, filter }: UseTaskListDndProps) {
             const overTask = visibleTasks.find(t => t.id === over.id);
 
             if (activeTask && overTask) {
+                // NOTE: the Today view renders the QuadBoard (no DnD mounted), so
+                // in practice this only runs for 'project'-context views now. The
+                // quad branch is kept for completeness should DnD return there.
                 const isToday = filter === 'today';
-                const context = isToday ? 'today' : 'project';
+                const context = isToday ? 'quad' : 'project';
 
                 const getOrder = (t: Task | VisibleTask) => {
                     if (isToday) {
                         if ((t as VisibleTask).effectiveOrder !== undefined) return (t as VisibleTask).effectiveOrder!;
-                        if (t.todayOrder !== undefined && t.todayOrder !== null) return t.todayOrder;
+                        if (t.quadOrder !== undefined && t.quadOrder !== null) return t.quadOrder;
                         return t.order || 0;
                     }
                     return t.order || 0;

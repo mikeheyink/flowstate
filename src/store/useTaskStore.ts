@@ -4,6 +4,7 @@ import { Task, Priority } from '../types';
 import { parseTaskInput } from '../utils/nlp';
 import { supabase } from '../utils/supabase';
 import { getSiblings } from '../utils/taskOrdering';
+import { quadrantOf, quadKey, sortQuadrant, topOfQuadrant } from '../utils/quad';
 import { createSelectionSlice, SelectionSlice } from './slices/selectionSlice';
 
 const generateId = () => Math.random().toString(36).substring(2, 9);
@@ -46,11 +47,11 @@ interface TaskState {
 
   // Actions
   fetchTasks: () => Promise<void>;
-  addTask: (rawInput: string, parentId?: string | null, afterTaskId?: string | null, options?: { skipHistory?: boolean; defaultDueDate?: Date | null; important?: boolean }) => void;
+  addTask: (rawInput: string, parentId?: string | null, afterTaskId?: string | null, options?: { skipHistory?: boolean; defaultDueDate?: Date | null; important?: boolean; urgent?: boolean }) => void;
   restoreTask: (task: Task, options?: { skipHistory?: boolean }) => void; // Internal use for undo
   batchAddTasks: (rawInputs: string[]) => void;
   updateTask: (id: string, updates: Partial<Task>, options?: { skipHistory?: boolean }) => void;
-  moveTask: (id: string, direction: 'up' | 'down', options?: { skipHistory?: boolean; context?: 'project' | 'today' }) => void;
+  moveTask: (id: string, direction: 'up' | 'down', options?: { skipHistory?: boolean; context?: 'project' | 'quad' }) => void;
 
   toggleTask: (id: string, options?: { skipHistory?: boolean }) => void;
   deleteTask: (id: string, options?: { skipHistory?: boolean }) => void;
@@ -70,7 +71,7 @@ interface TaskState {
   batchComplete: () => void;
   batchSetDueDate: (date: Date | null) => void;
   pushTodayToTomorrow: () => number;
-  batchMove: (direction: 'up' | 'down', options?: { context?: 'project' | 'today' }) => void;
+  batchMove: (direction: 'up' | 'down', options?: { context?: 'project' | 'quad' }) => void;
   batchChangeParent: (updates: { id: string; newParentId: string | null }[]) => void;
   batchIndent: () => void;
   batchOutdent: () => void;
@@ -79,9 +80,11 @@ interface TaskState {
   toggleExpand: (id: string) => void;
   setExpandedAll: (expanded: boolean) => void;
   changeParent: (id: string, newParentId: string | null, options?: { skipHistory?: boolean }) => void;
-  moveTaskTo: (id: string, newParentId: string | null, newOrder: number, options?: { context?: 'today' | 'project' }) => void;
-  toggleImportance: (id: string, options?: { skipHistory?: boolean }) => void;
-  clearImportance: (id: string, options?: { skipHistory?: boolean }) => void;
+  moveTaskTo: (id: string, newParentId: string | null, newOrder: number, options?: { context?: 'quad' | 'project' }) => void;
+  // Eisenhower flags: manual, independent of due date. Toggling moves the task
+  // to the top of its new quadrant (focus follows it in the UI).
+  toggleUrgent: (id: string, options?: { skipHistory?: boolean }) => void;
+  toggleImportant: (id: string, options?: { skipHistory?: boolean }) => void;
 
   undo: () => void;
   redo: () => void;
@@ -106,8 +109,17 @@ const mapFromDb = (dbTask: any): Task => ({
   order: parseFloat(dbTask.order),
   expanded: dbTask.expanded,
   archived: dbTask.archived,
-  importantOrder: dbTask.important_order ? parseFloat(dbTask.important_order) : null,
-  todayOrder: dbTask.today_order ? parseFloat(dbTask.today_order) : null,
+  // Eisenhower fields, with graceful derivation from the legacy columns for
+  // rows written before the quad migration (important_order / today_order).
+  urgent: !!dbTask.urgent,
+  important: dbTask.important != null ? !!dbTask.important : dbTask.important_order != null,
+  quadOrder: dbTask.quad_order != null
+    ? parseFloat(dbTask.quad_order)
+    : dbTask.important_order != null
+      ? parseFloat(dbTask.important_order) * 1000 // preserve the old Important list's order
+      : dbTask.today_order != null
+        ? parseFloat(dbTask.today_order)
+        : null,
 });
 
 const mapToDb = (task: Partial<Task>) => {
@@ -124,8 +136,9 @@ const mapToDb = (task: Partial<Task>) => {
   if (task.order !== undefined) dbObj.order = task.order;
   if (task.expanded !== undefined) dbObj.expanded = task.expanded;
   if (task.archived !== undefined) dbObj.archived = task.archived;
-  if (task.importantOrder !== undefined) dbObj.important_order = task.importantOrder;
-  if (task.todayOrder !== undefined) dbObj.today_order = task.todayOrder;
+  if (task.urgent !== undefined) dbObj.urgent = task.urgent;
+  if (task.important !== undefined) dbObj.important = task.important;
+  if (task.quadOrder !== undefined) dbObj.quad_order = task.quadOrder;
   if (task.completedAt !== undefined) dbObj.completed_at = task.completedAt;
   return dbObj;
 };
@@ -156,6 +169,50 @@ const queueOperation = async (
     const op: PendingOperation = { ...operation, id: generateId() };
     set({ pendingOperations: [...state.pendingOperations, op] });
   }
+};
+
+// Shared implementation for toggleUrgent / toggleImportant.
+// Quadrant membership is derived from the flags; this only needs to (1) flip
+// the flag, (2) compute a quadOrder that lands the task at the top of its new
+// quadrant among today's members, and (3) record an undo that restores both.
+const toggleQuadFlag = (
+  set: any,
+  get: any,
+  id: string,
+  flag: 'urgent' | 'important',
+  options: { skipHistory?: boolean } = {}
+) => {
+  const state = get();
+  const task = state.tasks.find((t: Task) => t.id === id);
+  if (!task) return;
+
+  const prev = { urgent: !!task.urgent, important: !!task.important, quadOrder: task.quadOrder ?? null };
+  const next = { urgent: prev.urgent, important: prev.important, [flag]: !prev[flag] } as { urgent: boolean; important: boolean };
+
+  // Destination-quadrant members currently visible in the Today quad
+  // (due today or overdue, excluding the task itself).
+  const now = new Date();
+  const endOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1);
+  const destQuadrant = quadrantOf(next);
+  const members = state.tasks.filter((t: Task) =>
+    t.id !== id && !t.archived && !t.completed && t.dueDate &&
+    new Date(t.dueDate) < endOfToday && quadrantOf(t) === destQuadrant
+  );
+  const newQuadOrder = topOfQuadrant(members);
+
+  if (!options.skipHistory) {
+    set((s: any) => {
+      const newHistory = [...s.history, {
+        name: flag === 'urgent' ? 'Toggle Urgent' : 'Toggle Important',
+        undo: () => get().updateTask(id, prev, { skipHistory: true }),
+        redo: () => get().updateTask(id, { ...next, quadOrder: newQuadOrder }, { skipHistory: true }),
+      }];
+      if (newHistory.length > 50) newHistory.shift();
+      return { history: newHistory, future: [] };
+    });
+  }
+
+  get().updateTask(id, { urgent: next.urgent, important: next.important, quadOrder: newQuadOrder }, { skipHistory: true });
 };
 
 export const useTaskStore = create<TaskState>()(
@@ -254,15 +311,25 @@ export const useTaskStore = create<TaskState>()(
         // (e.g. today in Today, the focused day in Upcoming).
         const finalDueDate = dueDate ?? options.defaultDueDate ?? null;
 
-        // Inherit importance from the focused row — but only when the task has a
-        // due date, since the Important list (and toggleImportance) require one.
-        let importantOrder: number | null = null;
-        if (options.important && finalDueDate) {
-          const maxImportant = state.tasks.reduce(
-            (m, t) => (t.importantOrder && !t.archived && !t.completed ? Math.max(m, t.importantOrder) : m),
-            0
+        // Eisenhower flags inherited from the focused row / quadrant. Both are
+        // independent of the due date (the whole point of the quad model).
+        const urgent = !!options.urgent;
+        const important = !!options.important;
+
+        // Quadrant placement: directly below the reference row when it lives in
+        // the same quadrant (mirrors the sibling-insert in Plan), else the top
+        // of the destination quadrant. Ties on quadKey resolve by createdAt, so
+        // "+1" reliably lands the new task just after its reference.
+        const afterTask = afterTaskId ? state.tasks.find(t => t.id === afterTaskId) : null;
+        let quadOrder: number | null = null;
+        if (afterTask && quadrantOf(afterTask) === quadrantOf({ urgent, important })) {
+          quadOrder = quadKey(afterTask) + 1;
+        } else {
+          const quadrant = quadrantOf({ urgent, important });
+          const members = state.tasks.filter(t =>
+            !t.archived && !t.completed && t.dueDate && quadrantOf(t) === quadrant
           );
-          importantOrder = maxImportant + 1;
+          quadOrder = topOfQuadrant(members);
         }
 
         const newTask: Task = {
@@ -273,7 +340,9 @@ export const useTaskStore = create<TaskState>()(
           priority,
           tags,
           dueDate: finalDueDate,
-          importantOrder,
+          urgent,
+          important,
+          quadOrder,
           completed: false,
           archived: false,
           createdAt: Date.now(),
@@ -476,49 +545,24 @@ export const useTaskStore = create<TaskState>()(
           })
         }
 
-        let siblings: Task[] = [];
-        let orderField: keyof Task = 'order';
-
-        if (options.context === 'today') {
-          // TODAY CONTEXT LOGIC
-          if (task.importantOrder) {
-            // Moving within Important list
-            siblings = getSiblings(task, state.tasks, 'important');
-            orderField = 'importantOrder';
-          } else {
-            // Moving within Outstanding list - use shared function for consistency
-            siblings = getSiblings(task, state.tasks, 'today');
-            orderField = 'todayOrder';
-          }
-        } else {
-          // DEFAULT PROJECT/PARENT CONTEXT
-          siblings = getSiblings(task, state.tasks, 'project');
-        }
+        // 'quad' = position within the task's current Eisenhower quadrant;
+        // 'project' = the Plan hierarchy. The two never touch each other.
+        const context = options.context === 'quad' ? 'quad' : 'project';
+        const orderField: keyof Task = context === 'quad' ? 'quadOrder' : 'order';
+        const siblings = getSiblings(task, state.tasks, context);
 
         const currentIndex = siblings.findIndex(t => t.id === id);
         if (currentIndex === -1) return;
 
         const targetIndex = direction === 'up' ? currentIndex - 1 : currentIndex + 1;
+        // At the quadrant/list edge: stop. In the quad, flags (u/i) are the only
+        // way to cross into another quadrant — over-scrolling never re-prioritizes.
         if (targetIndex < 0 || targetIndex >= siblings.length) return;
 
-        // Normalization / Swap Logic
+        // Normalize all siblings (also initializes any null quadOrders), then swap.
         const updates: Record<string, number> = {};
+        siblings.forEach((t, i) => { updates[t.id] = i * 1000; });
 
-        // If we are moving in 'todayOrder' and values are null, initialize them
-        if (orderField === 'todayOrder') {
-          siblings.forEach((t, i) => {
-            // If any order is missing or we just want to re-normalize to ensure clean swap
-            updates[t.id] = i * 1000;
-          });
-        } else if (orderField === 'importantOrder') {
-          siblings.forEach((t, i) => {
-            updates[t.id] = i + 1; // 1-based for importance
-          });
-        } else {
-          siblings.forEach((t, i) => { updates[t.id] = i * 1000; });
-        }
-
-        // Swap values in our local updates map
         const id1 = siblings[currentIndex].id;
         const id2 = siblings[targetIndex].id;
 
@@ -533,101 +577,29 @@ export const useTaskStore = create<TaskState>()(
 
         if (state.guestMode) return;
 
-        const dbField = orderField === 'importantOrder' ? 'important_order' : (orderField === 'todayOrder' ? 'today_order' : 'order');
-        await supabase.from('tasks').update({ [dbField]: updates[id1] }).eq('id', id1);
-        await supabase.from('tasks').update({ [dbField]: updates[id2] }).eq('id', id2);
-      },
-
-      toggleImportance: async (id, options = {}) => {
-        const state = get();
-        const task = state.tasks.find(t => t.id === id);
-        if (!task || !task.dueDate) return; // Only due dated tasks can be important (per spec logic "due for today") -> Spec says "due for today". 
-        // We should double check if strictly "today" or just "has due date". Let's assume has Due Date.
-
-        const importantTasks = state.tasks
-          .filter(t => t.importantOrder && !t.archived && !t.completed && t.dueDate) // Filter robustly
-          .sort((a, b) => (a.importantOrder || 0) - (b.importantOrder || 0));
-
-        if (!options.skipHistory) {
-          set((s) => {
-            // Toggle is complex to undo because it might involve reordering many things. 
-            // Simplest undo is to restore state of ALL affected tasks.
-            // But let's try a lighter inverse: clearImportance or specific re-toggle.
-            // If we appended, undo is remove. 
-            // If we promoted, undo is tricky. 
-            // Let's defer strict undo for this complex action or just implement 'restoreTask' based undo which is heavy but safe.
-            // Or simpler: Just store the 'before' state of the single task?
-            // No, because others shift.
-            // Let's leave undo implementation for a specific 'Importance Undo' step later or skip for MVP if acceptable.
-            // Spec didn't strictly mandate rigorous undo for this, but general Undo is expected.
-            // Generic fallback:
-            return { history: s.history, future: [] }; // Placeholder
-          });
-        }
-
-        if (task.importantOrder) {
-          // Already Important
-          if (task.importantOrder === 1) {
-            // Already #1, do nothing
-            return;
-          }
-          // Promote to #1
-          const updates: Record<string, number> = {};
-          updates[task.id] = 1;
-
-          let counter = 2;
-          importantTasks.forEach(t => {
-            if (t.id !== task.id) {
-              updates[t.id] = counter++;
-            }
-          });
-
-          set(s => ({ tasks: s.tasks.map(t => updates[t.id] ? { ...t, importantOrder: updates[t.id] } : t) }));
-          if (!state.guestMode) {
-            for (const [tid, ord] of Object.entries(updates)) {
-              await supabase.from('tasks').update({ important_order: ord }).eq('id', tid);
-            }
-          }
-        } else {
-          // Make Important (Append)
-          const newOrder = importantTasks.length > 0 ? (importantTasks[importantTasks.length - 1].importantOrder || 0) + 1 : 1;
-          set(s => ({ tasks: s.tasks.map(t => t.id === id ? { ...t, importantOrder: newOrder } : t) }));
-          if (!state.guestMode) {
-            await supabase.from('tasks').update({ important_order: newOrder }).eq('id', id);
+        // Persist the full normalization, not just the swapped pair — otherwise
+        // siblings whose null quadOrder was initialized locally would reload in
+        // a different position (their fallback key is createdAt, not i*1000).
+        const dbField = orderField === 'quadOrder' ? 'quad_order' : 'order';
+        const before = new Map(siblings.map(t => [t.id, t[orderField] as number | null | undefined]));
+        for (const [tid, val] of Object.entries(updates)) {
+          if (before.get(tid) !== val) {
+            await supabase.from('tasks').update({ [dbField]: val }).eq('id', tid);
           }
         }
       },
 
-      clearImportance: async (id, options = {}) => {
-        const state = get();
-        const task = state.tasks.find(t => t.id === id);
-        if (!task || !task.importantOrder) return;
+      // Shared implementation for the two Eisenhower flag toggles.
+      // Flipping a flag moves the task to another quadrant: it enters at the
+      // TOP (you just decided it matters differently — it's top-of-mind), and
+      // undo restores both the flags and the previous quadOrder, so a toggle
+      // round-trip puts the task back exactly where it was.
+      toggleUrgent: (id, options = {}) => {
+        toggleQuadFlag(set, get, id, 'urgent', options);
+      },
 
-        const removedOrder = task.importantOrder;
-
-        // Shift others up
-        const updates: Record<string, number> = {};
-        const others = state.tasks
-          .filter(t => t.importantOrder && t.importantOrder > removedOrder && !t.archived && !t.completed);
-
-        others.forEach(t => {
-          updates[t.id] = (t.importantOrder || 0) - 1;
-        });
-
-        set(s => ({
-          tasks: s.tasks.map(t => {
-            if (t.id === id) return { ...t, importantOrder: null };
-            if (updates[t.id]) return { ...t, importantOrder: updates[t.id] };
-            return t;
-          })
-        }));
-
-        if (!state.guestMode) {
-          await supabase.from('tasks').update({ important_order: null }).eq('id', id);
-          for (const [tid, ord] of Object.entries(updates)) {
-            await supabase.from('tasks').update({ important_order: ord }).eq('id', tid);
-          }
-        }
+      toggleImportant: (id, options = {}) => {
+        toggleQuadFlag(set, get, id, 'important', options);
       },
 
       changeParent: async (id, newParentId, options = {}) => {
@@ -657,32 +629,25 @@ export const useTaskStore = create<TaskState>()(
         await supabase.from('tasks').update({ parent_id: newParentId }).eq('id', id);
       },
 
-      moveTaskTo: async (id: string, newParentId: string | null, newOrder: number, options?: { context?: 'today' | 'project' }) => {
-        const field = options?.context === 'today' ? 'todayOrder' : 'order'; // If Today, we usually don't change parent? 
-        // Actually, if context is today, we only change todayOrder? 
-        // But what if we nest? Today view nesting?
-        // Spec: "sorting fix... separate task sorting order for the tasks shown in the Today view... user can easily move any tasks up or down".
-        // If sorting in Today, we update 'todayOrder'. Parent changes are likely restricted or ignored in sorting?
-
-        // If updating todayOrder, we usually don't change parent ID unless we support hierarchy changes in Today view.
-        // For now, let's assume we update only the order field if context is today, OR parent if relevant?
-        // But hierarchy is 'Plan' view concept. Today view is flat-ish or has different hierarchy?
-        // Plan says: "Today view sorting fix... separate task sorting order... decoupling from parent hierarchy or implementing flat sort for Today".
-        // So we likely just update 'todayOrder' and ignore parentId changes or keep them same.
-
-        const update: any = { [field]: newOrder };
-        if (field === 'order') update.parent_id = newParentId; // Only sync parent if standard order
+      moveTaskTo: async (id: string, newParentId: string | null, newOrder: number, options?: { context?: 'quad' | 'project' }) => {
+        // 'quad' updates only quadOrder (the Today quad is flat — hierarchy is a
+        // Plan concept); 'project' updates Plan order and may re-parent.
+        const isQuad = options?.context === 'quad';
 
         set((state) => ({
-          tasks: state.tasks.map(t => t.id === id ? { ...t, ...update, ...(field === 'order' ? { parentId: newParentId } : {}) } : t)
+          tasks: state.tasks.map(t => t.id === id
+            ? (isQuad
+              ? { ...t, quadOrder: newOrder }
+              : { ...t, order: newOrder, parentId: newParentId })
+            : t)
         }));
 
         const state = get();
         if (state.guestMode) return;
 
-        const dbUpdate: any = { ...update };
-        if (field === 'todayOrder') delete dbUpdate.parent_id;
-        if (field === 'todayOrder') dbUpdate.today_order = newOrder;
+        const dbUpdate: any = isQuad
+          ? { quad_order: newOrder }
+          : { order: newOrder, parent_id: newParentId };
 
         await supabase.from('tasks').update(dbUpdate).eq('id', id);
       },
@@ -988,18 +953,9 @@ export const useTaskStore = create<TaskState>()(
         // Resolve the sibling list + order field from context, mirroring moveTask.
         const rep = state.tasks.find(t => idsToMove.includes(t.id));
         if (!rep) return;
-        let siblings: Task[];
-        let orderField: keyof Task;
-        if (context === 'today' && !rep.importantOrder) {
-          siblings = getSiblings(rep, state.tasks, 'today');
-          orderField = 'todayOrder';
-        } else if (context === 'today' && rep.importantOrder) {
-          siblings = getSiblings(rep, state.tasks, 'important');
-          orderField = 'importantOrder';
-        } else {
-          siblings = getSiblings(rep, state.tasks, 'project');
-          orderField = 'order';
-        }
+        const resolvedContext = context === 'quad' ? 'quad' : 'project';
+        const orderField: keyof Task = resolvedContext === 'quad' ? 'quadOrder' : 'order';
+        const siblings = getSiblings(rep, state.tasks, resolvedContext);
 
         const sibIds = siblings.map(t => t.id);
         const selectedSet = new Set(idsToMove.filter(id => sibIds.includes(id)));
@@ -1023,10 +979,8 @@ export const useTaskStore = create<TaskState>()(
           newIds.splice(maxI, 0, neighbor);
         }
 
-        const spacing = orderField === 'importantOrder' ? 1 : 1000;
-        const base = orderField === 'importantOrder' ? 1 : 0;
         const updates: Record<string, number> = {};
-        newIds.forEach((id, i) => { updates[id] = base + i * spacing; });
+        newIds.forEach((id, i) => { updates[id] = i * 1000; });
 
         const snapshot = siblings.map(t => ({ id: t.id, val: (t[orderField] as number | null) ?? null }));
 
@@ -1056,7 +1010,7 @@ export const useTaskStore = create<TaskState>()(
         }));
 
         if (state.guestMode) return;
-        const dbField = orderField === 'importantOrder' ? 'important_order' : (orderField === 'todayOrder' ? 'today_order' : 'order');
+        const dbField = orderField === 'quadOrder' ? 'quad_order' : 'order';
         snapshot.forEach(({ id, val }) => {
           if (updates[id] !== val) {
             supabase.from('tasks').update({ [dbField]: updates[id] }).eq('id', id).then(() => { }, () => { });
@@ -1168,6 +1122,27 @@ export const useTaskStore = create<TaskState>()(
     }),
     {
       name: 'flowstate-tasks',
+      version: 1,
+      // v0 → v1: Eisenhower quad. Derive the new flag/ordering fields from the
+      // legacy importantOrder/todayOrder so nobody's Important list is lost.
+      migrate: (persisted: any, version: number) => {
+        if (!persisted || version >= 1) return persisted;
+        if (Array.isArray(persisted.tasks)) {
+          persisted.tasks = persisted.tasks.map((t: any) => {
+            if (!t || 'important' in t) return t;
+            const { importantOrder, todayOrder, ...rest } = t;
+            return {
+              ...rest,
+              urgent: false,
+              important: importantOrder != null,
+              quadOrder: importantOrder != null
+                ? importantOrder * 1000 // preserve the old Important list's order
+                : todayOrder ?? null,
+            };
+          });
+        }
+        return persisted;
+      },
       partialize: (state) => ({
         tasks: state.tasks,
         pendingOperations: state.pendingOperations,

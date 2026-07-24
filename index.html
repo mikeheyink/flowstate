@@ -19,26 +19,27 @@
               display: ['"Hanken Grotesk"', 'Inter', 'sans-serif'],
             },
             colors: {
-              // Warm neutral ramp (replaces cold slate globally) — "Calm Focus"
+              // Cool neutral ramp with a faint blue undertone — "North Light"
+              // (previous theme: warm beige "Calm Focus"; swap this block back to revert)
               slate: {
-                50:  '#F5F3EF',
-                100: '#EDEAE3',
-                200: '#E3DFD6',
-                300: '#CBC6BB',
-                400: '#A8A29A',
-                500: '#87817A',
-                600: '#6A655E',
-                700: '#514D47',
-                800: '#353230',
-                850: '#232120',
-                900: '#1A1815',
-                950: '#141210',
+                50:  '#F5F6F8',
+                100: '#ECEEF2',
+                200: '#E0E3E9',
+                300: '#C6CAD4',
+                400: '#9EA3B0',
+                500: '#7E8391',
+                600: '#616674',
+                700: '#494E59',
+                800: '#30343E',
+                850: '#22252D',
+                900: '#181B21',
+                950: '#121419',
               },
-              // Brand — denim / slate blue (interactive, focus, ⌘K)
+              // Brand — iris / indigo (interactive, focus, ⌘K)
               primary: {
-                400: '#7CA0CB',
-                500: '#5680B0',
-                600: '#3F6896',
+                400: '#8C95EE',
+                500: '#6674E4',
+                600: '#4F5CD1',
               },
               // Signature success color — reserved for completion ONLY
               success: {
@@ -74,28 +75,28 @@
         background: transparent;
       }
       ::-webkit-scrollbar-thumb {
-        background: #CBC6BB;
+        background: #C6CAD4;
         border-radius: 3px;
       }
       ::-webkit-scrollbar-thumb:hover {
-        background: #A8A29A;
+        background: #9EA3B0;
       }
       html.dark ::-webkit-scrollbar-thumb {
-        background: #353230;
+        background: #30343E;
       }
       html.dark ::-webkit-scrollbar-thumb:hover {
-        background: #514D47;
+        background: #494E59;
       }
       body {
-        background-color: #F5F3EF; /* Warm paper — light mode */
-        color: #1C1A17;
+        background-color: #F5F6F8; /* Porcelain — light mode */
+        color: #1A1C22;
         font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
         -webkit-font-smoothing: antialiased;
         overflow: hidden; /* App-like feel */
       }
       html.dark body {
-        background-color: #141210; /* Warm near-black */
-        color: #ECE8E1;
+        background-color: #121419; /* Blue-charcoal near-black */
+        color: #E9EBF0;
       }
     </style>
   <script type="importmap">

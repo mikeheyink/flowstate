@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useRef, useMemo } from 'react';
-import { Layers, Inbox, Calendar as CalendarIcon, CalendarClock, ClipboardList, RefreshCw, WifiOff, UserX, Keyboard, Command, BookOpen, Reply, Mail, LayoutGrid, ListChecks, BarChart3, Flame } from 'lucide-react';
+import { Layers, Inbox, Calendar as CalendarIcon, CalendarClock, ClipboardList, RefreshCw, WifiOff, UserX, Keyboard, Command, BookOpen, Reply, Mail, LayoutGrid, ListChecks, BarChart3, Flame, Compass } from 'lucide-react';
 import { useUIStore, CurrentView } from '../store/useUIStore';
 import { useOnlineStatus } from '../store/useOnlineStatus';
 import { useMailStore } from '../store/useMailStore';
@@ -16,8 +16,9 @@ interface TopNavProps {
 // Top-level sections — the persistent anchor. Switch with ⌘[ / ⌘].
 // (Mail exists in the codebase but isn't shipped yet, so it's not offered here.)
 const SECTIONS: { id: CurrentView; label: string; Icon: React.ComponentType<any>; chord: string }[] = [
-    { id: 'tasks', label: 'Tasks', Icon: ClipboardList, chord: '⌘[' },
-    { id: 'habits', label: 'Habits', Icon: Flame, chord: '⌘]' },
+    { id: 'tasks', label: 'Tasks', Icon: ClipboardList, chord: '⌘[ / ⌘]' },
+    { id: 'habits', label: 'Habits', Icon: Flame, chord: '⌘[ / ⌘]' },
+    { id: 'objectives', label: 'Objectives', Icon: Compass, chord: '⌘[ / ⌘]' },
 ];
 
 export function TopNav({ session, isGuest, setGuestMode }: TopNavProps) {
@@ -43,6 +44,7 @@ export function TopNav({ session, isGuest, setGuestMode }: TopNavProps) {
     const mobileTitle = (() => {
         if (currentView === 'habits') return 'Habits';
         if (currentView === 'mail') return 'Mail';
+        if (currentView === 'objectives') return 'Objectives';
         const map: Record<string, string> = { active: 'Plan', today: 'Today', upcoming: 'Upcoming', review: 'Review' };
         return map[filter] || 'Tasks';
     })();

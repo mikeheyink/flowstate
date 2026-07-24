@@ -1,16 +1,22 @@
 /**
  * Task Ordering Utilities
- * 
+ *
  * Pure functions for calculating new order values when tasks are moved.
  * These are extracted from useTaskStore to be testable and reusable.
+ *
+ * Two ordering worlds exist and never touch each other:
+ *  - 'project': the Plan hierarchy (`order` + parentId)
+ *  - 'quad':    position within a task's current Eisenhower quadrant
+ *               (`quadOrder`; quadrant membership derives from urgent/important)
  */
 
 import { Task } from '../types';
+import { quadrantOf, sortQuadrant } from './quad';
 
-export type OrderContext = 'project' | 'today' | 'important';
+export type OrderContext = 'project' | 'quad';
 
 export interface OrderField {
-    field: keyof Pick<Task, 'order' | 'todayOrder' | 'importantOrder'>;
+    field: keyof Pick<Task, 'order' | 'quadOrder'>;
     updateParent: boolean;
 }
 
@@ -19,10 +25,8 @@ export interface OrderField {
  */
 export function getOrderField(context: OrderContext): OrderField {
     switch (context) {
-        case 'today':
-            return { field: 'todayOrder', updateParent: false };
-        case 'important':
-            return { field: 'importantOrder', updateParent: false };
+        case 'quad':
+            return { field: 'quadOrder', updateParent: false };
         case 'project':
         default:
             return { field: 'order', updateParent: true };
@@ -30,52 +34,30 @@ export function getOrderField(context: OrderContext): OrderField {
 }
 
 /**
- * Get siblings for a task based on context
+ * Get siblings for a task based on context.
+ *
+ * 'quad' siblings are the *other members of the same quadrant* among tasks due
+ * today or overdue — moving with ⌘↑/⌘↓ stays inside the quadrant; the flags
+ * (u/i) are the only way to cross into another one.
  */
 export function getSiblings(
     task: Task,
     allTasks: Task[],
     context: OrderContext
 ): Task[] {
-    if (context === 'important') {
-        // All tasks with importantOrder set
-        return allTasks
-            .filter(t => t.importantOrder != null && !t.archived && !t.completed)
-            .sort((a, b) => (a.importantOrder || 0) - (b.importantOrder || 0));
-    }
-
-    if (context === 'today') {
-        // Tasks due today or overdue (not marked important)
-        // MUST match sortOutstandingForToday algorithm exactly for visual consistency
+    if (context === 'quad') {
         const now = new Date();
-        const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate());
         const endOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1);
+        const quadrant = quadrantOf(task);
 
-        const outstanding = allTasks.filter(t => {
-            if (t.archived || t.completed || t.importantOrder) return false;
-            if (!t.dueDate) return false;
-            const d = new Date(t.dueDate);
-            return d < endOfToday;
+        const members = allTasks.filter(t => {
+            if (t.archived || t.completed || !t.dueDate) return false;
+            if (quadrantOf(t) !== quadrant) return false;
+            return new Date(t.dueDate) < endOfToday;
         });
 
-        // Separate by todayOrder presence (matching display algorithm)
-        const hasOrder = (t: Task) => t.todayOrder != null;
-        const withOrder = outstanding.filter(hasOrder);
-        const withoutOrder = outstanding.filter(t => !hasOrder(t));
-
-        // Sort each group
-        withOrder.sort((a, b) => (a.todayOrder || 0) - (b.todayOrder || 0));
-        withoutOrder.sort((a, b) => {
-            const isOverdueA = new Date(a.dueDate!) < startOfToday;
-            const isOverdueB = new Date(b.dueDate!) < startOfToday;
-            if (isOverdueA !== isOverdueB) return isOverdueA ? -1 : 1;
-            return a.createdAt - b.createdAt;
-        });
-
-        // Ordered first, then unordered (matching display)
-        return [...withOrder, ...withoutOrder];
+        return sortQuadrant(members);
     }
-
 
     // Project context: same parent, same completion status
     return allTasks
@@ -94,8 +76,7 @@ export function getSiblings(
 export function calculateInsertOrder(
     existingSiblings: Task[],
     newTaskId: string,
-    insertIndex: number,
-    orderField: keyof Task = 'order'
+    insertIndex: number
 ): Record<string, number> {
     const updates: Record<string, number> = {};
 
@@ -105,11 +86,8 @@ export function calculateInsertOrder(
     newList.splice(insertIndex, 0, { id: newTaskId } as Task);
 
     // Normalize all orders
-    const spacing = orderField === 'importantOrder' ? 1 : 1000;
-    const base = orderField === 'importantOrder' ? 1 : 0;
-
     newList.forEach((t, i) => {
-        updates[t.id] = base + (i * spacing);
+        updates[t.id] = i * 1000;
     });
 
     return updates;
@@ -122,8 +100,7 @@ export function calculateInsertOrder(
 export function calculateMoveUpDown(
     siblings: Task[],
     taskId: string,
-    direction: 'up' | 'down',
-    orderField: keyof Pick<Task, 'order' | 'todayOrder' | 'importantOrder'> = 'order'
+    direction: 'up' | 'down'
 ): Record<string, number> | null {
     const currentIndex = siblings.findIndex(t => t.id === taskId);
     if (currentIndex === -1) return null;
@@ -133,20 +110,18 @@ export function calculateMoveUpDown(
 
     // Calculate orders
     const updates: Record<string, number> = {};
-    const spacing = orderField === 'importantOrder' ? 1 : 1000;
-    const base = orderField === 'importantOrder' ? 1 : 0;
 
     // Normalize all siblings first
     siblings.forEach((t, i) => {
-        updates[t.id] = base + (i * spacing);
+        updates[t.id] = i * 1000;
     });
 
     // Swap the two positions
     const currentTask = siblings[currentIndex];
     const targetTask = siblings[targetIndex];
 
-    updates[currentTask.id] = base + (targetIndex * spacing);
-    updates[targetTask.id] = base + (currentIndex * spacing);
+    updates[currentTask.id] = targetIndex * 1000;
+    updates[targetTask.id] = currentIndex * 1000;
 
     return updates;
 }
@@ -203,63 +178,6 @@ export function renormalizeOrders(
     taskIds.forEach((id, i) => {
         updates[id] = base + (i * spacing);
     });
-
-    return updates;
-}
-
-/**
- * Calculate updates for adding a task to the important list
- */
-export function calculateImportanceOrder(
-    existingImportant: Task[],
-    taskId: string,
-    position: 'top' | 'bottom' = 'bottom'
-): Record<string, number> {
-    const updates: Record<string, number> = {};
-
-    // Sort existing by importantOrder
-    const sorted = [...existingImportant].sort(
-        (a, b) => (a.importantOrder || 0) - (b.importantOrder || 0)
-    );
-
-    if (position === 'top') {
-        // Shift all existing down
-        sorted.forEach((t, i) => {
-            updates[t.id] = i + 2; // Start from 2
-        });
-        updates[taskId] = 1;
-    } else {
-        // Existing stay the same, new task at end
-        sorted.forEach((t, i) => {
-            updates[t.id] = i + 1;
-        });
-        updates[taskId] = sorted.length + 1;
-    }
-
-    return updates;
-}
-
-/**
- * Calculate updates for removing from important list
- */
-export function calculateClearImportance(
-    existingImportant: Task[],
-    removedTaskId: string
-): Record<string, number | null> {
-    const updates: Record<string, number | null> = {};
-    const task = existingImportant.find(t => t.id === removedTaskId);
-
-    if (!task?.importantOrder) return updates;
-
-    const removedOrder = task.importantOrder;
-    updates[removedTaskId] = null;
-
-    // Shift up all tasks after the removed one
-    existingImportant
-        .filter(t => t.importantOrder && t.importantOrder > removedOrder && t.id !== removedTaskId)
-        .forEach(t => {
-            updates[t.id] = (t.importantOrder || 0) - 1;
-        });
 
     return updates;
 }
