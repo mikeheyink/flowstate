@@ -32,18 +32,18 @@ export function HabitsView() {
     }
   };
 
-  const handleSubmitForm = (data: { title: string; type: 'do' | 'dont-do'; daysOfWeek: number[]; objectiveId: string | null; why: string }) => {
+  const handleSubmitForm = (data: { title: string; type: 'do' | 'dont-do'; daysOfWeek: number[]; objectiveIds: string[]; why: string }) => {
     if (editingHabit) {
       updateHabit(editingHabit.id, {
         title: data.title,
         type: data.type,
         daysOfWeek: data.daysOfWeek,
-        objectiveId: data.objectiveId,
+        objectiveIds: data.objectiveIds,
         why: data.why,
       });
     } else {
       addHabit(data.title, data.type, data.daysOfWeek, getISOWeek(new Date()), {
-        objectiveId: data.objectiveId,
+        objectiveIds: data.objectiveIds,
         why: data.why,
       });
     }

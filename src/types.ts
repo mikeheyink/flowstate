@@ -40,10 +40,11 @@ export interface Habit {
   appliesUntilWeek: string | null; // null = all future weeks
   daysOfWeek: number[]; // 0=Monday, 6=Sunday
 
-  // The "why": which objective this habit serves (colored left edge in the
-  // views + per-objective analytics rollup) and an optional one-line reason
-  // revealed on hover. Both optional — a habit without them renders as before.
-  objectiveId?: string | null;
+  // The "why": which objective(s) this habit serves (stacked colored edge in
+  // the views + per-objective analytics rollup) and an optional detail
+  // (multi-line) revealed in a hover/tap card. Both optional — a habit without
+  // them renders as before. A habit can serve several objectives at once.
+  objectiveIds?: string[];
   why?: string;
 }
 
@@ -67,11 +68,40 @@ export interface HabitLog {
 export interface Objective {
   id: string;
   title: string;
-  body: string; // free text — the objective's meaning, sub-points, commitments
+  essence: string; // one-line north star — always visible; what the daily soft-start surfaces
+  body: string; // markdown detail — meaning, sub-points, commitments
   color: string; // hex; this objective's accent across the app
   order: number; // manual sort key (lower = higher on the page)
   createdAt: number;
   archivedAt: number | null; // soft-delete
+}
+
+// Adventure — a calm page that turns the "Adventure" objective into something
+// lived: adventures lined up on the calendar + seeds of future ones.
+//   date === null  → a seed (someday, undated) — the Seedbed
+//   date in future → scheduled — the Horizon
+//   lived, or date in the past → the memory log (Looking Back)
+export interface Adventure {
+  id: string;
+  title: string;
+  notes: string; // optional detail (markdown-lite)
+  categoryId: string | null; // soft ref to AdventureCategory.id
+  date: number | null; // epoch ms of the scheduled day; null = seed
+  lived: boolean; // explicitly marked lived (past-dated ones read as lived too)
+  externalEventId: string | null; // reserved: future Google Calendar sync
+  order: number; // manual sort key within the Seedbed (lower = higher)
+  createdAt: number;
+  archivedAt: number | null; // soft-delete
+}
+
+// A kind of adventure — a coloured tag. Ships with an editable preset.
+export interface AdventureCategory {
+  id: string;
+  label: string;
+  color: string; // hex accent
+  order: number;
+  createdAt: number;
+  archivedAt: number | null;
 }
 
 export interface ToastMessage {

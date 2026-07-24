@@ -3,6 +3,8 @@ import { ChevronLeft, ChevronRight, Plus, Edit2, Trash2 } from 'lucide-react';
 import { useHabitStore } from '../../store/useHabitStore';
 import { useUIStore } from '../../store/useUIStore';
 import { useObjectiveStore } from '../../store/useObjectiveStore';
+import { ObjectiveEdge, HabitDetailButton } from './HabitDetail';
+import { Habit, Objective } from '../../types';
 import { getISOWeek, getWeekDates, shiftWeek, toLocalISO } from '../../utils/habitDates';
 
 interface HabitGridViewProps {
@@ -30,6 +32,9 @@ export function HabitGridView({ onAddHabit, onEditHabit, onDeleteHabit }: HabitG
   // Objective lookup for the subtle "why" edge on each row.
   const objectives = useObjectiveStore((state) => state.objectives);
   const objectiveById = useMemo(() => new Map(objectives.map(o => [o.id, o])), [objectives]);
+  // Resolve a habit's linked objectives, skipping any stale ids.
+  const habitObjectives = (h: Habit): Objective[] =>
+    (h.objectiveIds ?? []).map((id) => objectiveById.get(id)).filter((o): o is Objective => !!o);
 
   const habits = useMemo(() => getHabitsForWeek(currentWeek), [currentWeek, allHabits]);
   const weekDates = useMemo(() => getWeekDates(currentWeek), [currentWeek]);
@@ -243,19 +248,13 @@ export function HabitGridView({ onAddHabit, onEditHabit, onDeleteHabit }: HabitG
 
                 return (
                   <tr key={habit.id} data-habit-row={habitIdx} className={`border-b border-slate-200 dark:border-slate-800 ${habitIdx === focusedHabitIdx ? 'bg-primary-50 dark:bg-primary-500/10' : 'hover:bg-slate-50 dark:hover:bg-slate-800/50'}`}>
-                    <td
-                      className="py-3 px-4 relative"
-                      // Hover reveals the habit's "why" (and its objective).
-                      title={[objectiveById.get(habit.objectiveId || '')?.title, habit.why].filter(Boolean).join(' — ') || undefined}
-                    >
-                      {/* 3px objective-colored edge — the silent "why" indicator */}
-                      {habit.objectiveId && objectiveById.get(habit.objectiveId) && (
-                        <span
-                          className="absolute left-0 top-2.5 bottom-2.5 w-[3px] rounded-full"
-                          style={{ backgroundColor: objectiveById.get(habit.objectiveId)!.color }}
-                        />
-                      )}
-                      <div className="font-medium">{habit.title}</div>
+                    <td className="py-3 px-4 relative">
+                      {/* Stacked objective-colored edge — the silent "why" indicator */}
+                      <ObjectiveEdge objectives={habitObjectives(habit)} className="top-2.5 bottom-2.5" />
+                      <div className="flex items-center gap-1.5">
+                        <span className="font-medium">{habit.title}</span>
+                        <HabitDetailButton habit={habit} objectives={habitObjectives(habit)} />
+                      </div>
                       <div className="text-xs text-slate-500 dark:text-slate-400">{habit.type === 'do' ? '✓ Do' : '✗ Avoid'}</div>
                     </td>
                     {DAY_INDICES.map((dayIdx) => {

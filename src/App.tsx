@@ -224,6 +224,9 @@ function App() {
     useEffect(() => {
         if (authLoading) return;
         if (!session && !isGuest) return; // only once the app proper is visible
+        // Guests never run fetchObjectives, so make sure the five defaults exist
+        // before the soft-start tries to render them.
+        useObjectiveStore.getState().seedIfEmpty();
         const d = new Date();
         const today = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
         const ui = useUIStore.getState();
@@ -236,15 +239,20 @@ function App() {
     useEffect(() => {
         if (!softStartActive) return;
         // Capture phase + stopPropagation: the dismissing key/tap must not also
-        // trigger hotkeys or focus handlers underneath.
+        // trigger hotkeys or focus handlers underneath. We arm the listeners
+        // after a short delay so the very interaction that opened the app (the
+        // login click, or a keypress still settling) can't instantly dismiss it.
         const dismiss = (e: Event) => {
             e.stopPropagation();
             if (e instanceof KeyboardEvent) e.preventDefault();
             useUIStore.getState().dismissSoftStart();
         };
-        window.addEventListener('keydown', dismiss, { capture: true });
-        window.addEventListener('pointerdown', dismiss, { capture: true });
+        const armAt = window.setTimeout(() => {
+            window.addEventListener('keydown', dismiss, { capture: true });
+            window.addEventListener('pointerdown', dismiss, { capture: true });
+        }, 500);
         return () => {
+            window.clearTimeout(armAt);
             window.removeEventListener('keydown', dismiss, { capture: true });
             window.removeEventListener('pointerdown', dismiss, { capture: true });
         };
