@@ -50,10 +50,11 @@ const QUAD_STYLES: Record<QuadrantKey, QuadStyle> = {
 
 interface QuadBoardProps {
     visibleTasks: VisibleTask[];
+    focusedId: string | null;
     renderRow: (task: VisibleTask, index: number) => React.ReactNode;
 }
 
-export function QuadBoard({ visibleTasks, renderRow }: QuadBoardProps) {
+export function QuadBoard({ visibleTasks, focusedId, renderRow }: QuadBoardProps) {
     // Split the flat list into quadrant groups, preserving each task's global
     // index so focus/selection handlers keep working unchanged.
     const groups = QUADRANTS.map(def => ({ def, items: [] as { task: VisibleTask; index: number }[] }));
@@ -71,6 +72,7 @@ export function QuadBoard({ visibleTasks, renderRow }: QuadBoardProps) {
             <div className="grid grid-cols-1 md:grid-cols-2 gap-3 px-2 md:px-4 pt-1">
                 {groups.map(({ def, items }) => {
                     const s = QUAD_STYLES[def.key];
+                    const isQuadFocused = focusedId === def.headerId;
                     return (
                         <section
                             key={def.key}
@@ -95,8 +97,18 @@ export function QuadBoard({ visibleTasks, renderRow }: QuadBoardProps) {
 
                             <div className="pb-2 flex-1">
                                 {items.length === 0 ? (
-                                    <div className="px-4 py-5 text-xs text-slate-300 dark:text-slate-600 italic">
-                                        Nothing here
+                                    // An empty quadrant is still a focus stop, so arrowing
+                                    // into it has to show *something* — this placeholder
+                                    // stands in for the row that isn't there, and ↩ on it
+                                    // creates a task with this quadrant's flags.
+                                    <div
+                                        data-task-id={def.headerId}
+                                        className={`mx-2 px-2 py-4 rounded-lg text-xs italic transition-colors ${isQuadFocused
+                                            ? 'bg-primary-500/10 dark:bg-primary-400/10 text-primary-600 dark:text-primary-400'
+                                            : 'text-slate-300 dark:text-slate-600'
+                                            }`}
+                                    >
+                                        {isQuadFocused ? 'Nothing here — ↩ to add' : 'Nothing here'}
                                     </div>
                                 ) : (
                                     items.map(({ task, index }) => (

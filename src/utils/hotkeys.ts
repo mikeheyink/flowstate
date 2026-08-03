@@ -26,6 +26,9 @@ export const HOTKEYS: Hotkey[] = [
     // === Navigation ===
     { id: 'nav-down', keys: '↓', description: 'Move Focus Down', category: 'navigation' },
     { id: 'nav-up', keys: '↑', description: 'Move Focus Up', category: 'navigation' },
+    // On the Today board ↑/↓ stay inside a column and ←/→ cross between them.
+    { id: 'quad-nav-column', keys: '↑ / ↓', description: 'Move Up / Down a Column (Today)', category: 'navigation' },
+    { id: 'quad-nav-row', keys: '← / →', description: 'Move Across Quadrants (Today)', category: 'navigation' },
     { id: 'nav-section', keys: '⌘[ / ⌘]', description: 'Previous / Next Section', category: 'navigation' },
     { id: 'nav-sidebar', keys: '[ / ]', description: 'Previous / Next Tab', category: 'navigation' },
     { id: 'go-inbox', keys: 'g then i', description: 'Go to Inbox', category: 'navigation' },
@@ -36,8 +39,8 @@ export const HOTKEYS: Hotkey[] = [
     { id: 'go-objectives', keys: 'g then o', description: 'Go to Objectives', category: 'navigation' },
     { id: 'move-task-down', keys: '⌘↓', description: 'Move Task Down', category: 'navigation', context: 'task-focused' },
     { id: 'move-task-up', keys: '⌘↑', description: 'Move Task Up', category: 'navigation', context: 'task-focused' },
-    { id: 'expand', keys: '→', description: 'Expand', category: 'navigation', context: 'task-focused' },
-    { id: 'collapse', keys: '←', description: 'Collapse', category: 'navigation', context: 'task-focused' },
+    { id: 'expand', keys: '→', description: 'Expand Subtasks (list views)', category: 'navigation', context: 'task-focused' },
+    { id: 'collapse', keys: '←', description: 'Collapse Subtasks (list views)', category: 'navigation', context: 'task-focused' },
     { id: 'expand-all', keys: '⌥⇧→', description: 'Expand All', category: 'navigation' },
     { id: 'collapse-all', keys: '⌥⇧←', description: 'Collapse All', category: 'navigation' },
     { id: 'cmd-palette', keys: '⌘K', description: 'Command Palette', category: 'navigation' },
@@ -112,7 +115,7 @@ export function getHotkeyModalGroups(): { title: string; items: Hotkey[] }[] {
     const groups: { title: string; ids: string[] }[] = [
         { title: 'Most used', ids: ['new-task', 'complete', 'nav-down', 'nav-up', 'edit-title', 'set-date', 'delete', 'cmd-palette'] },
         { title: 'Organize', ids: ['toggle-urgent', 'toggle-important', 'indent', 'outdent', 'move-task-up', 'move-task-down', 'push-tomorrow'] },
-        { title: 'Navigate', ids: ['quad-jump', 'nav-sidebar', 'expand', 'collapse', 'expand-all', 'collapse-all'] },
+        { title: 'Navigate', ids: ['quad-nav-row', 'quad-jump', 'nav-sidebar', 'expand', 'collapse', 'expand-all', 'collapse-all'] },
         { title: 'Create & history', ids: ['new-subtask', 'batch-add', 'open-links', 'undo', 'redo', 'shortcuts-modal'] },
     ];
     return groups.map(g => ({
@@ -169,7 +172,10 @@ export function getHotkeyModalGroupsByView(view: 'tasks' | 'mail' | 'habits'): {
     return [
         { title: 'Most used', items: resolve(['new-task', 'complete', 'nav-down', 'nav-up', 'edit-title', 'set-date', 'delete', 'cmd-palette']) },
         { title: 'Organize', items: resolve(['toggle-urgent', 'toggle-important', 'indent', 'outdent', 'move-task-up', 'move-task-down', 'push-tomorrow']) },
-        { title: 'Get around', items: resolve(['quad-jump', 'nav-section', 'nav-sidebar', 'go-inbox', 'go-today', 'go-upcoming', 'go-review', 'go-habits', 'go-objectives', 'expand', 'collapse']) },
+        // The Today board navigates as a grid, so its arrows get their own group
+        // rather than being read as an exception to the list keys above.
+        { title: 'Today board', items: resolve(['quad-nav-column', 'quad-nav-row', 'quad-jump']) },
+        { title: 'Get around', items: resolve(['nav-section', 'nav-sidebar', 'go-inbox', 'go-today', 'go-upcoming', 'go-review', 'go-habits', 'go-objectives', 'expand', 'collapse']) },
         { title: 'Create & history', items: resolve(['new-subtask', 'batch-add', 'open-links', 'undo', 'redo', 'shortcuts-modal']) },
     ];
 }

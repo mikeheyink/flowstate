@@ -5,6 +5,7 @@ import { toast } from '../Toaster';
 import { VisibleTask } from './types';
 import { getCreationDefaults, ViewFilter } from '../../utils/taskSort';
 import { QUADRANTS, quadrantFlags } from '../../utils/quad';
+import { quadNavTarget, quadStops } from '../../utils/quadNav';
 import { isGChordPending, isKeyConsumed } from '../../utils/keyChord';
 // Hotkeys are centrally defined in utils/hotkeys.ts
 // This handler implements the actual key bindings - keep in sync with registry
@@ -87,6 +88,10 @@ export function useTaskListKeyboard({
                 }, 0);
             };
 
+            // Today is the 2×2 Eisenhower board, not a list — arrows move around
+            // the grid instead of down the flat list. See utils/quadNav.
+            const isBoard = filter === 'today';
+
             const key = e.key.toLowerCase();
             const isShift = e.shiftKey;
             const isCmd = e.metaKey || e.ctrlKey; // Cmd on macOS — used for Move Task
@@ -144,17 +149,22 @@ export function useTaskListKeyboard({
 
 
 
+                    // On the board ↓ walks the focused quadrant, then steps into
+                    // the one below it (Q1→Q3, Q2→Q4) and stops at the bottom.
+                    const nextIndex = isBoard
+                        ? quadNavTarget(currentTasks, currentId, 'down')
+                        : (currentIndex + 1) % currentTasks.length;
+                    if (nextIndex === null) return;
+
                     if (isShift && currentTask) {
                         selectTask(currentTask.id, true);
-                        const nextIndex = (currentIndex + 1) % currentTasks.length;
-                        const nextTask = currentTasks[nextIndex];
                         navigate(nextIndex);
-                        selectTask(nextTask.id, true);
+                        selectTask(currentTasks[nextIndex].id, true);
                         return;
                     }
 
                     clearSelection();
-                    navigate(currentIndex + 1);
+                    navigate(nextIndex);
                     break;
                 }
                 case 'arrowup': {
@@ -180,45 +190,49 @@ export function useTaskListKeyboard({
 
 
 
+                    const prevIndex = isBoard
+                        ? quadNavTarget(currentTasks, currentId, 'up')
+                        : (currentIndex - 1 + currentTasks.length) % currentTasks.length;
+                    if (prevIndex === null) return;
+
                     if (isShift && currentTask) {
                         selectTask(currentTask.id, true);
-                        const prevIndex = (currentIndex - 1 + currentTasks.length) % currentTasks.length;
-                        const prevTask = currentTasks[prevIndex];
                         navigate(prevIndex);
-                        selectTask(prevTask.id, true);
+                        selectTask(currentTasks[prevIndex].id, true);
                         return;
                     }
 
                     clearSelection();
-                    navigate(currentIndex - 1);
+                    navigate(prevIndex);
                     break;
                 }
                 case 'arrowright':
+                case 'arrowleft': {
                     e.preventDefault();
-                    if (currentTask) {
-                        if (currentTask.isHeader && toggleGroup) {
-                            if (!expandedGroups.has(currentTask.id)) {
-                                toggleGroup(currentTask.id);
-                            }
-                        } else if (currentTask.hasChildren) {
-                            if (!currentTask.expanded) {
-                                toggleExpand(currentTask.id);
-                            }
-                        }
+                    const direction = key === 'arrowright' ? 'right' : 'left';
+
+                    // The board's rows are flat (no subtasks, no collapsible
+                    // quadrants), so ←/→ are free to cross columns instead.
+                    if (isBoard) {
+                        const target = quadNavTarget(currentTasks, currentId, direction);
+                        if (target === null) return;
+                        clearSelection();
+                        navigate(target);
+                        return;
                     }
-                    break;
-                case 'arrowleft':
-                    e.preventDefault();
+
+                    const expanding = direction === 'right';
                     if (currentTask) {
                         if (currentTask.isHeader && toggleGroup) {
-                            if (expandedGroups.has(currentTask.id)) {
+                            if (expandedGroups.has(currentTask.id) !== expanding) {
                                 toggleGroup(currentTask.id);
                             }
-                        } else if (currentTask.hasChildren && currentTask.expanded) {
+                        } else if (currentTask.hasChildren && !!currentTask.expanded !== expanding) {
                             toggleExpand(currentTask.id);
                         }
                     }
                     break;
+                }
                 case 'enter': {
                     const viewFilter = filter as ViewFilter;
                     if (currentTask && currentTask.isHeader) {
@@ -354,13 +368,12 @@ export function useTaskListKeyboard({
                 // 1–4: jump focus to a quadrant in the Today board (its first
                 // task, or the header itself when it's empty).
                 case '1': case '2': case '3': case '4': {
-                    if (filter !== 'today' || isCmd || isAlt) break;
+                    if (!isBoard || isCmd || isAlt) break;
                     e.preventDefault();
-                    const quad = QUADRANTS[parseInt(key, 10) - 1];
-                    const headerIdx = currentTasks.findIndex(t => t.id === quad.headerId);
-                    if (headerIdx === -1) break;
-                    const firstTask = currentTasks[headerIdx + 1];
-                    navigate(firstTask && !firstTask.isHeader ? headerIdx + 1 : headerIdx);
+                    const stops = quadStops(currentTasks)[parseInt(key, 10) - 1];
+                    if (!stops || stops.length === 0) break;
+                    clearSelection();
+                    navigate(stops[0]);
                     break;
                 }
             }

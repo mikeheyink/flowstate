@@ -34,14 +34,16 @@ export const ShortcutsModal: React.FC<Props> = ({ isOpen, onClose }) => {
   return (
     <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm animate-in fade-in" onClick={onClose}>
       <div
-        className="w-full max-w-3xl bg-white dark:bg-slate-900 rounded-2xl shadow-2xl ring-1 ring-slate-200 dark:ring-slate-800 overflow-hidden"
+        // Capped and scrollable: the list grows as shortcuts are added, and a
+        // clipped cheatsheet is worse than a scrolling one.
+        className="w-full max-w-3xl max-h-[88vh] flex flex-col bg-white dark:bg-slate-900 rounded-2xl shadow-2xl ring-1 ring-slate-200 dark:ring-slate-800 overflow-hidden"
         onClick={e => e.stopPropagation()}
       >
-        <div className="px-7 py-5 border-b border-slate-100 dark:border-slate-800 flex justify-between items-center">
+        <div className="px-7 py-5 border-b border-slate-100 dark:border-slate-800 flex justify-between items-center flex-shrink-0">
           <h3 className="font-display text-2xl font-bold tracking-tight text-slate-900 dark:text-slate-100">Keyboard shortcuts</h3>
           <kbd className="px-2.5 py-1.5 text-sm font-medium rounded-lg bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400">Esc</kbd>
         </div>
-        <div className="p-7 grid grid-cols-1 sm:grid-cols-2 gap-x-10 gap-y-7">
+        <div className="p-7 grid grid-cols-1 sm:grid-cols-2 gap-x-10 gap-y-7 overflow-y-auto">
           {groups.map(group => (
             <div key={group.title}>
               <h4 className="text-xs font-semibold uppercase tracking-wider text-slate-400 mb-3.5">{group.title}</h4>

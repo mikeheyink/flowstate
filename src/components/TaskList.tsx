@@ -125,6 +125,7 @@ export const TaskList: React.FC<TaskListProps> = ({ filter }) => {
       <div ref={listRef} className="pb-24">
         <QuadBoard
           visibleTasks={visibleTasks}
+          focusedId={focusedId}
           renderRow={(task, index) => (
             <TaskItem
               task={task}
