@@ -8,7 +8,7 @@ export interface QuickAddDefaults {
   important?: boolean;
   urgent?: boolean;
 }
-export type CurrentView = 'tasks' | 'mail' | 'habits' | 'objectives';
+export type CurrentView = 'tasks' | 'mail' | 'habits' | 'objectives' | 'adventure';
 export type HabitView = 'grid' | 'checklist' | 'analytics';
 
 interface UIState {

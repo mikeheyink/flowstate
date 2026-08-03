@@ -14,9 +14,11 @@ import { InboxZero } from './components/InboxZero';
 import { MailView } from './components/Mail/MailView';
 import { HabitsView } from './components/Habits/HabitsView';
 import { ObjectivesView } from './components/Objectives/ObjectivesView';
+import { AdventureView } from './components/Adventure/AdventureView';
 import { useTaskStore } from './store/useTaskStore';
 import { useHabitStore } from './store/useHabitStore';
 import { useObjectiveStore } from './store/useObjectiveStore';
+import { useAdventureStore } from './store/useAdventureStore';
 import { useUIStore } from './store/useUIStore';
 import { useHotkeys } from './hooks/useHotkeys';
 import { useOnlineStatus } from './store/useOnlineStatus';
@@ -49,6 +51,9 @@ function App() {
     const fetchObjectives = useObjectiveStore((state) => state.fetchObjectives);
     const objectivePendingCount = useObjectiveStore((state) => state.pendingOperations.length);
     const processObjectivePending = useObjectiveStore((state) => state.processPendingOperations);
+    const fetchAdventures = useAdventureStore((state) => state.fetchAdventures);
+    const adventurePendingCount = useAdventureStore((state) => state.pendingOperations.length);
+    const processAdventurePending = useAdventureStore((state) => state.processPendingOperations);
     const habitPendingCount = useHabitStore((state) => state.pendingOperations.length);
     const processHabitPending = useHabitStore((state) => state.processPendingOperations);
     const undo = useTaskStore((state) => state.undo);
@@ -71,6 +76,7 @@ function App() {
         setGuestMode(mode);
         useHabitStore.getState().setGuestMode(mode);
         useObjectiveStore.getState().setGuestMode(mode);
+        useAdventureStore.getState().setGuestMode(mode);
     }, [setGuestMode]);
 
     // Online status for sync indicator
@@ -135,9 +141,11 @@ function App() {
                 // mode so habit (and task) writes sync to Supabase.
                 useHabitStore.getState().setGuestMode(false);
                 useObjectiveStore.getState().setGuestMode(false);
+                useAdventureStore.getState().setGuestMode(false);
                 fetchTasks();
                 fetchHabits();
                 fetchObjectives();
+                fetchAdventures();
             }
         }).catch(err => {
             console.error('Unexpected Auth Error:', err);
@@ -153,9 +161,11 @@ function App() {
             if (session) {
                 useHabitStore.getState().setGuestMode(false);
                 useObjectiveStore.getState().setGuestMode(false);
+                useAdventureStore.getState().setGuestMode(false);
                 fetchTasks();
                 fetchHabits();
                 fetchObjectives();
+                fetchAdventures();
             }
             setAuthLoading(false);
 
@@ -176,7 +186,7 @@ function App() {
         });
 
         return () => subscription.unsubscribe();
-    }, [fetchTasks, fetchHabits, fetchObjectives]);
+    }, [fetchTasks, fetchHabits, fetchObjectives, fetchAdventures]);
 
     // Celebrate the milestone: fire one subtle confetti burst the moment the
     // list goes from "has tasks" to "all done" (Today cleared / Inbox Zero).
@@ -218,6 +228,13 @@ function App() {
         }
     }, [isOnline, objectivePendingCount, processObjectivePending]);
 
+    // ...and for queued adventure writes.
+    useEffect(() => {
+        if (isOnline && adventurePendingCount > 0) {
+            processAdventurePending();
+        }
+    }, [isOnline, adventurePendingCount, processAdventurePending]);
+
     // Daily soft-start: the first open of each day lands on Objectives — the
     // one values-touchpoint of the day. Any key or tap dismisses to Today.
     const softStartActive = useUIStore((s) => s.softStartActive);
@@ -227,6 +244,7 @@ function App() {
         // Guests never run fetchObjectives, so make sure the five defaults exist
         // before the soft-start tries to render them.
         useObjectiveStore.getState().seedIfEmpty();
+        useAdventureStore.getState().seedIfEmpty();
         const d = new Date();
         const today = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
         const ui = useUIStore.getState();
@@ -336,9 +354,9 @@ function App() {
                     <AnimatePresence mode="wait">
                         <motion.div
                             key={currentView}
-                            initial={{ x: currentView === 'mail' || currentView === 'habits' ? '100%' : '-100%', opacity: 0 }}
+                            initial={{ x: currentView === 'mail' || currentView === 'habits' || currentView === 'adventure' ? '100%' : '-100%', opacity: 0 }}
                             animate={{ x: 0, opacity: 1 }}
-                            exit={{ x: currentView === 'mail' || currentView === 'habits' ? '-100%' : '100%', opacity: 0 }}
+                            exit={{ x: currentView === 'mail' || currentView === 'habits' || currentView === 'adventure' ? '-100%' : '100%', opacity: 0 }}
                             transition={{ type: 'spring', stiffness: 300, damping: 30 }}
                             className="absolute inset-0 overflow-y-auto px-4 pt-6 pb-24 md:px-8 md:py-6 scroll-smooth"
                         >
@@ -352,6 +370,8 @@ function App() {
                                 </div>
                             ) : currentView === 'objectives' ? (
                                 <ObjectivesView />
+                            ) : currentView === 'adventure' ? (
+                                <AdventureView />
                             ) : (
                                 <HabitsView />
                             )}
@@ -369,6 +389,10 @@ function App() {
                             useUIStore.getState().openNewHabit();
                             return;
                         }
+                        if (currentView === 'adventure') {
+                            useAdventureStore.getState().addAdventure();
+                            return;
+                        }
                         // Only treat the focused id as a parent when it's a real task.
                         // In views like Review the "focus" can be a section header
                         // (e.g. a week group), which would orphan the new task.
@@ -381,7 +405,7 @@ function App() {
                         setQuickAddOpen(true, parentId, 'create', null, defaults);
                     }}
                     className={`${(currentView === 'mail' || currentView === 'objectives') ? 'hidden' : 'md:hidden'} fixed bottom-20 right-5 w-14 h-14 bg-primary-600 text-white rounded-full shadow-lg flex items-center justify-center hover:bg-primary-500 active:scale-95 transition-all z-40`}
-                    aria-label={currentView === 'habits' ? 'Add Habit' : 'Add Task'}
+                    aria-label={currentView === 'habits' ? 'Add Habit' : currentView === 'adventure' ? 'Plant Adventure Seed' : 'Add Task'}
                 >
                     <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                         <line x1="12" y1="5" x2="12" y2="19"></line>

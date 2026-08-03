@@ -1,5 +1,5 @@
 import React from 'react';
-import { Inbox, Calendar as CalendarIcon, CalendarClock, ClipboardList, Flame, Compass } from 'lucide-react';
+import { Inbox, Calendar as CalendarIcon, CalendarClock, ClipboardList, Flame, Compass, Mountain } from 'lucide-react';
 import { useUIStore } from '../store/useUIStore';
 import { useTaskStore } from '../store/useTaskStore';
 
@@ -10,7 +10,8 @@ import { useTaskStore } from '../store/useTaskStore';
 type Dest =
     | { kind: 'task'; filter: 'active' | 'today' | 'upcoming' | 'review'; label: string; Icon: React.ComponentType<any> }
     | { kind: 'habits'; label: string; Icon: React.ComponentType<any> }
-    | { kind: 'objectives'; label: string; Icon: React.ComponentType<any> };
+    | { kind: 'objectives'; label: string; Icon: React.ComponentType<any> }
+    | { kind: 'adventure'; label: string; Icon: React.ComponentType<any> };
 
 const DESTS: Dest[] = [
     { kind: 'task', filter: 'today', label: 'Today', Icon: CalendarIcon },
@@ -19,6 +20,7 @@ const DESTS: Dest[] = [
     { kind: 'task', filter: 'review', label: 'Review', Icon: ClipboardList },
     { kind: 'habits', label: 'Habits', Icon: Flame },
     { kind: 'objectives', label: 'Values', Icon: Compass },
+    { kind: 'adventure', label: 'Adventure', Icon: Mountain },
 ];
 
 export function MobileNav() {
@@ -29,6 +31,8 @@ export function MobileNav() {
             setCurrentView('habits');
         } else if (dest.kind === 'objectives') {
             setCurrentView('objectives');
+        } else if (dest.kind === 'adventure') {
+            setCurrentView('adventure');
         } else {
             setCurrentView('tasks');
             setFilter(dest.filter);
@@ -43,7 +47,9 @@ export function MobileNav() {
             ? currentView === 'habits'
             : dest.kind === 'objectives'
                 ? currentView === 'objectives'
-                : currentView === 'tasks' && filter === dest.filter;
+                : dest.kind === 'adventure'
+                    ? currentView === 'adventure'
+                    : currentView === 'tasks' && filter === dest.filter;
 
     return (
         <nav
