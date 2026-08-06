@@ -156,9 +156,9 @@ export const CommandPalette: React.FC<{ isOpen: boolean; onClose: () => void }> 
     // === ADVENTURE VIEW ACTIONS ===
     actions.push({
       id: 'adventure-seed',
-      title: 'Plant an Adventure Seed',
+      title: 'New Adventure',
       icon: <Sprout className="w-4 h-4" />,
-      shortcut: 'A',
+      shortcut: '↵',
       perform: () => useAdventureStore.getState().addAdventure(),
       section: 'Adventure'
     });

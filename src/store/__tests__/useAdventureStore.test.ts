@@ -32,7 +32,7 @@ vi.mock('../../utils/supabase', () => {
   };
 });
 
-import { useAdventureStore, NEW_ADVENTURE_TITLE } from '../useAdventureStore';
+import { useAdventureStore, CATEGORY_SEED_VERSION } from '../useAdventureStore';
 
 const setOnline = (online: boolean) =>
   Object.defineProperty(navigator, 'onLine', { value: online, configurable: true });
@@ -43,7 +43,8 @@ const writesTo = (table: string) => h.calls.filter((c) => c.table === table);
 const reset = (over: any = {}) =>
   useAdventureStore.setState({
     adventures: [], categories: [], pendingOperations: [],
-    guestMode: false, seeded: false, error: null, ...over,
+    guestMode: false, seeded: false, error: null,
+    categorySeedVersion: CATEGORY_SEED_VERSION, pendingEditId: null, ...over,
   });
 
 beforeEach(() => {
@@ -61,8 +62,7 @@ describe('useAdventureStore — seeding', () => {
     const s = useAdventureStore.getState();
 
     expect(s.seeded).toBe(true);
-    expect(s.categories.map(c => c.id)).toContain('travel');
-    expect(s.categories).toHaveLength(8);
+    expect(s.categories.map(c => c.id)).toEqual(['golf', 'family', 'travel', 'trailrun', 'other']);
     expect(s.adventures.map(a => a.title)).toEqual([
       'China Trip', 'Erinvale Golf', 'Wolseley Weekend', 'Pringle Bay Weekend',
       'Drakensberg', 'Zimbali', 'Japan Trip', 'MUT George', 'Golf Tour',
@@ -102,17 +102,27 @@ describe('useAdventureStore — seeding', () => {
 });
 
 describe('useAdventureStore — planting and categorising', () => {
-  it('a new seed is undated and lands at the top of the Seedbed', () => {
-    useAdventureStore.getState().addAdventure(undefined, {});
-    const [a] = useAdventureStore.getState().adventures;
-    expect(a.title).toBe(NEW_ADVENTURE_TITLE);
+  it('a new row starts empty and untitled, ready to be typed into', () => {
+    const id = useAdventureStore.getState().addAdventure();
+    const a = useAdventureStore.getState().adventures.find(x => x.id === id)!;
+    expect(a.title).toBe('');
     expect(a.date).toBeNull();
     expect(a.lived).toBe(false);
+  });
 
-    useAdventureStore.getState().addAdventure('Second');
-    const s = useAdventureStore.getState().adventures;
-    const second = s.find(x => x.title === 'Second')!;
-    expect(second.order).toBeLessThan(a.order);
+  it('flags the new row for the inline editor so ↵ types straight into it', () => {
+    const id = useAdventureStore.getState().addAdventure();
+    expect(useAdventureStore.getState().pendingEditId).toBe(id);
+
+    useAdventureStore.getState().setPendingEditId(null);
+    expect(useAdventureStore.getState().pendingEditId).toBeNull();
+  });
+
+  it('a new seed lands at the top of the Seedbed', () => {
+    const first = useAdventureStore.getState().addAdventure('First');
+    const second = useAdventureStore.getState().addAdventure('Second');
+    const orderOf = (id: string) => useAdventureStore.getState().adventures.find(a => a.id === id)!.order;
+    expect(orderOf(second)).toBeLessThan(orderOf(first));
   });
 
   it('cycleCategory walks the kinds in order then back to uncategorised', () => {
@@ -120,13 +130,12 @@ describe('useAdventureStore — planting and categorising', () => {
     const id = useAdventureStore.getState().addAdventure('Sea kayak');
     const cycle = () => useAdventureStore.getState().cycleCategory(id);
 
+    expect(cycle()).toBe('golf');
+    expect(cycle()).toBe('family');
     expect(cycle()).toBe('travel');
-    expect(cycle()).toBe('outdoors');
-
-    // Walk to the last kind, then one more returns to uncategorised.
-    const cats = useAdventureStore.getState().categories;
-    for (let i = 2; i < cats.length; i++) cycle();
-    expect(useAdventureStore.getState().adventures.find(a => a.id === id)!.categoryId).toBe('micro');
+    expect(cycle()).toBe('trailrun');
+    expect(cycle()).toBe('other');
+    // Past the last kind, back to no kind at all.
     expect(cycle()).toBeNull();
   });
 
@@ -150,6 +159,69 @@ describe('useAdventureStore — planting and categorising', () => {
     useAdventureStore.getState().removeAdventure(id);
     const a = useAdventureStore.getState().adventures.find(x => x.id === id)!;
     expect(a.archivedAt).toBeGreaterThan(0);
+  });
+});
+
+describe('useAdventureStore — the kinds migration', () => {
+  const legacyCats = [
+    { id: 'travel', label: 'Travel', color: '#0EA5E9', order: 0, createdAt: 1, archivedAt: null },
+    { id: 'outdoors', label: 'Outdoors', color: '#10B981', order: 1, createdAt: 2, archivedAt: null },
+    { id: 'thrill', label: 'Thrill', color: '#EF4444', order: 5, createdAt: 3, archivedAt: null },
+  ];
+  const adv = (id: string, categoryId: string | null) =>
+    ({ id, title: id, notes: '', categoryId, date: null, lived: false, externalEventId: null, order: 0, createdAt: 1, archivedAt: null });
+
+  it('replaces the first release\'s kinds with the current five', () => {
+    reset({ categories: legacyCats, adventures: [], seeded: true, categorySeedVersion: 1 });
+    useAdventureStore.getState().migrateCategories();
+
+    const s = useAdventureStore.getState();
+    expect(s.categories.filter(c => !c.archivedAt).map(c => c.id))
+      .toEqual(['golf', 'family', 'travel', 'trailrun', 'other']);
+    expect(s.categorySeedVersion).toBe(CATEGORY_SEED_VERSION);
+  });
+
+  it('re-tags adventures that pointed at a retired kind', () => {
+    reset({
+      categories: legacyCats,
+      adventures: [adv('a-outdoors', 'outdoors'), adv('a-thrill', 'thrill'), adv('a-none', null)],
+      seeded: true, categorySeedVersion: 1,
+    });
+    useAdventureStore.getState().migrateCategories();
+
+    const catOf = (id: string) => useAdventureStore.getState().adventures.find(a => a.id === id)!.categoryId;
+    expect(catOf('a-outdoors')).toBe('family');
+    expect(catOf('a-thrill')).toBe('trailrun');
+    expect(catOf('a-none')).toBeNull();
+  });
+
+  it('keeps kinds the user added themselves', () => {
+    const custom = { id: 'abc1234', label: 'Surfing', color: '#111111', order: 9, createdAt: 5, archivedAt: null };
+    reset({ categories: [...legacyCats, custom], adventures: [], seeded: true, categorySeedVersion: 1 });
+    useAdventureStore.getState().migrateCategories();
+
+    const live = useAdventureStore.getState().categories.filter(c => !c.archivedAt);
+    expect(live.map(c => c.label)).toContain('Surfing');
+    expect(live.find(c => c.id === 'abc1234')!.color).toBe('#111111');
+  });
+
+  it('is idempotent — a second run changes nothing', () => {
+    reset({ categories: legacyCats, adventures: [adv('a1', 'outdoors')], seeded: true, categorySeedVersion: 1 });
+    useAdventureStore.getState().migrateCategories();
+    const after = JSON.stringify(useAdventureStore.getState().categories.filter(c => !c.archivedAt));
+
+    useAdventureStore.getState().migrateCategories();
+    expect(JSON.stringify(useAdventureStore.getState().categories.filter(c => !c.archivedAt))).toBe(after);
+    expect(useAdventureStore.getState().adventures.find(a => a.id === 'a1')!.categoryId).toBe('family');
+  });
+
+  it('just stamps the version on a device that never seeded', () => {
+    reset({ categories: [], adventures: [], seeded: false, categorySeedVersion: 1 });
+    useAdventureStore.getState().migrateCategories();
+
+    const s = useAdventureStore.getState();
+    expect(s.categories).toHaveLength(0);
+    expect(s.categorySeedVersion).toBe(CATEGORY_SEED_VERSION);
   });
 });
 
