@@ -1,10 +1,11 @@
 import React, { useEffect, useState } from 'react';
-import { Search, Plus, Trash2, CheckCircle, SunMoon, Calendar, CalendarClock, Star, Zap, Edit3, Undo, Redo, ClipboardList, Flame, Compass } from 'lucide-react';
+import { Search, Plus, Trash2, CheckCircle, SunMoon, Calendar, CalendarClock, Star, Zap, Edit3, Undo, Redo, ClipboardList, Flame, Compass, LayoutGrid } from 'lucide-react';
 import { useTaskStore } from '../store/useTaskStore';
 import { useHabitStore } from '../store/useHabitStore';
 import { useUIStore } from '../store/useUIStore';
 import { getHotkeyById } from '../utils/hotkeys';
-import { getCreationDefaults } from '../utils/taskSort';
+import { getCreationDefaults, filterTodayQuad } from '../utils/taskSort';
+import { QUADRANTS } from '../utils/quad';
 import { toast } from './Toaster';
 
 interface Action {
@@ -19,8 +20,8 @@ interface Action {
 export const CommandPalette: React.FC<{ isOpen: boolean; onClose: () => void }> = ({ isOpen, onClose }) => {
   const [query, setQuery] = useState('');
   const [selectedIndex, setSelectedIndex] = useState(0);
-  const { currentView, filter, setCurrentView, setQuickAddOpen, setEditingTaskId, openNewHabit } = useUIStore();
-  const { tasks, focusedId, toggleTask, archiveTask, toggleUrgent, toggleImportant, undo, redo, pushTodayToTomorrow } = useTaskStore();
+  const { currentView, filter, setCurrentView, setQuickAddOpen, setEditingTaskId, setFocusMode, openNewHabit } = useUIStore();
+  const { tasks, focusedId, setFocusedId, toggleTask, archiveTask, toggleUrgent, toggleImportant, undo, redo, pushTodayToTomorrow } = useTaskStore();
 
   // Build actions list - context-dependent
   const actions: Action[] = [];
@@ -86,6 +87,27 @@ export const CommandPalette: React.FC<{ isOpen: boolean; onClose: () => void }> 
           section: 'Task'
         });
       }
+    }
+
+    // === TODAY BOARD — jump straight to a quadrant.
+    // Same targets as the 1–4 keys: the quadrant's first task, or the quadrant
+    // itself when it's empty (where ↩ then adds a task with its flags).
+    if (filter === 'today') {
+      const quadGroups = filterTodayQuad(tasks);
+      QUADRANTS.forEach(q => {
+        const items = quadGroups[q.key];
+        actions.push({
+          id: `jump-${q.key}`,
+          title: `Jump to ${q.title}`,
+          icon: <LayoutGrid className="w-4 h-4" />,
+          shortcut: q.hotkey,
+          perform: () => {
+            setFocusMode('main');
+            setFocusedId(items[0]?.id ?? q.headerId);
+          },
+          section: 'Today board'
+        });
+      });
     }
 
     // Bulk reschedule
@@ -205,9 +227,12 @@ export const CommandPalette: React.FC<{ isOpen: boolean; onClose: () => void }> 
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === 'ArrowDown') {
         e.preventDefault();
+        // `% 0` is NaN — with no results there's nothing to move between.
+        if (filteredActions.length === 0) return;
         setSelectedIndex(prev => (prev + 1) % filteredActions.length);
       } else if (e.key === 'ArrowUp') {
         e.preventDefault();
+        if (filteredActions.length === 0) return;
         setSelectedIndex(prev => (prev - 1 + filteredActions.length) % filteredActions.length);
       } else if (e.key === 'Enter') {
         e.preventDefault();
