@@ -1,9 +1,10 @@
-import React, { useEffect, useRef, useState } from 'react';
-import { Plus } from 'lucide-react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
+import { Plus, Mountain } from 'lucide-react';
 import { useObjectiveStore } from '../../store/useObjectiveStore';
 import { useUIStore } from '../../store/useUIStore';
 import { Objective } from '../../types';
 import { MiniMarkdown } from '../../utils/miniMarkdown';
+import { microAdventureForDate } from '../../utils/microAdventures';
 
 /**
  * The Objectives page — the "why" layer. Calm and read-mostly: a page you
@@ -36,6 +37,9 @@ export function ObjectivesView() {
     useEffect(() => { editingRef.current = editingId; }, [editingId]);
 
     useEffect(() => { seedIfEmpty(); }, [seedIfEmpty]);
+
+    // Stable for the whole day — the soft-start can re-render freely.
+    const microAdventure = useMemo(() => microAdventureForDate(), []);
 
     useEffect(() => {
         const handleKeyDown = (e: KeyboardEvent) => {
@@ -89,7 +93,24 @@ export function ObjectivesView() {
                         </div>
                     ))}
                 </div>
-                <p className="mt-16 text-sm text-slate-400 dark:text-slate-500 animate-pulse">Press any key to begin the day</p>
+
+                {/* Today's micro-adventure — the daily "each day is a source of
+                    adventure" nudge. Small and quiet: one line, no interaction. */}
+                <div className="w-full max-w-lg mt-14 pt-8 border-t border-slate-200/70 dark:border-slate-800/70">
+                    <div className="flex items-start gap-4">
+                        <Mountain className="w-4 h-4 mt-1 flex-shrink-0 text-violet-500/70 dark:text-violet-400/70" />
+                        <div>
+                            <div className="text-xs uppercase tracking-widest text-slate-400 dark:text-slate-500 mb-0.5">
+                                Today’s adventure
+                            </div>
+                            <div className="text-[15px] md:text-base leading-snug text-slate-600 dark:text-slate-300">
+                                {microAdventure}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <p className="mt-14 text-sm text-slate-400 dark:text-slate-500 animate-pulse">Press any key to begin the day</p>
             </div>
         );
     }

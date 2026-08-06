@@ -1,7 +1,8 @@
 import React, { useEffect, useState } from 'react';
-import { Search, Plus, Trash2, CheckCircle, SunMoon, Calendar, CalendarClock, Star, Zap, Edit3, Undo, Redo, ClipboardList, Flame, Compass, LayoutGrid } from 'lucide-react';
+import { Search, Plus, Trash2, CheckCircle, SunMoon, Calendar, CalendarClock, Star, Zap, Edit3, Undo, Redo, ClipboardList, Flame, Compass, LayoutGrid, Mountain, Sprout } from 'lucide-react';
 import { useTaskStore } from '../store/useTaskStore';
 import { useHabitStore } from '../store/useHabitStore';
+import { useAdventureStore } from '../store/useAdventureStore';
 import { useUIStore } from '../store/useUIStore';
 import { getHotkeyById } from '../utils/hotkeys';
 import { getCreationDefaults, filterTodayQuad } from '../utils/taskSort';
@@ -151,6 +152,16 @@ export const CommandPalette: React.FC<{ isOpen: boolean; onClose: () => void }> 
       perform: () => openNewHabit(),
       section: 'Habits'
     });
+  } else if (currentView === 'adventure') {
+    // === ADVENTURE VIEW ACTIONS ===
+    actions.push({
+      id: 'adventure-seed',
+      title: 'Plant an Adventure Seed',
+      icon: <Sprout className="w-4 h-4" />,
+      shortcut: 'A',
+      perform: () => useAdventureStore.getState().addAdventure(),
+      section: 'Adventure'
+    });
   }
 
   // === GO TO (all views) — section navigation, the current one omitted.
@@ -182,6 +193,16 @@ export const CommandPalette: React.FC<{ isOpen: boolean; onClose: () => void }> 
       icon: <Compass className="w-4 h-4" />,
       shortcut: 'g o',
       perform: () => setCurrentView('objectives'),
+      section: 'Go to'
+    });
+  }
+  if (currentView !== 'adventure') {
+    actions.push({
+      id: 'go-adventure',
+      title: 'Go to Adventure',
+      icon: <Mountain className="w-4 h-4" />,
+      shortcut: 'g a',
+      perform: () => setCurrentView('adventure'),
       section: 'Go to'
     });
   }

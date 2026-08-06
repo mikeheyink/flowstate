@@ -131,8 +131,8 @@ export function useHotkeys() {
             // preventDefault stops the browser navigating history.
             if (isCmd && (key === '[' || key === ']')) {
                 e.preventDefault();
-                const sections = ['objectives', 'tasks', 'habits'] as const;
-                const labels: Record<string, string> = { tasks: 'Tasks', habits: 'Habits', objectives: 'Objectives' };
+                const sections = ['objectives', 'tasks', 'habits', 'adventure'] as const;
+                const labels: Record<string, string> = { tasks: 'Tasks', habits: 'Habits', objectives: 'Objectives', adventure: 'Adventure' };
                 const cur = Math.max(0, sections.indexOf(uiState.currentView as any));
                 const next = key === ']'
                     ? (cur + 1) % sections.length
@@ -169,6 +169,7 @@ export function useHotkeys() {
                 else if (key === 'r') { setCurrentView('tasks'); setFilter('review'); toast('Tasks · Review'); }
                 else if (key === 'h') { setCurrentView('habits'); toast('Habits'); }
                 else if (key === 'o') { setCurrentView('objectives'); toast('Objectives'); }
+                else if (key === 'a') { setCurrentView('adventure'); toast('Adventure'); }
                 return;
             }
 
