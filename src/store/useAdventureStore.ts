@@ -5,9 +5,6 @@ import { supabase } from '../utils/supabase';
 
 const generateId = () => Math.random().toString(36).substring(2, 9);
 
-// The title a freshly-planted seed starts with. The editor pre-selects a title
-// still equal to this, so typing replaces it rather than appending.
-export const NEW_ADVENTURE_TITLE = 'New adventure';
 
 type AdvTable = 'adventures' | 'adventure_categories';
 
@@ -26,11 +23,18 @@ interface AdventureState {
   error: string | null;
   guestMode: boolean;
   seeded: boolean; // one-time default seed guard (per device)
+  categorySeedVersion: number; // which kinds preset this device has
+
+  // Set by every "create" path (Enter, the Seed button, the FAB, the palette) so
+  // the page opens the inline editor on the new row wherever it was triggered.
+  pendingEditId: string | null;
+  setPendingEditId: (id: string | null) => void;
 
   pendingOperations: PendingOperation[];
 
   fetchAdventures: () => Promise<void>;
   seedIfEmpty: () => void;
+  migrateCategories: () => void;
 
   addAdventure: (title?: string, init?: Partial<Adventure>) => string;
   updateAdventure: (id: string, updates: Partial<Adventure>) => void;
@@ -47,36 +51,48 @@ interface AdventureState {
   processPendingOperations: () => Promise<void>;
 }
 
-// The starter palette — kinds of adventure. Editable in-app; stable slug ids so
-// the seeded adventures below can reference them. Violet is the page's own
-// accent (it matches the "Adventure" objective) and doubles as "Creative".
+// The kinds of adventure. Editable in-app; stable slug ids so the seeded
+// adventures below can reference them. Deliberately few — `c` cycles through
+// them, so every extra kind is another keypress.
 export const SEED_CATEGORIES: Omit<AdventureCategory, 'createdAt' | 'archivedAt'>[] = [
-  { id: 'travel', label: 'Travel', color: '#0EA5E9', order: 0 },
-  { id: 'outdoors', label: 'Outdoors', color: '#10B981', order: 1 },
-  { id: 'social', label: 'Social', color: '#F43F5E', order: 2 },
-  { id: 'creative', label: 'Creative', color: '#8B5CF6', order: 3 },
-  { id: 'learning', label: 'Learning', color: '#F59E0B', order: 4 },
-  { id: 'thrill', label: 'Thrill', color: '#EF4444', order: 5 },
-  { id: 'culture', label: 'Culture', color: '#EC4899', order: 6 },
-  { id: 'micro', label: 'Micro', color: '#14B8A6', order: 7 },
+  { id: 'golf', label: 'Golf', color: '#10B981', order: 0 },
+  { id: 'family', label: 'Family', color: '#F43F5E', order: 1 },
+  { id: 'travel', label: 'Travel', color: '#0EA5E9', order: 2 },
+  { id: 'trailrun', label: 'Trail Run', color: '#F59E0B', order: 3 },
+  { id: 'other', label: 'Other', color: '#8B5CF6', order: 4 },
 ];
+
+// The first release shipped eight kinds. This maps them onto the five above so
+// devices that already seeded keep their tags instead of silently losing them.
+// Bump CATEGORY_SEED_VERSION whenever the preset changes again.
+export const CATEGORY_SEED_VERSION = 2;
+const LEGACY_CATEGORY_MAP: Record<string, string> = {
+  travel: 'travel',
+  outdoors: 'family',
+  social: 'golf',
+  creative: 'other',
+  learning: 'other',
+  thrill: 'trailrun',
+  culture: 'other',
+  micro: 'other',
+};
 
 // Mike's real adventures — the initial content of the page. Editable in-app;
 // a starting point, not a schema. `d` is [year, monthIndex, day]; null = a seed.
 const SEED_ADVENTURES: { title: string; categoryId: string; d: [number, number, number] | null; notes?: string }[] = [
   // On the calendar (the Horizon)
   { title: 'China Trip', categoryId: 'travel', d: [2026, 6, 26] },
-  { title: 'Erinvale Golf', categoryId: 'social', d: [2026, 7, 15] },
-  { title: 'Wolseley Weekend', categoryId: 'outdoors', d: [2026, 8, 24] },
-  { title: 'Pringle Bay Weekend', categoryId: 'outdoors', d: [2026, 9, 23] },
-  { title: 'Drakensberg', categoryId: 'outdoors', d: [2026, 11, 20] },
+  { title: 'Erinvale Golf', categoryId: 'golf', d: [2026, 7, 15] },
+  { title: 'Wolseley Weekend', categoryId: 'family', d: [2026, 8, 24] },
+  { title: 'Pringle Bay Weekend', categoryId: 'family', d: [2026, 9, 23] },
+  { title: 'Drakensberg', categoryId: 'travel', d: [2026, 11, 20] },
   { title: 'Zimbali', categoryId: 'travel', d: [2026, 11, 23] },
   // Seeds (the Seedbed)
   { title: 'Japan Trip', categoryId: 'travel', d: null },
-  { title: 'MUT George', categoryId: 'thrill', d: null },
-  { title: 'Golf Tour', categoryId: 'social', d: null },
-  { title: 'Onrus Trip', categoryId: 'travel', d: null },
-  { title: 'Arabella Golf', categoryId: 'social', d: null, notes: 'Flook deal' },
+  { title: 'MUT George', categoryId: 'trailrun', d: null },
+  { title: 'Golf Tour', categoryId: 'golf', d: null },
+  { title: 'Onrus Trip', categoryId: 'family', d: null },
+  { title: 'Arabella Golf', categoryId: 'golf', d: null, notes: 'Flook deal' },
 ];
 
 const mapAdventureFromDb = (row: any): Adventure => ({
@@ -169,6 +185,13 @@ export const useAdventureStore = create<AdventureState>()(
       error: null,
       guestMode: false,
       seeded: false,
+      // Starts at 1, not the current version: a device that seeded the first
+      // release has no persisted value, and zustand's shallow merge would let a
+      // current-version default here silently skip the migration. seedIfEmpty
+      // stamps the current version for genuinely fresh devices.
+      categorySeedVersion: 1,
+      pendingEditId: null,
+      setPendingEditId: (id) => set({ pendingEditId: id }),
       pendingOperations: [],
 
       fetchAdventures: async () => {
@@ -222,6 +245,7 @@ export const useAdventureStore = create<AdventureState>()(
           set({ isLoading: false });
           // Only seed after a fetch settled — never clobber a slow network.
           get().seedIfEmpty();
+          get().migrateCategories();
         }
       },
 
@@ -236,7 +260,7 @@ export const useAdventureStore = create<AdventureState>()(
           state.categories.filter(c => !c.archivedAt).length > 0;
         if (hasContent) {
           set({ seeded: true });
-          return;
+          return; // leave categorySeedVersion alone — migrateCategories owns it
         }
 
         const now = Date.now();
@@ -258,7 +282,9 @@ export const useAdventureStore = create<AdventureState>()(
           archivedAt: null,
         }));
 
-        set({ categories, adventures, seeded: true });
+        // A genuinely fresh device gets the current preset, so there's nothing
+        // for migrateCategories to do.
+        set({ categories, adventures, seeded: true, categorySeedVersion: CATEGORY_SEED_VERSION });
 
         categories.forEach(c => {
           queueOperation(set, get, { type: 'insert', table: 'adventure_categories', data: mapCategoryToDb(c) }, async () => {
@@ -280,7 +306,59 @@ export const useAdventureStore = create<AdventureState>()(
         });
       },
 
-      addAdventure: (title = NEW_ADVENTURE_TITLE, init = {}) => {
+      // Replace the first release's eight kinds with the current five, carrying
+       // each adventure's tag across via LEGACY_CATEGORY_MAP. Runs once per
+      // device (guarded by categorySeedVersion) and leaves any kind the user
+      // added themselves untouched.
+      migrateCategories: () => {
+        const state = get();
+        if (state.categorySeedVersion >= CATEGORY_SEED_VERSION) return;
+        if (!state.seeded) { set({ categorySeedVersion: CATEGORY_SEED_VERSION }); return; }
+
+        const legacyIds = new Set(Object.keys(LEGACY_CATEGORY_MAP));
+        const existing = state.categories.filter(c => !c.archivedAt);
+        const custom = existing.filter(c => !legacyIds.has(c.id));
+
+        const now = Date.now();
+        const fresh: AdventureCategory[] = SEED_CATEGORIES.map((c, i) => ({
+          ...c,
+          createdAt: now + i,
+          archivedAt: null,
+        }));
+        // Any kind the user made keeps its identity, ordered after the preset.
+        const kept = custom.map((c, i) => ({ ...c, order: fresh.length + i }));
+
+        set({
+          categories: [...fresh, ...kept],
+          categorySeedVersion: CATEGORY_SEED_VERSION,
+        });
+
+        // Re-tag adventures that pointed at a retired kind.
+        state.adventures.forEach(a => {
+          if (a.categoryId && legacyIds.has(a.categoryId)) {
+            get().updateAdventure(a.id, { categoryId: LEGACY_CATEGORY_MAP[a.categoryId] });
+          }
+        });
+
+        // Retire the old rows server-side, and push the new ones up. Skip ids
+        // the new preset reuses ('travel') — archiving by id would archive the
+        // fresh row we just installed under that same id.
+        const freshIds = new Set(fresh.map(c => c.id));
+        existing
+          .filter(c => legacyIds.has(c.id) && !freshIds.has(c.id))
+          .forEach(c => { get().updateCategory(c.id, { archivedAt: now }); });
+        fresh.forEach(c => {
+          queueOperation(set, get, { type: 'insert', table: 'adventure_categories', data: mapCategoryToDb(c) }, async () => {
+            const user = await requireUser();
+            const { error } = await supabase
+              .from('adventure_categories')
+              .upsert([{ ...mapCategoryToDb(c), user_id: user.id }], { onConflict: 'id' });
+            if (error) throw error;
+          });
+        });
+      },
+
+      addAdventure: (title = '', init = {}) => {
         const now = Date.now();
         const minOrder = get().adventures.reduce((m, a) => Math.min(m, a.order), 0);
         const adventure: Adventure = {
@@ -296,7 +374,10 @@ export const useAdventureStore = create<AdventureState>()(
           archivedAt: null,
           ...init,
         };
-        set(state => ({ adventures: [...state.adventures, adventure].sort(byOrder) }));
+        set(state => ({
+          adventures: [...state.adventures, adventure].sort(byOrder),
+          pendingEditId: adventure.id, // the page opens the inline editor on it
+        }));
 
         queueOperation(set, get, { type: 'insert', table: 'adventures', data: mapAdventureToDb(adventure) }, async () => {
           const user = await requireUser();
@@ -437,12 +518,15 @@ export const useAdventureStore = create<AdventureState>()(
     }),
     {
       name: 'flowstate-adventures',
+      // pendingEditId is deliberately transient — a refresh shouldn't reopen an
+      // editor on a row you created earlier.
       partialize: (state) => ({
         adventures: state.adventures,
         categories: state.categories,
         pendingOperations: state.pendingOperations,
         guestMode: state.guestMode,
         seeded: state.seeded,
+        categorySeedVersion: state.categorySeedVersion,
       }),
     }
   )
