@@ -2,6 +2,8 @@ import React, { useState, useEffect } from 'react';
 import { supabase } from '../utils/supabase';
 import { useTaskStore } from '../store/useTaskStore';
 import { useHabitStore } from '../store/useHabitStore';
+import { useObjectiveStore } from '../store/useObjectiveStore';
+import { useAdventureStore } from '../store/useAdventureStore';
 import { Layers, Loader2, AlertCircle, UserX } from 'lucide-react';
 
 export const Login = () => {
@@ -59,6 +61,10 @@ export const Login = () => {
   const handleGuestLogin = () => {
     setGuestMode(true);
     useHabitStore.getState().setGuestMode(true);
+    // Objectives and adventures need it too: a guest never fetches, so this
+    // flag is what tells those stores it is safe to seed their defaults.
+    useObjectiveStore.getState().setGuestMode(true);
+    useAdventureStore.getState().setGuestMode(true);
     fetchTasks(); // Load from localStorage
   };
 
