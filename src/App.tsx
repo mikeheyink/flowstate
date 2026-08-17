@@ -242,8 +242,11 @@ function App() {
         if (authLoading) return;
         if (!session && !isGuest) return; // only once the app proper is visible
         // Guests never run fetchObjectives, so make sure the five defaults exist
-        // before the soft-start tries to render them.
+        // before the soft-start tries to render them. For a signed-in user this
+        // is a no-op until the fetch has landed — seeding ahead of the DB is
+        // what used to leave the page with two of every objective.
         useObjectiveStore.getState().seedIfEmpty();
+        useObjectiveStore.getState().dedupeSeedDuplicates();
         useAdventureStore.getState().seedIfEmpty();
         const d = new Date();
         const today = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
