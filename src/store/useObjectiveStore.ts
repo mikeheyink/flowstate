@@ -7,10 +7,11 @@ const generateId = () => Math.random().toString(36).substring(2, 9);
 
 interface PendingOperation {
   id: string;
-  type: 'insert' | 'update';
+  type: 'insert' | 'update' | 'archive';
   table: string;
   data?: any;
   objectiveId?: string;
+  objectiveIds?: string[]; // 'archive' only — one statement for the whole sweep
 }
 
 interface ObjectiveState {
@@ -19,14 +20,13 @@ interface ObjectiveState {
   error: string | null;
   guestMode: boolean;
   seeded: boolean; // one-time default seed guard (per device)
-  hydrated: boolean; // a DB fetch has settled this session — NOT persisted
-  dedupedSeeds: boolean; // one-time cleanup of historically double-seeded defaults
+  hydrated: boolean; // a DB read has landed this session — NOT persisted
 
   pendingOperations: PendingOperation[];
 
   fetchObjectives: () => Promise<void>;
   seedIfEmpty: () => void;
-  dedupeSeedDuplicates: () => void;
+  sweepDuplicateSeeds: () => void;
   addObjective: (title: string, color: string) => void;
   updateObjective: (id: string, updates: Partial<Objective>) => void;
   removeObjective: (id: string) => void; // soft-delete
@@ -108,7 +108,17 @@ const LEGACY_SEED_BODIES: Record<string, string[]> = {
   ],
 };
 
-const norm = (s: string) => (s ?? '').replace(/\s+/g, ' ').trim();
+// Comparing seeded text across two years of builds, a SQL migration and a
+// round-trip through Postgres: whitespace and smart punctuation drift, wording
+// doesn't. Normalise the former so a stale default is still recognisable.
+const norm = (s: string) =>
+  (s ?? '')
+    .replace(/[\u2018\u2019]/g, "'")
+    .replace(/[\u201C\u201D]/g, '"')
+    .replace(/[\u2013\u2014]/g, '-')
+    .replace(/\u00A0/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
 
 const currentSeedFor = (title: string) => SEED_OBJECTIVES.find(s => s.title === title);
 
@@ -178,6 +188,12 @@ const queueOperation = async (
 
 const byOrder = (a: Objective, b: Objective) => a.order - b.order || a.createdAt - b.createdAt;
 
+// App calls fetchObjectives() twice on every load — once from getSession(),
+// once from onAuthStateChange. Two reads in flight meant the slower reply
+// landed last and overwrote the sweep's work with its own stale snapshot, so
+// the duplicates reappeared for the rest of the session. One read at a time.
+let inFlightFetch: Promise<void> | null = null;
+
 export const useObjectiveStore = create<ObjectiveState>()(
   persist(
     (set, get) => ({
@@ -187,59 +203,79 @@ export const useObjectiveStore = create<ObjectiveState>()(
       guestMode: false,
       seeded: false,
       hydrated: false,
-      dedupedSeeds: false,
       pendingOperations: [],
 
-      fetchObjectives: async () => {
-        set({ isLoading: true });
-        let fetched = false;
-        try {
-          const { data: { user } } = await supabase.auth.getUser();
-          if (!user) {
-            set({ error: null, isLoading: false });
-            return;
-          }
+      fetchObjectives: () => {
+        if (inFlightFetch) return inFlightFetch;
+        inFlightFetch = (async () => {
+          set({ isLoading: true });
+          let read = false;
+          try {
+            const { data: { user } } = await supabase.auth.getUser();
+            if (!user) return;
 
-          const { data, error } = await supabase
-            .from('objectives')
-            .select('*')
-            .eq('user_id', user.id)
-            .is('archived_at', null);
-          if (error) throw error;
-
-          const dbObjectives = (data || []).map(mapFromDb);
-
-          // Reconcile local → DB (same pattern as habits): push up anything the
-          // DB is missing via idempotent upserts, then merge. The one thing we
-          // never push is an untouched default onto an account that already has
-          // objectives — that is a locally-seeded copy of rows the DB already
-          // holds under different ids, and pushing it is what doubled the page.
-          const local = get();
-          const dbIds = new Set(dbObjectives.map(o => o.id));
-          const localOnly = local.objectives
-            .filter(o => !o.archivedAt && !dbIds.has(o.id))
-            .filter(o => !(dbObjectives.length > 0 && isUntouchedSeed(o)));
-
-          if (localOnly.length > 0) {
-            const { error: upErr } = await supabase
+            const { data, error } = await supabase
               .from('objectives')
-              .upsert(localOnly.map(o => ({ ...mapToDb(o), user_id: user.id })), { onConflict: 'id' });
-            if (upErr) throw upErr;
-          }
+              .select('*')
+              .eq('user_id', user.id)
+              .is('archived_at', null);
+            if (error) throw error;
 
-          set({ objectives: [...dbObjectives, ...localOnly].sort(byOrder), error: null });
-          fetched = true;
-        } catch (err: any) {
-          set({ error: err.message });
-        } finally {
-          set({ isLoading: false, hydrated: get().hydrated || fetched });
-          // Only seed once we've actually seen the DB — never race a slow
-          // network and mint a second set of defaults next to the real ones.
-          if (fetched) {
-            get().seedIfEmpty();
-            get().dedupeSeedDuplicates();
+            const local = get();
+            // A row this device has archived stays archived even while the DB
+            // snapshot still shows it live — the delete may only be queued yet.
+            // Without this, a read can undo a delete that hasn't synced.
+            const archivedHere = new Map(
+              local.objectives.filter(o => o.archivedAt).map(o => [o.id, o.archivedAt as number])
+            );
+            const dbObjectives = (data || [])
+              .map(mapFromDb)
+              .map(o => (archivedHere.has(o.id) ? { ...o, archivedAt: archivedHere.get(o.id)! } : o));
+
+            // Push up anything the DB is missing (same pattern as habits). The
+            // one thing we never push is an untouched default onto an account
+            // that already has objectives — that is a locally-seeded copy of
+            // rows the DB already holds under other ids, and pushing it is what
+            // doubled the page in the first place.
+            const dbIds = new Set(dbObjectives.map(o => o.id));
+            const localOnly = local.objectives
+              .filter(o => !o.archivedAt && !dbIds.has(o.id))
+              .filter(o => !(dbObjectives.length > 0 && isUntouchedSeed(o)));
+
+            set({ objectives: [...dbObjectives, ...localOnly].sort(byOrder), error: null });
+            read = true;
+
+            // Deliberately after the read is committed and outside its try: a
+            // write that fails must not throw away a read that worked. It used
+            // to, and that left seeding and the sweep dead on every load.
+            if (localOnly.length > 0) {
+              await queueOperation(
+                set,
+                get,
+                { type: 'insert', table: 'objectives', data: localOnly.map(mapToDb) },
+                async () => {
+                  const { error: upErr } = await supabase
+                    .from('objectives')
+                    .upsert(localOnly.map(o => ({ ...mapToDb(o), user_id: user.id })), { onConflict: 'id' });
+                  if (upErr) throw upErr;
+                }
+              );
+            }
+          } catch (err: any) {
+            set({ error: err.message });
+          } finally {
+            set({ isLoading: false, hydrated: get().hydrated || read });
+            // Only judge the page once we've actually seen the DB — never race
+            // a slow network and mint a second set of defaults beside the real
+            // ones. Both passes are idempotent, so they run on every read.
+            if (read) {
+              get().seedIfEmpty();
+              get().sweepDuplicateSeeds();
+            }
           }
-        }
+        })();
+
+        return inFlightFetch.finally(() => { inFlightFetch = null; });
       },
 
       // First run (per device): put the five objectives on the page so it never
@@ -274,16 +310,22 @@ export const useObjectiveStore = create<ObjectiveState>()(
         });
       },
 
-      // One-time repair for devices that already double-seeded: the page shows
-      // each objective twice, once with the original wording and once with the
-      // current default. Within a title we archive only rows that are still
-      // untouched defaults, and only ever if something remains — anything Mike
-      // has written is kept, and a title with no duplicates is never touched.
-      dedupeSeedDuplicates: () => {
+      // Devices that double-seeded show each objective twice — once in the
+      // original wording, once in the current one. This sweeps the stale copy.
+      //
+      // It runs on every read, not once. The first attempt at this fix was
+      // one-shot and guarded by a persisted flag; when it failed to stick, the
+      // flag had already been spent and no later load ever tried again. Both
+      // the rule and the write are idempotent, so repeating is free and the
+      // page repairs itself the next time it loads.
+      //
+      // The rule is deliberately narrow. Only rows still matching a shipped
+      // default are candidates, and only where a title has two or more of
+      // them: anything Mike has written is never a candidate and never a
+      // reason to archive, so adding a second objective called "Peace" cannot
+      // make the real one disappear.
+      sweepDuplicateSeeds: () => {
         const state = get();
-        if (state.dedupedSeeds) return;
-        // Same rule as seeding: judge the list only once it is the real one, or
-        // we'd burn the one-time pass on a pre-fetch snapshot.
         if (!state.guestMode && !state.hydrated) return;
 
         const byTitle = new Map<string, Objective[]>();
@@ -291,22 +333,42 @@ export const useObjectiveStore = create<ObjectiveState>()(
           .filter(o => !o.archivedAt)
           .forEach(o => byTitle.set(o.title, [...(byTitle.get(o.title) ?? []), o]));
 
-        const losers: Objective[] = [];
+        const loserIds: string[] = [];
         byTitle.forEach((group, title) => {
-          if (group.length < 2) return;
+          const known = group.filter(isUntouchedSeed);
+          if (known.length < 2) return;
           const current = currentSeedFor(title);
           const keeper =
-            // his own edits win, then the current default's wording, then the original
-            group.find(o => !isUntouchedSeed(o)) ??
-            (current ? group.find(o => norm(o.body) === norm(current.body)) : undefined) ??
-            [...group].sort((a, b) => a.createdAt - b.createdAt)[0];
-          group.forEach(o => {
-            if (o.id !== keeper.id && isUntouchedSeed(o)) losers.push(o);
-          });
+            // the wording this build ships, else the most recently seeded copy
+            (current ? known.find(o => norm(o.body) === norm(current.body)) : undefined) ??
+            [...known].sort((a, b) => b.createdAt - a.createdAt)[0];
+          known.forEach(o => { if (o.id !== keeper.id) loserIds.push(o.id); });
         });
 
-        set({ dedupedSeeds: true });
-        losers.forEach(o => get().removeObjective(o.id));
+        if (loserIds.length === 0) return;
+
+        const archivedAt = Date.now();
+        const gone = new Set(loserIds);
+        set(s2 => ({
+          objectives: s2.objectives.map(o => (gone.has(o.id) ? { ...o, archivedAt } : o)),
+        }));
+
+        // One statement for the whole sweep: five separate updates gave five
+        // separate chances to half-apply.
+        queueOperation(
+          set,
+          get,
+          { type: 'archive', table: 'objectives', objectiveIds: loserIds, data: { archived_at: archivedAt } },
+          async () => {
+            const user = await requireUser();
+            const { error } = await supabase
+              .from('objectives')
+              .update({ archived_at: archivedAt })
+              .in('id', loserIds)
+              .eq('user_id', user.id);
+            if (error) throw error;
+          }
+        );
       },
 
       addObjective: (title, color) => {
@@ -378,9 +440,18 @@ export const useObjectiveStore = create<ObjectiveState>()(
         for (const op of state.pendingOperations) {
           try {
             if (op.type === 'insert') {
+              const rows = (Array.isArray(op.data) ? op.data : [op.data])
+                .map((d: any) => ({ ...d, user_id: user.id }));
               const { error } = await supabase
                 .from('objectives')
-                .upsert([{ ...op.data, user_id: user.id }], { onConflict: 'id' });
+                .upsert(rows, { onConflict: 'id' });
+              if (error) throw error;
+            } else if (op.type === 'archive') {
+              const { error } = await supabase
+                .from('objectives')
+                .update({ archived_at: op.data.archived_at })
+                .in('id', op.objectiveIds ?? [])
+                .eq('user_id', user.id);
               if (error) throw error;
             } else if (op.type === 'update') {
               const { error } = await supabase
@@ -405,7 +476,6 @@ export const useObjectiveStore = create<ObjectiveState>()(
         pendingOperations: state.pendingOperations,
         guestMode: state.guestMode,
         seeded: state.seeded,
-        dedupedSeeds: state.dedupedSeeds,
       }),
     }
   )

@@ -246,7 +246,7 @@ function App() {
         // is a no-op until the fetch has landed — seeding ahead of the DB is
         // what used to leave the page with two of every objective.
         useObjectiveStore.getState().seedIfEmpty();
-        useObjectiveStore.getState().dedupeSeedDuplicates();
+        useObjectiveStore.getState().sweepDuplicateSeeds();
         useAdventureStore.getState().seedIfEmpty();
         const d = new Date();
         const today = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
