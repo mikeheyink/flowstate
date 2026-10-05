@@ -15,6 +15,7 @@ import { MailView } from './components/Mail/MailView';
 import { HabitsView } from './components/Habits/HabitsView';
 import { ObjectivesView } from './components/Objectives/ObjectivesView';
 import { AdventureView } from './components/Adventure/AdventureView';
+import { TrainView } from './components/Train/TrainView';
 import { useTaskStore } from './store/useTaskStore';
 import { useHabitStore } from './store/useHabitStore';
 import { useObjectiveStore } from './store/useObjectiveStore';
@@ -357,9 +358,9 @@ function App() {
                     <AnimatePresence mode="wait">
                         <motion.div
                             key={currentView}
-                            initial={{ x: currentView === 'mail' || currentView === 'habits' || currentView === 'adventure' ? '100%' : '-100%', opacity: 0 }}
+                            initial={{ x: currentView === 'mail' || currentView === 'habits' || currentView === 'adventure' || currentView === 'train' ? '100%' : '-100%', opacity: 0 }}
                             animate={{ x: 0, opacity: 1 }}
-                            exit={{ x: currentView === 'mail' || currentView === 'habits' || currentView === 'adventure' ? '-100%' : '100%', opacity: 0 }}
+                            exit={{ x: currentView === 'mail' || currentView === 'habits' || currentView === 'adventure' || currentView === 'train' ? '-100%' : '100%', opacity: 0 }}
                             transition={{ type: 'spring', stiffness: 300, damping: 30 }}
                             className="absolute inset-0 overflow-y-auto px-4 pt-6 pb-24 md:px-8 md:py-6 scroll-smooth"
                         >
@@ -375,6 +376,8 @@ function App() {
                                 <ObjectivesView />
                             ) : currentView === 'adventure' ? (
                                 <AdventureView />
+                            ) : currentView === 'train' ? (
+                                <TrainView />
                             ) : (
                                 <HabitsView />
                             )}
@@ -407,7 +410,7 @@ function App() {
                         const defaults = getCreationDefaults(filter, focusedTask);
                         setQuickAddOpen(true, parentId, 'create', null, defaults);
                     }}
-                    className={`${(currentView === 'mail' || currentView === 'objectives') ? 'hidden' : 'md:hidden'} fixed bottom-20 right-5 w-14 h-14 bg-primary-600 text-white rounded-full shadow-lg flex items-center justify-center hover:bg-primary-500 active:scale-95 transition-all z-40`}
+                    className={`${(currentView === 'mail' || currentView === 'objectives' || currentView === 'train') ? 'hidden' : 'md:hidden'} fixed bottom-20 right-5 w-14 h-14 bg-primary-600 text-white rounded-full shadow-lg flex items-center justify-center hover:bg-primary-500 active:scale-95 transition-all z-40`}
                     aria-label={currentView === 'habits' ? 'Add Habit' : currentView === 'adventure' ? 'Plant Adventure Seed' : 'Add Task'}
                 >
                     <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">

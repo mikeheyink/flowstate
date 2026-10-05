@@ -8,8 +8,9 @@ export interface QuickAddDefaults {
   important?: boolean;
   urgent?: boolean;
 }
-export type CurrentView = 'tasks' | 'mail' | 'habits' | 'objectives' | 'adventure';
+export type CurrentView = 'tasks' | 'mail' | 'habits' | 'objectives' | 'adventure' | 'train';
 export type HabitView = 'grid' | 'checklist' | 'analytics';
+export type TrainTab = 'session' | 'plan';
 
 interface UIState {
   isCmdOpen: boolean;
@@ -26,6 +27,7 @@ interface UIState {
   focusMode: FocusMode;
   currentView: CurrentView;
   habitView: HabitView;
+  trainTab: TrainTab;
   globalHabitGoal: number; // percentage, e.g., 80 for 80%
 
   // Habit add/edit form. Lives here (not in HabitsView) so the command palette
@@ -53,6 +55,7 @@ interface UIState {
   setFocusMode: (mode: FocusMode) => void;
   setCurrentView: (view: CurrentView) => void;
   setHabitView: (view: HabitView) => void;
+  setTrainTab: (tab: TrainTab) => void;
   setGlobalHabitGoal: (goal: number) => void;
   toggleCmd: () => void;
   cycleHabitView: (dir?: 'next' | 'prev') => void;
@@ -80,6 +83,7 @@ export const useUIStore = create<UIState>()(
   focusMode: 'main',
   currentView: 'tasks',
   habitView: 'grid',
+  trainTab: 'session',
   globalHabitGoal: 80,
   habitForm: { open: false, editingId: null },
 
@@ -114,6 +118,7 @@ export const useUIStore = create<UIState>()(
   setFocusMode: (mode) => set({ focusMode: mode }),
   setCurrentView: (view) => set({ currentView: view }),
   setHabitView: (view) => set({ habitView: view }),
+  setTrainTab: (tab) => set({ trainTab: tab }),
   setGlobalHabitGoal: (goal) => set({ globalHabitGoal: goal }),
   toggleCmd: () => set((state) => ({ isCmdOpen: !state.isCmdOpen })),
   cycleHabitView: (dir = 'next') => set((state) => {
@@ -141,6 +146,7 @@ export const useUIStore = create<UIState>()(
         currentView: state.currentView,
         filter: state.filter,
         habitView: state.habitView,
+        trainTab: state.trainTab,
         globalHabitGoal: state.globalHabitGoal,
         lastSoftStartDate: state.lastSoftStartDate,
       }),

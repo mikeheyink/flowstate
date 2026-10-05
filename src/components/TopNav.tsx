@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useRef, useMemo } from 'react';
-import { Layers, Inbox, Calendar as CalendarIcon, CalendarClock, ClipboardList, RefreshCw, WifiOff, UserX, Keyboard, Command, BookOpen, Reply, Mail, LayoutGrid, ListChecks, BarChart3, Flame, Compass, Mountain } from 'lucide-react';
+import { Layers, Inbox, Calendar as CalendarIcon, CalendarClock, ClipboardList, RefreshCw, WifiOff, UserX, Keyboard, Command, BookOpen, Reply, Mail, LayoutGrid, ListChecks, BarChart3, Flame, Compass, Mountain, Dumbbell, Map as MapIcon, PlayCircle } from 'lucide-react';
 import { useUIStore, CurrentView } from '../store/useUIStore';
 import { useOnlineStatus } from '../store/useOnlineStatus';
 import { useMailStore } from '../store/useMailStore';
@@ -20,6 +20,7 @@ const SECTIONS: { id: CurrentView; label: string; Icon: React.ComponentType<any>
     { id: 'tasks', label: 'Tasks', Icon: ClipboardList, chord: '⌘[ / ⌘]' },
     { id: 'habits', label: 'Habits', Icon: Flame, chord: '⌘[ / ⌘]' },
     { id: 'adventure', label: 'Adventure', Icon: Mountain, chord: '⌘[ / ⌘]' },
+    { id: 'train', label: 'Train', Icon: Dumbbell, chord: '⌘[ / ⌘]' },
 ];
 
 export function TopNav({ session, isGuest, setGuestMode }: TopNavProps) {
@@ -27,6 +28,8 @@ export function TopNav({ session, isGuest, setGuestMode }: TopNavProps) {
         filter,
         currentView,
         habitView,
+        trainTab,
+        setTrainTab,
         setFilter,
         setFocusMode,
         setShortcutsOpen,
@@ -47,6 +50,7 @@ export function TopNav({ session, isGuest, setGuestMode }: TopNavProps) {
         if (currentView === 'mail') return 'Mail';
         if (currentView === 'objectives') return 'Objectives';
         if (currentView === 'adventure') return 'Adventure';
+        if (currentView === 'train') return 'Train';
         const map: Record<string, string> = { active: 'Plan', today: 'Today', upcoming: 'Upcoming', review: 'Review' };
         return map[filter] || 'Tasks';
     })();
@@ -85,6 +89,11 @@ export function TopNav({ session, isGuest, setGuestMode }: TopNavProps) {
     const mailMenuItems = ['inbox', 'to_read', 'to_reply', 'other'] as const;
 
     // Habit view menu items (tabs within the Habits section)
+    const trainMenuItems = [
+        { id: 'session' as const, Label: 'Session', Icon: PlayCircle },
+        { id: 'plan' as const, Label: 'Plan', Icon: MapIcon },
+    ];
+
     const habitMenuItems = [
         { id: 'grid' as const, Label: 'Grid', Icon: LayoutGrid },
         { id: 'checklist' as const, Label: 'Checklist', Icon: ListChecks },
@@ -111,7 +120,7 @@ export function TopNav({ session, isGuest, setGuestMode }: TopNavProps) {
     // Show when the section, filter, or active tab changes
     useEffect(() => {
         showNav();
-    }, [filter, activeTab, currentView, habitView]);
+    }, [filter, activeTab, currentView, habitView, trainTab]);
 
     // Show on mouse move near top (optional, or just hover on the bar area)
     const handleMouseEnter = () => {
@@ -208,6 +217,26 @@ export function TopNav({ session, isGuest, setGuestMode }: TopNavProps) {
                         <button
                             key={item}
                             onClick={() => setActiveTab(item)}
+                            className={`
+                                flex items-center gap-2 px-3 py-1.5 rounded-md text-sm font-medium transition-all
+                                ${isActive
+                                    ? 'bg-white dark:bg-slate-700 shadow-sm text-primary-600 dark:text-primary-400'
+                                    : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200 hover:bg-white/50 dark:hover:bg-slate-700/50'
+                                }
+                            `}
+                        >
+                            <Icon className="w-4 h-4" />
+                            <span className="hidden sm:inline">{Label}</span>
+                        </button>
+                    );
+                })}
+
+                {currentView === 'train' && trainMenuItems.map(({ id, Label, Icon }) => {
+                    const isActive = trainTab === id;
+                    return (
+                        <button
+                            key={id}
+                            onClick={() => setTrainTab(id)}
                             className={`
                                 flex items-center gap-2 px-3 py-1.5 rounded-md text-sm font-medium transition-all
                                 ${isActive

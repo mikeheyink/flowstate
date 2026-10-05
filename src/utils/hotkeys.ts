@@ -5,7 +5,7 @@
  * Used by ShortcutsModal, CommandPalette, and useTaskListKeyboard.
  */
 
-export type HotkeyCategory = 'navigation' | 'creation' | 'organization' | 'editing' | 'view' | 'habits';
+export type HotkeyCategory = 'navigation' | 'creation' | 'organization' | 'editing' | 'view' | 'habits' | 'train';
 export type HotkeyContext = 'global' | 'task-focused' | 'task-with-date';
 
 export interface Hotkey {
@@ -37,6 +37,7 @@ export const HOTKEYS: Hotkey[] = [
     { id: 'go-review', keys: 'g then r', description: 'Go to Review', category: 'navigation' },
     { id: 'go-habits', keys: 'g then h', description: 'Go to Habits', category: 'navigation' },
     { id: 'go-objectives', keys: 'g then o', description: 'Go to Objectives', category: 'navigation' },
+    { id: 'go-train', keys: 'g then w', description: 'Go to Train', category: 'navigation' },
     { id: 'move-task-down', keys: '⌘↓', description: 'Move Task Down', category: 'navigation', context: 'task-focused' },
     { id: 'move-task-up', keys: '⌘↑', description: 'Move Task Up', category: 'navigation', context: 'task-focused' },
     { id: 'expand', keys: '→', description: 'Expand Subtasks (list views)', category: 'navigation', context: 'task-focused' },
@@ -80,6 +81,23 @@ export const HOTKEYS: Hotkey[] = [
     { id: 'habit-add', keys: 'A', description: 'Add habit', category: 'habits', context: 'global', showInModal: false },
     { id: 'habit-edit', keys: 'E', description: 'Edit habit', category: 'habits', context: 'global', showInModal: false },
     { id: 'habit-delete', keys: '⌫', description: 'Delete habit', category: 'habits', context: 'global', showInModal: false },
+
+    // === Train ===
+    { id: 'train-start', keys: '→ / ↩', description: 'Start / resume session', category: 'train', showInModal: false },
+    { id: 'train-pick', keys: '↑ / ↓', description: 'Pick exercise to start from', category: 'train', showInModal: false },
+    { id: 'train-day', keys: ', / .', description: 'Previous / next day', category: 'train', showInModal: false },
+    { id: 'train-tab', keys: '[ / ]', description: 'Session / Plan', category: 'train', showInModal: false },
+    { id: 'train-done', keys: 'X', description: 'Exercise done → next (stops the timer)', category: 'train', showInModal: false },
+    { id: 'plan-open', keys: '↩', description: 'Open week · tick milestone', category: 'train', showInModal: false },
+    { id: 'plan-tick', keys: 'X', description: 'Tick milestone', category: 'train', showInModal: false },
+    { id: 'plan-now', keys: 'T', description: 'Jump to this week', category: 'train', showInModal: false },
+    { id: 'train-mark', keys: 'X', description: 'Mark session done / not done', category: 'train', showInModal: false },
+    { id: 'train-advance', keys: 'Space', description: 'Tick set · start / pause timer · skip rest', category: 'train', showInModal: false },
+    { id: 'train-move', keys: '← / →', description: 'Previous / next exercise', category: 'train', showInModal: false },
+    { id: 'train-howto', keys: 'V / ↩', description: 'Video and cues (V again to close)', category: 'train', showInModal: false },
+    { id: 'train-video', keys: 'Space · R', description: 'In the video: pause / replay', category: 'train', showInModal: false },
+    { id: 'train-undo', keys: 'U / ⌘Z', description: 'Undo — set, mark done, save', category: 'train', showInModal: false },
+    { id: 'train-exit', keys: 'Esc', description: 'Back to overview', category: 'train', showInModal: false },
 ];
 
 /**
@@ -143,12 +161,21 @@ export function getHotkeyById(id: string): Hotkey | undefined {
 /**
  * Get hotkey groups filtered by view context
  */
-export function getHotkeyModalGroupsByView(view: 'tasks' | 'mail' | 'habits'): { title: string; items: Hotkey[] }[] {
+export function getHotkeyModalGroupsByView(view: 'tasks' | 'mail' | 'habits' | 'train'): { title: string; items: Hotkey[] }[] {
     // These groups are hand-curated by id, so we show whatever is listed —
     // the showInModal flag only governs the auto-generated global listing.
     const resolve = (ids: string[]) => ids
         .map(getHotkeyById)
         .filter((h): h is Hotkey => !!h);
+
+    if (view === 'train') {
+        return [
+            { title: 'Overview', items: resolve(['train-start', 'train-pick', 'train-howto', 'train-day', 'train-tab', 'train-mark', 'train-undo']) },
+            { title: 'During a workout', items: resolve(['train-advance', 'train-done', 'train-move', 'train-howto', 'train-video', 'train-undo', 'train-exit']) },
+            { title: 'Plan', items: resolve(['plan-open', 'plan-tick', 'plan-now', 'train-tab']) },
+            { title: 'Get around', items: resolve(['nav-section', 'go-train', 'cmd-palette', 'shortcuts-modal']) },
+        ];
+    }
 
     if (view === 'habits') {
         return [
