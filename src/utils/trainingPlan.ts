@@ -281,41 +281,43 @@ const EXERCISES: Exercise[] = [
   },
 ];
 
-// Demo videos — physio / coaching sources, IDs verified against YouTube oEmbed.
+// Demo videos — short (≤60 s) exercise-library clips that show the movement
+// from the first frame, so they loop cleanly. IDs verified via oEmbed.
 const VIDEOS: Record<string, { id: string; start?: number }> = {
-  'cat-cow': { id: 'WHUevrqeKIg' },                      // Cleveland Clinic
-  'worlds-greatest-stretch': { id: 'NIz2MdMqBxk' },      // Heafner Health PT
-  'glute-bridge': { id: 'R1OXPHRqehw' },                 // Cleveland Clinic
-  'goblet-squat': { id: 's64Ss68bABQ' },                 // StrongFirst
-  'push-up': { id: 'WDIpL0pjun0' },                      // NASM
+  'cat-cow': { id: 'FLQDiUccsko' },                      // E3 Rehab · 11s
+  'worlds-greatest-stretch': { id: 'pO3KPQ5fzJ0' },      // The Active Life · 30s
+  'glute-bridge': { id: '_bCmHW_mLCU' },                 // E3 Rehab · 30s
+  'goblet-squat': { id: 'aIfDo1Ctpl8' },                 // Fibre Active · 16s
+  'push-up': { id: 'WDIpL0pjun0' },                      // NASM · 14s
   'push-up-test': { id: 'WDIpL0pjun0' },
-  'kb-row': { id: 'yA1E9DlA3Vc' },                       // Fusion Sports PT
-  'kb-single-leg-rdl': { id: '-w3gokw_s7w' },            // OPEX
-  'copenhagen-short': { id: 'nhGK-DxiGBE' },             // Physio Plus Fitness
-  'dead-bug': { id: 'kSYl6XOzQ5U' },                     // SOS Physiotherapy
-  'calf-iso': { id: 'arLsa_isSOw' },                     // Elite Performance Institute
-  'calf-eccentric': { id: '-R1S7SbwNsI' },               // Michael Braccio (physio)
-  'calf-bent-knee': { id: '-1s4TMcicYM' },               // Elite Performance Institute
-  'split-squat': { id: 'la0pLPq-3A8' },
-  'single-leg-bridge': { id: 'K_QyHRlO2cY' },
-  'kb-floor-press': { id: 'P_ijh09h23s' },               // OPEX
-  'prone-yt': { id: 'juoKsTqy77E' },                     // Y only — T is the same with arms out wide
-  'side-plank': { id: '0M-erHBl48U' },                   // Heal Fit Physio
-  'suitcase-carry': { id: 'Q1GjhRDAil0' },               // Rehab My Patient
-  'thoracic-extension': { id: '9Y11Kc0E0og' },           // Rehab My Patient
-  'open-book': { id: 'peeW19ofFUg' },
-  'wall-slide': { id: 'cvx06snMQ3A' },                   // Rehab My Patient
-  'upper-trap-stretch': { id: 'uwLcpgIqpnU' },           // NUH Physiotherapy
-  'hip-90-90': { id: 'bJII__gcUHA' },
-  'hip-flexor-stretch': { id: 'Bfb-9dIWEr4' },
-  'adductor-rockback': { id: 'yF8o6I6aSZg' },            // Mike Reinold
-  'seated-t-rotation': { id: 'uGl-AG4C1Wc' },
-  'leg-swings': { id: 'D17eUtUt0zQ' },
-  'lunge-rotation': { id: 'dwj78Ir6ZE8' },               // Rehab My Patient
-  'sitting-rising-test': { id: '_LVOzG_mcWI' },
-  'knee-to-wall': { id: 'kbzYML05Vac' },
-  'single-leg-calf-raise-test': { id: 'fSXnnvgKST4' },
-  'single-leg-hop': { id: 'Yq75-6SUn7A' },
+  'kb-row': { id: 'yA1E9DlA3Vc' },                       // Fusion Sports PT · 17s
+  'kb-single-leg-rdl': { id: '-w3gokw_s7w' },            // OPEX · 19s
+  'copenhagen-short': { id: 'p2xXd1fPh2A' },             // E3 Rehab · 11s
+  'dead-bug': { id: 'BZYaCzbP09M' },                     // E3 Rehab · 19s
+  'calf-iso': { id: 'YM2M1_Al5fo' },                     // Competitive Edge PT · 17s
+  'calf-eccentric': { id: 'difh8uVDwSs' },               // E3 Rehab · 19s
+  'calf-bent-knee': { id: '-9WJeQzqhBs' },               // OPEX · 11s
+  'split-squat': { id: 'Py2Qeg-D5T0' },                  // OPEX · 14s
+  'single-leg-bridge': { id: 'U9M8dsoRYzU' },            // E3 Rehab · 14s
+  'kb-floor-press': { id: 'P_ijh09h23s' },               // OPEX · 15s
+  'prone-yt': { id: 'QdGTI4Lshg4' },                     // The Active Life · 31s (Y, T and W)
+  'side-plank': { id: 'eRygfYEe1hs' },                   // E3 Rehab · 11s
+  'suitcase-carry': { id: 'Q1GjhRDAil0' },               // Rehab My Patient · 42s
+  'thoracic-extension': { id: '9Y11Kc0E0og' },           // Rehab My Patient · 48s
+  'open-book': { id: 'TgPyqddUdrM' },                    // Rehab Hero · 15s
+  'wall-slide': { id: 'cvx06snMQ3A' },                   // Rehab My Patient · 31s
+  'upper-trap-stretch': { id: 'EjkFVidgy7o' },           // E3 Rehab · 15s
+  'hip-90-90': { id: '6tcOGbrG3l0' },                    // Theory of Motion · 20s
+  'hip-flexor-stretch': { id: 'Bfb-9dIWEr4' },           // Live Lean TV · 42s
+  'adductor-rockback': { id: '1sSnSh-yKJU' },            // E3 Rehab · 19s
+  'seated-t-rotation': { id: 'uGl-AG4C1Wc' },            // 28s
+  'leg-swings': { id: 'D17eUtUt0zQ' },                   // MyPhysioRehab · 26s
+  'lunge-rotation': { id: 'dwj78Ir6ZE8' },               // Rehab My Patient · 48s
+  'golf-warmup': { id: 'QTpvGIdJYWo' },                  // David Franks Golf · 43s
+  'sitting-rising-test': { id: 'diVoA2_tpIc' },          // Movement Physio · 7s
+  'knee-to-wall': { id: 'KmiPXKmoUbs' },                 // E3 Rehab · 14s
+  'single-leg-calf-raise-test': { id: 'fSXnnvgKST4' },   // 16s
+  'single-leg-hop': { id: '6yOw02lrmu8' },               // Theory of Motion · 8s
 };
 
 const LIBRARY = new Map(EXERCISES.map(e => [e.id, { ...e, video: VIDEOS[e.id] ?? e.video }]));
