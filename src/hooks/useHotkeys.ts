@@ -100,8 +100,9 @@ export function useHotkeys() {
                 return;
             }
 
-            // Undo/Redo
-            if (isCmd && key === 'z') {
+            // Undo/Redo — Train keeps its own undo (sets, mark done), so ⌘Z there
+            // must not also undo a task.
+            if (isCmd && key === 'z' && uiState.currentView !== 'train') {
                 e.preventDefault();
                 if (isShift) redo();
                 else undo();
@@ -131,8 +132,8 @@ export function useHotkeys() {
             // preventDefault stops the browser navigating history.
             if (isCmd && (key === '[' || key === ']')) {
                 e.preventDefault();
-                const sections = ['objectives', 'tasks', 'habits', 'adventure'] as const;
-                const labels: Record<string, string> = { tasks: 'Tasks', habits: 'Habits', objectives: 'Objectives', adventure: 'Adventure' };
+                const sections = ['objectives', 'tasks', 'habits', 'adventure', 'train'] as const;
+                const labels: Record<string, string> = { tasks: 'Tasks', habits: 'Habits', objectives: 'Objectives', adventure: 'Adventure', train: 'Train' };
                 const cur = Math.max(0, sections.indexOf(uiState.currentView as any));
                 const next = key === ']'
                     ? (cur + 1) % sections.length
@@ -170,6 +171,7 @@ export function useHotkeys() {
                 else if (key === 'h') { setCurrentView('habits'); toast('Habits'); }
                 else if (key === 'o') { setCurrentView('objectives'); toast('Objectives'); }
                 else if (key === 'a') { setCurrentView('adventure'); toast('Adventure'); }
+                else if (key === 'w') { setCurrentView('train'); toast('Train'); }
                 return;
             }
 
@@ -190,6 +192,8 @@ export function useHotkeys() {
                     setActiveTab(items[next]);
                 } else if (uiState.currentView === 'habits') {
                     uiState.cycleHabitView(back ? 'prev' : 'next');
+                } else if (uiState.currentView === 'train') {
+                    uiState.setTrainTab(uiState.trainTab === 'session' ? 'plan' : 'session');
                 }
                 return;
             }

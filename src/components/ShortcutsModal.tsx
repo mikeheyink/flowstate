@@ -29,7 +29,7 @@ export const ShortcutsModal: React.FC<Props> = ({ isOpen, onClose }) => {
   if (!isOpen) return null;
 
   const currentView = useUIStore((state) => state.currentView);
-  const groups = getHotkeyModalGroupsByView(currentView as 'tasks' | 'mail' | 'habits');
+  const groups = getHotkeyModalGroupsByView(currentView as 'tasks' | 'mail' | 'habits' | 'train');
 
   return (
     <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm animate-in fade-in" onClick={onClose}>

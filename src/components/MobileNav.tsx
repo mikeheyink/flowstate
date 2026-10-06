@@ -1,5 +1,5 @@
 import React from 'react';
-import { Inbox, Calendar as CalendarIcon, CalendarClock, ClipboardList, Flame, Compass, Mountain } from 'lucide-react';
+import { Inbox, Calendar as CalendarIcon, CalendarClock, ClipboardList, Flame, Compass, Mountain, Dumbbell } from 'lucide-react';
 import { useUIStore } from '../store/useUIStore';
 import { useTaskStore } from '../store/useTaskStore';
 
@@ -11,7 +11,8 @@ type Dest =
     | { kind: 'task'; filter: 'active' | 'today' | 'upcoming' | 'review'; label: string; Icon: React.ComponentType<any> }
     | { kind: 'habits'; label: string; Icon: React.ComponentType<any> }
     | { kind: 'objectives'; label: string; Icon: React.ComponentType<any> }
-    | { kind: 'adventure'; label: string; Icon: React.ComponentType<any> };
+    | { kind: 'adventure'; label: string; Icon: React.ComponentType<any> }
+    | { kind: 'train'; label: string; Icon: React.ComponentType<any> };
 
 const DESTS: Dest[] = [
     { kind: 'task', filter: 'today', label: 'Today', Icon: CalendarIcon },
@@ -21,6 +22,7 @@ const DESTS: Dest[] = [
     { kind: 'habits', label: 'Habits', Icon: Flame },
     { kind: 'objectives', label: 'Values', Icon: Compass },
     { kind: 'adventure', label: 'Adventure', Icon: Mountain },
+    { kind: 'train', label: 'Train', Icon: Dumbbell },
 ];
 
 export function MobileNav() {
@@ -33,6 +35,8 @@ export function MobileNav() {
             setCurrentView('objectives');
         } else if (dest.kind === 'adventure') {
             setCurrentView('adventure');
+        } else if (dest.kind === 'train') {
+            setCurrentView('train');
         } else {
             setCurrentView('tasks');
             setFilter(dest.filter);
@@ -49,7 +53,9 @@ export function MobileNav() {
                 ? currentView === 'objectives'
                 : dest.kind === 'adventure'
                     ? currentView === 'adventure'
-                    : currentView === 'tasks' && filter === dest.filter;
+                    : dest.kind === 'train'
+                        ? currentView === 'train'
+                        : currentView === 'tasks' && filter === dest.filter;
 
     return (
         <nav

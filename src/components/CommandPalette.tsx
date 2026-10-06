@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { Search, Plus, Trash2, CheckCircle, SunMoon, Calendar, CalendarClock, Star, Zap, Edit3, Undo, Redo, ClipboardList, Flame, Compass, LayoutGrid, Mountain, Sprout } from 'lucide-react';
+import { Search, Plus, Trash2, CheckCircle, SunMoon, Calendar, CalendarClock, Star, Zap, Edit3, Undo, Redo, ClipboardList, Flame, Compass, LayoutGrid, Mountain, Sprout, Dumbbell } from 'lucide-react';
 import { useTaskStore } from '../store/useTaskStore';
 import { useHabitStore } from '../store/useHabitStore';
 import { useAdventureStore } from '../store/useAdventureStore';
@@ -203,6 +203,16 @@ export const CommandPalette: React.FC<{ isOpen: boolean; onClose: () => void }> 
       icon: <Mountain className="w-4 h-4" />,
       shortcut: 'g a',
       perform: () => setCurrentView('adventure'),
+      section: 'Go to'
+    });
+  }
+  if (currentView !== 'train') {
+    actions.push({
+      id: 'go-train',
+      title: 'Go to Train',
+      icon: <Dumbbell className="w-4 h-4" />,
+      shortcut: 'g w',
+      perform: () => setCurrentView('train'),
       section: 'Go to'
     });
   }
