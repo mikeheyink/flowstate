@@ -44,3 +44,12 @@ describe('plan integrity', () => {
     expect(new Set(SESSIONS.map(s => s.id)).size).toBe(SESSIONS.length);
   });
 });
+
+describe('weeks', () => {
+  it('every week that has started has sessions written up to the latest one', async () => {
+    const { weekOf } = await import('../trainingPlan');
+    const weeks = new Set(SESSIONS.map(s => weekOf(s.date)));
+    const last = Math.max(...weeks);
+    for (let w = 1; w <= last; w++) expect(weeks.has(w), `week ${w}`).toBe(true);
+  });
+});

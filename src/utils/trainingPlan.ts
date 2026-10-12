@@ -25,6 +25,7 @@ export interface Prescription {
   rest?: number;         // seconds between sets
   load?: string;         // "16 kg"
   note?: string;         // session-specific instruction, overrides nothing
+  restLabel?: string;    // what the rest is called — "Walk" in a run-walk
 }
 
 export interface Block {
@@ -238,6 +239,19 @@ const EXERCISES: Exercise[] = [
 
   // Aerobic
   {
+    id: 'run-walk', name: 'Run-walk',
+    cue: 'Run easy enough to chat — walk briskly between',
+    how: ['Flat route (the promenade).', 'Run at a truly easy, conversational pace.', 'Walk briskly through every walk interval — don’t skip them.', 'Calf up to 2/10 is fine if it’s gone by the next morning. Sharper than that: stop and walk home.'],
+    why: 'Graded return to running: small, repeatable doses let the healing calf adapt without a re-strain. Progress only when the previous session left no next-morning symptoms.',
+  },
+  {
+    id: 'calf-single', name: 'Single-leg calf raise',
+    cue: 'Left only — all the way up, 3 s down',
+    how: ['Fingertip on the wall for balance.', 'Rise as high as you can on the left foot.', 'Lower slowly over 3 s.'],
+    why: 'The next step after two-up-one-down: full single-leg loading through the whole range.',
+    video: { id: 'fSXnnvgKST4' },
+  },
+  {
     id: 'brisk-walk', name: 'Brisk walk',
     cue: 'Flat route, brisk enough to breathe harder but still talk',
     how: ['Flat ground — the promenade is ideal.', 'No hills this week; they load the calf.'],
@@ -359,6 +373,34 @@ const NECK: Block = {
     { ex: 'upper-trap-stretch', hold: 30, perSide: true, note: 'Skip if it sends pain up into the head.' },
   ],
 };
+
+// Week 2 progressions: 3 sets at ~7/10, calf work goes single-leg.
+const CALF_2: Block = {
+  title: 'Calf rehab',
+  items: [
+    { ex: 'calf-iso', sets: 4, hold: 45, rest: 30, note: 'Left leg only now.' },
+    { ex: 'calf-single', sets: 3, reps: '12', rest: 60 },
+    { ex: 'calf-bent-knee', sets: 2, reps: '12 · left only', rest: 60 },
+  ],
+};
+
+const NECK_2: Block = {
+  title: 'Neck & upper back',
+  items: [
+    { ex: 'thoracic-extension', reps: '5 × 3 levels' },
+    { ex: 'open-book', reps: '8 / side' },
+    { ex: 'wall-slide', reps: '10' },
+  ],
+};
+
+const runWalk = (reps: number, run: number, walk: number, note?: string): Block => ({
+  title: 'Run-walk',
+  items: [
+    { ex: 'brisk-walk', hold: 5 * 60, note: 'Warm-up walk.' },
+    { ex: 'run-walk', sets: reps, hold: run, rest: walk, restLabel: 'Walk', note },
+    { ex: 'brisk-walk', hold: 5 * 60, note: 'Cool-down walk.' },
+  ],
+});
 
 // ---------------------------------------------------------------------------
 // Sessions — week of 5 Oct 2026 (calf healing, golf tour Fri/Sat)
@@ -491,6 +533,89 @@ export const SESSIONS: Session[] = [
       },
     ],
   },
+
+  // ---- Week 2 · 12 Oct — run-walk returns -------------------------------
+  {
+    id: '2026-10-12-strength-a', date: '2026-10-12', title: 'Strength A', kind: 'strength', minutes: 35,
+    summary: 'Same exercises, now 3 sets at 7/10 — stop each set with ~3 reps in the tank.',
+    blocks: [
+      WARM_UP,
+      {
+        title: 'Strength A',
+        items: [
+          { ex: 'goblet-squat', sets: 3, reps: '12 · 3 s down', load: '16 kg', rest: 75 },
+          { ex: 'push-up', sets: 3, reps: 'stop 3 short', rest: 75 },
+          { ex: 'kb-row', sets: 3, reps: '12 / side', load: '16 kg', rest: 60 },
+          { ex: 'kb-single-leg-rdl', sets: 3, reps: '10 / side', load: '16 kg', rest: 60 },
+          { ex: 'copenhagen-short', sets: 3, hold: 25, perSide: true, rest: 45 },
+          { ex: 'dead-bug', sets: 3, reps: '10 / side', rest: 45 },
+        ],
+      },
+      CALF_2,
+      NECK_2,
+    ],
+  },
+  {
+    id: '2026-10-13-run-walk', date: '2026-10-13', title: 'Run-walk 1', kind: 'aerobic', minutes: 30,
+    summary: 'First run back. Flat, easy, 8 × 1 min run / 1 min walk. Calf not cleared? Brisk 40 min walk instead.',
+    blocks: [runWalk(8, 60, 60), { title: 'Calf', items: [{ ex: 'calf-iso', sets: 3, hold: 45, rest: 30, note: 'Left leg only.' }] }],
+  },
+  {
+    id: '2026-10-14-strength-b', date: '2026-10-14', title: 'Strength B', kind: 'strength', minutes: 35,
+    summary: '3 sets at 7/10.',
+    blocks: [
+      WARM_UP,
+      {
+        title: 'Strength B',
+        items: [
+          { ex: 'split-squat', sets: 3, reps: '10 / side', load: '16 kg', rest: 60 },
+          { ex: 'single-leg-bridge', sets: 3, reps: '12 / side', rest: 45 },
+          { ex: 'kb-floor-press', sets: 3, reps: '10 / side', load: '16 kg', rest: 60 },
+          { ex: 'prone-yt', sets: 3, reps: '8 each', rest: 45 },
+          { ex: 'side-plank', sets: 3, hold: 35, perSide: true, rest: 45 },
+          { ex: 'suitcase-carry', sets: 3, reps: '40 m / side', load: '16 kg', rest: 45 },
+        ],
+      },
+      CALF_2,
+      NECK_2,
+    ],
+  },
+  {
+    id: '2026-10-15-run-walk', date: '2026-10-15', title: 'Run-walk 2', kind: 'aerobic', minutes: 30,
+    summary: '6 × 2 min run / 1 min walk — only if Tuesday left nothing the next morning. Otherwise repeat Tuesday.',
+    blocks: [runWalk(6, 120, 60), { title: 'Calf', items: [{ ex: 'calf-iso', sets: 3, hold: 45, rest: 30, note: 'Left leg only.' }] }],
+  },
+  {
+    id: '2026-10-16-mobility', date: '2026-10-16', title: 'Mobility', kind: 'mobility', minutes: 30,
+    summary: 'Hips, mid-back and calf — an easy day that keeps the habit.',
+    blocks: [
+      {
+        title: 'Mobility',
+        items: [
+          { ex: 'worlds-greatest-stretch', reps: '4 / side' },
+          { ex: 'hip-90-90', reps: '10' },
+          { ex: 'hip-flexor-stretch', hold: 45, perSide: true },
+          { ex: 'adductor-rockback', reps: '10 / side' },
+          { ex: 'seated-t-rotation', reps: '10 / side' },
+        ],
+      },
+      CALF_2,
+      NECK_2,
+    ],
+  },
+  {
+    id: '2026-10-17-run-walk', date: '2026-10-17', title: 'Run-walk 3', kind: 'aerobic', minutes: 30,
+    summary: '5 × 3 min run / 1 min walk on the flat — progress only if Thursday was clean.',
+    blocks: [runWalk(5, 180, 60)],
+  },
+  {
+    id: '2026-10-18-rest', date: '2026-10-18', title: 'Family walk', kind: 'aerobic', minutes: 45,
+    summary: 'Easy walk with the girls, then a quick calf check: how did the week feel?',
+    blocks: [
+      { title: 'Walk', items: [{ ex: 'brisk-walk', hold: 45 * 60, note: 'Easy — with the family.' }] },
+      { title: 'Calf', items: [{ ex: 'calf-iso', sets: 3, hold: 45, rest: 30, note: 'Left leg only.' }] },
+    ],
+  },
 ];
 
 // ---------------------------------------------------------------------------
@@ -608,7 +733,8 @@ export const weekOf = (date: string) => Math.floor(daysBetween(PLAN_START, date)
 export const localDate = (d = new Date()) =>
   `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
 
-/** Today's session, else the next one, else the most recent. */
+/** Today's session, else the next one, else the most recent. (Callers show a
+ *  "not written yet" note when the result is in an earlier week than today.) */
 export function defaultSessionIndex(sessions: Session[], today = localDate()): number {
   const exact = sessions.findIndex(s => s.date === today);
   if (exact >= 0) return exact;

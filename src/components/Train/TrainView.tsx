@@ -7,7 +7,7 @@ import { toast } from '../Toaster';
 import { PlanView } from './PlanView';
 import {
   SESSIONS, Session, Step, flattenSession, roundsFor, describeRx, fmtClock,
-  defaultSessionIndex, localDate,
+  defaultSessionIndex, localDate, weekOf, WEEKS,
 } from '../../utils/trainingPlan';
 
 /**
@@ -53,7 +53,8 @@ const longDate = (date: string) =>
 export function TrainView() {
   const logs = useTrainingStore((s) => s.logs);
   const active = useTrainingStore((s) => s.active);
-  const selectedSessionId = useTrainingStore((s) => s.selectedSessionId);
+  // A day picked yesterday doesn't stick: each morning opens on today.
+  const selectedSessionId = useTrainingStore((s) => (s.selectedOn === localDate() ? s.selectedSessionId : null));
   const { selectSession, start, goToStep, setRoundsDone, exit, complete, uncomplete, undo } = useTrainingStore.getState();
 
   const softStartActive = useUIStore((s) => s.softStartActive);
@@ -375,9 +376,28 @@ function Overview({ session, sessionIdx, steps, cursor, logs, resumeAt, onPick, 
         </h1>
       </div>
 
-      {/* Week strip */}
+      {/* This week isn't written yet — say so rather than silently showing an old day. */}
+      {weekOf(today) > Math.max(...SESSIONS.map(s => weekOf(s.date))) && (() => {
+        const w = WEEKS.find(x => x.n === weekOf(today));
+        return (
+          <div className="mb-8 rounded-xl ring-1 ring-orange-500/30 bg-orange-500/5 p-4">
+            <div className="text-sm font-semibold text-orange-600 dark:text-orange-400">
+              Week {weekOf(today)} sessions aren’t written yet{w ? ` — ${w.title}` : ''}
+            </div>
+            {w && <p className="mt-1 text-sm text-slate-600 dark:text-slate-400">{w.focus}</p>}
+            <p className="mt-1 text-sm text-slate-500">Check in with your coach to get this week’s sessions. Showing the last written week below.</p>
+          </div>
+        );
+      })()}
+
+      {/* Week strip — the selected session's week */}
+      <div className="flex items-baseline justify-between mb-2">
+        <span className="text-xs font-semibold uppercase tracking-wider text-slate-400">
+          Week {weekOf(session.date)}{WEEKS.find(x => x.n === weekOf(session.date)) ? ` · ${WEEKS.find(x => x.n === weekOf(session.date))!.title}` : ''}
+        </span>
+      </div>
       <div className="flex gap-1.5 mb-8">
-        {SESSIONS.map((s, i) => {
+        {SESSIONS.map((s, i) => ({ s, i })).filter(({ s }) => weekOf(s.date) === weekOf(session.date)).map(({ s, i }) => {
           const isSel = i === sessionIdx;
           const isDone = !!logs[s.id];
           return (
@@ -471,7 +491,7 @@ function Player({ step, stepIdx, steps, rounds, done, timer, remaining, onAdvanc
   const isHolding = timer?.kind === 'hold';
   const sideSwitch = !timer && rx.hold && rx.perSide && done % 2 === 1 && !allDone;
 
-  const action = isResting ? 'Skip rest'
+  const action = isResting ? `Skip ${(rx.restLabel ?? 'rest').toLowerCase()}`
     : allDone ? 'Next exercise'
     : rx.hold ? (isHolding ? (timer!.endsAt ? 'Pause' : 'Resume') : sideSwitch ? 'Start other side' : 'Start timer')
     : `Done · ${rounds[done]}`;
@@ -495,7 +515,7 @@ function Player({ step, stepIdx, steps, rounds, done, timer, remaining, onAdvanc
         <div className="mt-5 text-3xl md:text-4xl font-semibold text-slate-700 dark:text-slate-200 tabular-nums">
           {describeRx(rx)}
         </div>
-        {rx.rest ? <div className="mt-2 text-lg text-slate-400">Rest {rx.rest}s between sets</div> : null}
+        {rx.rest ? <div className="mt-2 text-lg text-slate-400">{rx.restLabel ?? 'Rest'} {rx.rest}s between sets</div> : null}
         {(rx.note || exercise.cue) && (
           <p className="mt-6 text-xl text-slate-500 dark:text-slate-400 max-w-2xl">{rx.note ?? exercise.cue}</p>
         )}
@@ -522,7 +542,7 @@ function Player({ step, stepIdx, steps, rounds, done, timer, remaining, onAdvanc
         {timer && (
           <div className="mt-10">
             <div className={`text-sm font-semibold uppercase tracking-wider ${isResting ? 'text-sky-500' : 'text-orange-500'}`}>
-              {isResting ? 'Rest' : timer.endsAt ? 'Hold' : 'Paused'}
+              {isResting ? (rx.restLabel ?? 'Rest') : timer.endsAt ? (rx.restLabel ? 'Run' : 'Hold') : 'Paused'}
             </div>
             <div className={`font-display text-8xl font-bold tabular-nums ${isResting ? 'text-sky-500' : 'text-slate-900 dark:text-slate-50'} ${!timer.endsAt ? 'opacity-50' : ''}`}>
               {fmtClock(remaining)}

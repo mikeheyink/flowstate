@@ -22,6 +22,9 @@ interface TrainingState {
   logs: Record<string, SessionLog>;
   active: ActiveWorkout | null;
   selectedSessionId: string | null;
+  // A picked day only sticks for the day it was picked on — each new morning
+  // opens on today's session again.
+  selectedOn: string | null;
   milestonesDone: Record<string, number>; // milestone id → when it was ticked
   // Undo stack for the things worth undoing — ticked sets, mark done, save.
   // Navigation isn't recorded: ← / → already moves you back.
@@ -41,6 +44,11 @@ interface TrainingState {
 
 const HISTORY_LIMIT = 50;
 
+const today = () => {
+  const d = new Date();
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+};
+
 // Local-only for now (persisted to localStorage). The workout is done on the
 // laptop it's logged on; moving logs to Supabase comes with progress tracking.
 export const useTrainingStore = create<TrainingState>()(
@@ -53,12 +61,14 @@ export const useTrainingStore = create<TrainingState>()(
       logs: {},
       active: null,
       selectedSessionId: null,
+      selectedOn: null,
       milestonesDone: {},
       history: [],
 
-      selectSession: (id) => set({ selectedSessionId: id }),
+      selectSession: (id) => set({ selectedSessionId: id, selectedOn: today() }),
       start: (sessionId, stepIdx = 0) => set((s) => ({
         selectedSessionId: sessionId,
+        selectedOn: today(),
         active: s.active?.sessionId === sessionId
           ? { ...s.active, stepIdx }
           : { sessionId, stepIdx, roundsDone: {} },
@@ -93,7 +103,7 @@ export const useTrainingStore = create<TrainingState>()(
           milestonesDone: prev.milestonesDone,
           history: history.slice(0, -1),
           // Land back on the session being undone, even from another day.
-          ...(prev.active ? { selectedSessionId: prev.active.sessionId } : {}),
+          ...(prev.active ? { selectedSessionId: prev.active.sessionId, selectedOn: today() } : {}),
         });
         return true;
       },
@@ -101,7 +111,7 @@ export const useTrainingStore = create<TrainingState>()(
     },
     {
       name: 'flowstate-training',
-      partialize: (s) => ({ logs: s.logs, active: s.active, selectedSessionId: s.selectedSessionId, milestonesDone: s.milestonesDone }),
+      partialize: (s) => ({ logs: s.logs, active: s.active, selectedSessionId: s.selectedSessionId, selectedOn: s.selectedOn, milestonesDone: s.milestonesDone }),
     }
   )
 );
