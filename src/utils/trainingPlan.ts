@@ -26,11 +26,16 @@ export interface Prescription {
   load?: string;         // "16 kg"
   note?: string;         // session-specific instruction, overrides nothing
   restLabel?: string;    // what the rest is called — "Walk" in a run-walk
+  /** Items in a block sharing a superset key alternate set by set; the rest
+   *  comes after the last one in the group (its `rest`). */
+  superset?: string;
 }
 
 export interface Block {
   title: string;
   items: Prescription[];
+  /** Can be done now or later in the day — not counted in the core time. */
+  anytime?: boolean;
 }
 
 export type SessionKind = 'strength' | 'aerobic' | 'mobility' | 'golf' | 'test';
@@ -40,7 +45,6 @@ export interface Session {
   date: string;          // local YYYY-MM-DD
   title: string;
   kind: SessionKind;
-  minutes: number;
   summary: string;
   blocks: Block[];
 }
@@ -237,6 +241,14 @@ const EXERCISES: Exercise[] = [
     why: 'Bent knee shifts the work to the soleus, which takes several times body weight with every running stride.',
   },
 
+  // Rehab
+  {
+    id: 'elbow-iso', name: 'Biceps isometric (right)',
+    cue: 'Gentle push up into the table — 30% effort, pain 0–2/10',
+    how: ['Sit side-on to a table, right elbow bent 90°, thumb pointing up.', 'Press the back of your fist up into the underside of the table, gently (~30% effort).', 'Hold, breathe, release slowly.', 'If it’s more than 2/10, ease off; if it still hurts, skip it.'],
+    why: 'Isometrics load an irritated tendon without the movement that aggravates it and often ease pain in the short term (the evidence is mixed, but the risk is low). It keeps the tendon loaded while it settles.',
+  },
+
   // Aerobic
   {
     id: 'run-walk', name: 'Run-walk',
@@ -408,7 +420,7 @@ const runWalk = (reps: number, run: number, walk: number, note?: string): Block 
 
 export const SESSIONS: Session[] = [
   {
-    id: '2026-10-05-strength-a', date: '2026-10-05', title: 'Strength A', kind: 'strength', minutes: 35,
+    id: '2026-10-05-strength-a', date: '2026-10-05', title: 'Strength A', kind: 'strength',
     summary: 'Baseline tests, then full-body strength at 6/10 effort.',
     blocks: [
       {
@@ -437,7 +449,7 @@ export const SESSIONS: Session[] = [
     ],
   },
   {
-    id: '2026-10-06-walk', date: '2026-10-06', title: 'Walk + push-up test', kind: 'aerobic', minutes: 50,
+    id: '2026-10-06-walk', date: '2026-10-06', title: 'Walk + push-up test', kind: 'aerobic',
     summary: 'Flat brisk walk, push-up test, calf and neck.',
     blocks: [
       { title: 'Aerobic', items: [{ ex: 'brisk-walk', hold: 35 * 60 }] },
@@ -447,7 +459,7 @@ export const SESSIONS: Session[] = [
     ],
   },
   {
-    id: '2026-10-07-strength-b', date: '2026-10-07', title: 'Strength B', kind: 'strength', minutes: 30,
+    id: '2026-10-07-strength-b', date: '2026-10-07', title: 'Strength B', kind: 'strength',
     summary: 'Light full-body strength — 6/10 effort so nothing is sore by Friday’s tee time.',
     blocks: [
       WARM_UP,
@@ -467,7 +479,7 @@ export const SESSIONS: Session[] = [
     ],
   },
   {
-    id: '2026-10-08-loosen', date: '2026-10-08', title: 'Loosen up', kind: 'mobility', minutes: 30,
+    id: '2026-10-08-loosen', date: '2026-10-08', title: 'Loosen up', kind: 'mobility',
     summary: 'Get loose for the tour — finish feeling better than you started.',
     blocks: [
       { title: 'Walk', items: [{ ex: 'brisk-walk', hold: 15 * 60, note: 'Easy pace today.' }] },
@@ -486,7 +498,7 @@ export const SESSIONS: Session[] = [
     ],
   },
   ...(['2026-10-09', '2026-10-10'].map((date, i): Session => ({
-    id: `${date}-golf`, date, title: `Golf tour · day ${i + 1}`, kind: 'golf', minutes: 15,
+    id: `${date}-golf`, date, title: `Golf tour · day ${i + 1}`, kind: 'golf',
     summary: 'Warm up before the round, reset in the evening. Walk the course if you can.',
     blocks: [
       {
@@ -512,7 +524,7 @@ export const SESSIONS: Session[] = [
     ],
   }))),
   {
-    id: '2026-10-11-recover', date: '2026-10-11', title: 'Recover + calf go/no-go', kind: 'test', minutes: 60,
+    id: '2026-10-11-recover', date: '2026-10-11', title: 'Recover + calf go/no-go', kind: 'test',
     summary: 'Easy family walk, mobility, then the calf test that decides whether running starts.',
     blocks: [
       { title: 'Walk', items: [{ ex: 'brisk-walk', hold: 45 * 60, note: 'Easy — with the family.' }] },
@@ -536,57 +548,57 @@ export const SESSIONS: Session[] = [
 
   // ---- Week 2 · 12 Oct — run-walk returns -------------------------------
   {
-    id: '2026-10-12-strength-a', date: '2026-10-12', title: 'Strength A', kind: 'strength', minutes: 35,
-    summary: 'Same exercises, now 3 sets at 7/10 — stop each set with ~3 reps in the tank.',
+    id: '2026-10-12-strength-a', date: '2026-10-12', title: 'Strength A', kind: 'strength',
+    summary: 'Same exercises, 3 sets at 7/10, paired into supersets. Calf + neck can move to the evening.',
     blocks: [
       WARM_UP,
       {
         title: 'Strength A',
         items: [
-          { ex: 'goblet-squat', sets: 3, reps: '12 · 3 s down', load: '16 kg', rest: 75 },
-          { ex: 'push-up', sets: 3, reps: 'stop 3 short', rest: 75 },
-          { ex: 'kb-row', sets: 3, reps: '12 / side', load: '16 kg', rest: 60 },
-          { ex: 'kb-single-leg-rdl', sets: 3, reps: '10 / side', load: '16 kg', rest: 60 },
-          { ex: 'copenhagen-short', sets: 3, hold: 25, perSide: true, rest: 45 },
-          { ex: 'dead-bug', sets: 3, reps: '10 / side', rest: 45 },
+          { ex: 'goblet-squat', sets: 3, reps: '12 · 3 s down', load: '16 kg', superset: 'a' },
+          { ex: 'kb-row', sets: 3, reps: '12 / side', load: '16 kg', rest: 60, superset: 'a' },
+          { ex: 'push-up', sets: 3, reps: 'stop 3 short', superset: 'b' },
+          { ex: 'kb-single-leg-rdl', sets: 3, reps: '10 / side', load: '16 kg', rest: 60, superset: 'b' },
+          { ex: 'copenhagen-short', sets: 3, hold: 25, perSide: true, superset: 'c' },
+          { ex: 'dead-bug', sets: 3, reps: '10 / side', rest: 45, superset: 'c' },
         ],
       },
-      CALF_2,
-      NECK_2,
+      { ...CALF_2, title: 'Calf rehab · now or evening', anytime: true },
+      { ...NECK_2, title: 'Neck · now or evening', anytime: true },
     ],
   },
   {
-    id: '2026-10-13-run-walk', date: '2026-10-13', title: 'Run-walk 1', kind: 'aerobic', minutes: 30,
+    id: '2026-10-13-run-walk', date: '2026-10-13', title: 'Run-walk 1', kind: 'aerobic',
     summary: 'First run back. Flat, easy, 8 × 1 min run / 1 min walk. Calf not cleared? Brisk 40 min walk instead.',
     blocks: [runWalk(8, 60, 60), { title: 'Calf', items: [{ ex: 'calf-iso', sets: 3, hold: 45, rest: 30, note: 'Left leg only.' }] }],
   },
   {
-    id: '2026-10-14-strength-b', date: '2026-10-14', title: 'Strength B', kind: 'strength', minutes: 35,
-    summary: '3 sets at 7/10.',
+    id: '2026-10-14-strength-b', date: '2026-10-14', title: 'Strength B', kind: 'strength',
+    summary: 'Right biceps protected: no loaded elbow bending, no weight in the right hand. Legs and trunk get the work.',
     blocks: [
       WARM_UP,
       {
         title: 'Strength B',
         items: [
-          { ex: 'split-squat', sets: 3, reps: '10 / side', load: '16 kg', rest: 60 },
-          { ex: 'single-leg-bridge', sets: 3, reps: '12 / side', rest: 45 },
-          { ex: 'kb-floor-press', sets: 3, reps: '10 / side', load: '16 kg', rest: 60 },
-          { ex: 'prone-yt', sets: 3, reps: '8 each', rest: 45 },
-          { ex: 'side-plank', sets: 3, hold: 35, perSide: true, rest: 45 },
-          { ex: 'suitcase-carry', sets: 3, reps: '40 m / side', load: '16 kg', rest: 45 },
+          { ex: 'split-squat', sets: 3, reps: '12 / side', load: 'bodyweight · hands on hips', superset: 'a', note: 'No kettlebell — holding it loads the biceps. Slow 3 s down instead.' },
+          { ex: 'push-up', sets: 3, reps: 'stop 3 short', rest: 60, superset: 'a', note: 'Only if the right elbow stays at 0–2/10. Otherwise skip.' },
+          { ex: 'single-leg-bridge', sets: 3, reps: '12 / side', superset: 'b' },
+          { ex: 'prone-yt', sets: 3, reps: '8 each · no weight', rest: 45, superset: 'b' },
+          { ex: 'copenhagen-short', sets: 3, hold: 25, perSide: true, superset: 'c' },
+          { ex: 'side-plank', sets: 3, hold: 30, perSide: true, rest: 45, superset: 'c', note: 'Right side: stop if the elbow complains.' },
         ],
       },
-      CALF_2,
-      NECK_2,
+      { ...CALF_2, title: 'Calf rehab · now or evening', anytime: true },
+      { ...NECK_2, title: 'Neck · now or evening', anytime: true },
     ],
   },
   {
-    id: '2026-10-15-run-walk', date: '2026-10-15', title: 'Run-walk 2', kind: 'aerobic', minutes: 30,
+    id: '2026-10-15-run-walk', date: '2026-10-15', title: 'Run-walk 2', kind: 'aerobic',
     summary: '6 × 2 min run / 1 min walk — only if Tuesday left nothing the next morning. Otherwise repeat Tuesday.',
-    blocks: [runWalk(6, 120, 60), { title: 'Calf', items: [{ ex: 'calf-iso', sets: 3, hold: 45, rest: 30, note: 'Left leg only.' }] }],
+    blocks: [runWalk(6, 120, 60), { title: 'Calf', items: [{ ex: 'calf-iso', sets: 3, hold: 45, rest: 30, note: 'Left leg only.' }] }, { title: 'Right elbow', items: [{ ex: 'elbow-iso', sets: 5, hold: 30, rest: 30, note: 'Only once the soreness is settling — pain 0–2/10.' }] }],
   },
   {
-    id: '2026-10-16-mobility', date: '2026-10-16', title: 'Mobility', kind: 'mobility', minutes: 30,
+    id: '2026-10-16-mobility', date: '2026-10-16', title: 'Mobility', kind: 'mobility',
     summary: 'Hips, mid-back and calf — an easy day that keeps the habit.',
     blocks: [
       {
@@ -601,19 +613,21 @@ export const SESSIONS: Session[] = [
       },
       CALF_2,
       NECK_2,
+      { title: 'Right elbow', items: [{ ex: 'elbow-iso', sets: 5, hold: 30, rest: 30, note: 'Only once the soreness is settling — pain 0–2/10.' }] },
     ],
   },
   {
-    id: '2026-10-17-run-walk', date: '2026-10-17', title: 'Run-walk 3', kind: 'aerobic', minutes: 30,
+    id: '2026-10-17-run-walk', date: '2026-10-17', title: 'Run-walk 3', kind: 'aerobic',
     summary: '5 × 3 min run / 1 min walk on the flat — progress only if Thursday was clean.',
-    blocks: [runWalk(5, 180, 60)],
+    blocks: [runWalk(5, 180, 60), { title: 'Right elbow', items: [{ ex: 'elbow-iso', sets: 5, hold: 30, rest: 30, note: 'Only once the soreness is settling — pain 0–2/10.' }] }],
   },
   {
-    id: '2026-10-18-rest', date: '2026-10-18', title: 'Family walk', kind: 'aerobic', minutes: 45,
+    id: '2026-10-18-rest', date: '2026-10-18', title: 'Family walk', kind: 'aerobic',
     summary: 'Easy walk with the girls, then a quick calf check: how did the week feel?',
     blocks: [
       { title: 'Walk', items: [{ ex: 'brisk-walk', hold: 45 * 60, note: 'Easy — with the family.' }] },
       { title: 'Calf', items: [{ ex: 'calf-iso', sets: 3, hold: 45, rest: 30, note: 'Left leg only.' }] },
+      { title: 'Right elbow', items: [{ ex: 'elbow-iso', sets: 5, hold: 30, rest: 30, note: 'Only once the soreness is settling — pain 0–2/10.' }] },
     ],
   },
 ];
@@ -770,6 +784,49 @@ export function roundsFor(rx: Prescription): string[] {
   }
   return out;
 }
+
+/** Rounds that make one set: a per-side hold is left + right. */
+export const roundsPerSet = (rx: Prescription) => (rx.hold && rx.perSide ? 2 : 1);
+
+/** The other half of a two-exercise superset, as an index into `steps`. */
+export function supersetPartner(steps: Step[], idx: number): number | null {
+  const me = steps[idx];
+  if (!me?.rx.superset) return null;
+  for (const j of [idx - 1, idx + 1]) {
+    const o = steps[j];
+    if (o && o.block === me.block && o.rx.superset === me.rx.superset) return j;
+  }
+  return null;
+}
+
+// --- Time estimates -------------------------------------------------------
+// Rough but honest: rep sets ≈ 40 s (75 s when it's "/ side"), holds are
+// their length, plus rests between sets and ~15 s to set up each exercise.
+
+const workSecs = (rx: Prescription) =>
+  rx.hold ? rx.hold * (rx.perSide ? 2 : 1) : rx.reps && /\/ side|each/.test(rx.reps) ? 75 : 40;
+
+export function blockSeconds(b: Block): number {
+  let total = 0;
+  for (let i = 0; i < b.items.length; i++) {
+    const rx = b.items[i];
+    const group = rx.superset ? b.items.filter(x => x.superset === rx.superset) : [rx];
+    if (rx.superset && group[0] !== rx) continue; // counted with its group
+    const sets = Math.max(...group.map(x => x.sets ?? 1));
+    const rest = group[group.length - 1].rest ?? 0;
+    total += sets * group.reduce((t, x) => t + workSecs(x), 0) + (sets - 1) * rest + 15 * group.length;
+  }
+  return total;
+}
+
+export const blockMinutes = (b: Block) => Math.max(1, Math.round(blockSeconds(b) / 60));
+const roundTo5 = (secs: number) => Math.max(5, Math.round(secs / 60 / 5) * 5);
+/** Core session time, plus the "now or evening" extras separately. */
+export const sessionMinutes = (s: Session) => roundTo5(s.blocks.filter(b => !b.anytime).reduce((t, b) => t + blockSeconds(b), 0));
+export const anytimeMinutes = (s: Session) => {
+  const secs = s.blocks.filter(b => b.anytime).reduce((t, b) => t + blockSeconds(b), 0);
+  return secs ? roundTo5(secs) : 0;
+};
 
 export const fmtClock = (secs: number) => {
   const s = Math.max(0, Math.ceil(secs));
