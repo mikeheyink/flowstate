@@ -8,6 +8,7 @@ import { PlanView } from './PlanView';
 import {
   SESSIONS, Session, Step, flattenSession, roundsFor, describeRx, fmtClock,
   defaultSessionIndex, localDate, weekOf, WEEKS,
+  supersetPartner, roundsPerSet, sessionMinutes, anytimeMinutes, blockMinutes,
 } from '../../utils/trainingPlan';
 
 /**
@@ -84,8 +85,14 @@ export function TrainView() {
   const noteRef = useRef<HTMLTextAreaElement>(null);
   const iframeRef = useRef<HTMLIFrameElement>(null);
 
-  // Changing exercise cancels any running timer.
-  useEffect(() => { setTimer(null); setVideoPaused(false); }, [stepIdx, session.id]);
+  // Changing exercise cancels any running timer — unless a superset handed
+  // over a rest to run on the exercise it's moving to.
+  const pendingRestRef = useRef<Timer | null>(null);
+  useEffect(() => {
+    setTimer(pendingRestRef.current);
+    pendingRestRef.current = null;
+    setVideoPaused(false);
+  }, [stepIdx, session.id]);
   useEffect(() => { setHowTo(false); }, [screen]);
   useEffect(() => { setNote(logs[session.id]?.note ?? ''); }, [session.id, screen]); // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -111,24 +118,40 @@ export function TrainView() {
           setTimer(null);
           return;
         }
-        // Hold finished: tick the round, then rest (unless switching sides).
+        // Hold finished: tick the round, then work out what comes next.
         beep(880, 300);
         const st = useTrainingStore.getState().active;
         if (!st || !step) return;
         const n = Math.min((st.roundsDone[stepIdx] ?? 0) + 1, rounds.length);
         setRoundsDone(stepIdx, n);
-        const sideSwitch = step.rx.perSide && n % 2 === 1;
-        if (n < rounds.length && !sideSwitch && step.rx.rest) {
-          setTimer({ kind: 'rest', total: step.rx.rest, endsAt: Date.now() + step.rx.rest * 1000, remaining: step.rx.rest });
-        } else {
-          setTimer(null);
-        }
+        afterRound(n);
         return;
       }
       setTick(t => t + 1);
     }, 200);
     return () => window.clearInterval(id);
   }, [timer, step, stepIdx, rounds.length, setRoundsDone]);
+
+  const restTimer = (secs: number): Timer => ({ kind: 'rest', total: secs, endsAt: Date.now() + secs * 1000, remaining: secs });
+
+  // After a round is ticked: switch sides, hop to the superset partner, or rest.
+  const afterRound = (n: number) => {
+    if (!step) return;
+    const { rx } = step;
+    if (n % roundsPerSet(rx) !== 0) { setTimer(null); return; } // other side next
+    const partner = supersetPartner(steps, stepIdx);
+    if (partner !== null) {
+      const partnerDone = useTrainingStore.getState().active?.roundsDone[partner] ?? 0;
+      if (partnerDone < roundsFor(steps[partner].rx).length) {
+        // First of the pair → straight to the second, no rest.
+        // Second of the pair → rest, then back to the first.
+        pendingRestRef.current = partner < stepIdx && rx.rest ? restTimer(rx.rest) : null;
+        goStep(partner);
+        return;
+      }
+    }
+    setTimer(n < rounds.length && rx.rest ? restTimer(rx.rest) : null);
+  };
 
   const videoCommand = (func: 'playVideo' | 'pauseVideo') => {
     iframeRef.current?.contentWindow?.postMessage(JSON.stringify({ event: 'command', func, args: [] }), '*');
@@ -156,9 +179,7 @@ export function TrainView() {
     }
     const n = done + 1;
     setRoundsDone(stepIdx, n);
-    if (n < rounds.length && step.rx.rest) {
-      setTimer({ kind: 'rest', total: step.rx.rest, endsAt: Date.now() + step.rx.rest * 1000, remaining: step.rx.rest });
-    }
+    afterRound(n);
   };
 
   // X — call the exercise done (even mid-timer) and move on.
@@ -422,7 +443,7 @@ function Overview({ session, sessionIdx, steps, cursor, logs, resumeAt, onPick, 
 
       {/* Header */}
       <div className="mb-8">
-        <div className="text-sm text-slate-400">{longDate(session.date)} · {session.minutes} min</div>
+        <div className="text-sm text-slate-400">{longDate(session.date)} · ~{sessionMinutes(session)} min{anytimeMinutes(session) ? ` + ${anytimeMinutes(session)} min now or evening` : ''}</div>
         <h2 className="font-display text-4xl font-bold tracking-tight text-slate-900 dark:text-slate-100 mt-1 flex items-center gap-3">
           {session.title}
           {log && <Check className="w-7 h-7 text-success-500" />}
@@ -435,12 +456,18 @@ function Overview({ session, sessionIdx, steps, cursor, logs, resumeAt, onPick, 
       <div className="space-y-6">
         {session.blocks.map((b, bi) => (
           <div key={bi}>
-            <div className="text-xs font-semibold uppercase tracking-wider text-slate-400 mb-1.5">{b.title}</div>
+            <div className="flex items-baseline justify-between mb-1.5 pr-3">
+              <span className="text-xs font-semibold uppercase tracking-wider text-slate-400">{b.title}</span>
+              <span className="text-xs text-slate-400 tabular-nums">~{blockMinutes(b)} min</span>
+            </div>
             <div>
               {b.items.map((rx, ri) => {
                 flat++;
                 const i = flat;
                 const isCur = i === cursor;
+                const pairLabel = rx.superset
+                  ? `${rx.superset.toUpperCase()}${b.items.filter(x => x.superset === rx.superset).indexOf(rx) + 1}`
+                  : null;
                 return (
                   <button
                     key={ri}
@@ -450,6 +477,7 @@ function Overview({ session, sessionIdx, steps, cursor, logs, resumeAt, onPick, 
                     }`}
                   >
                     <span className="text-[15px] text-slate-800 dark:text-slate-200 flex items-center gap-2">
+                      {pairLabel && <span className="w-6 text-xs font-semibold text-orange-500/80 tabular-nums">{pairLabel}</span>}
                       {steps[i].exercise.name}
                       {resumeAt === i && <span className="text-[10px] uppercase tracking-wider text-orange-500">resume</span>}
                     </span>
@@ -486,7 +514,11 @@ function Player({ step, stepIdx, steps, rounds, done, timer, remaining, onAdvanc
 }) {
   const { rx, exercise } = step;
   const allDone = done >= rounds.length;
-  const next = steps[stepIdx + 1];
+  const partnerIdx = supersetPartner(steps, stepIdx);
+  const partner = partnerIdx !== null ? steps[partnerIdx] : null;
+  const isFirstOfPair = partnerIdx !== null && partnerIdx > stepIdx;
+  // In a superset, "next" is the partner until the pair is finished.
+  const next = isFirstOfPair && !allDone ? partner! : steps[stepIdx + 1];
   const isResting = timer?.kind === 'rest';
   const isHolding = timer?.kind === 'hold';
   const sideSwitch = !timer && rx.hold && rx.perSide && done % 2 === 1 && !allDone;
@@ -515,7 +547,12 @@ function Player({ step, stepIdx, steps, rounds, done, timer, remaining, onAdvanc
         <div className="mt-5 text-3xl md:text-4xl font-semibold text-slate-700 dark:text-slate-200 tabular-nums">
           {describeRx(rx)}
         </div>
-        {rx.rest ? <div className="mt-2 text-lg text-slate-400">{rx.restLabel ?? 'Rest'} {rx.rest}s between sets</div> : null}
+        {partner ? (
+          <div className="mt-2 text-lg text-slate-400">
+            <span className="font-semibold text-orange-500/90">Superset</span> with {partner.exercise.name}
+            {' · '}rest {(isFirstOfPair ? partner.rx.rest : rx.rest) ?? 0}s after {isFirstOfPair ? 'it' : 'this'}
+          </div>
+        ) : rx.rest ? <div className="mt-2 text-lg text-slate-400">{rx.restLabel ?? 'Rest'} {rx.rest}s between sets</div> : null}
         {(rx.note || exercise.cue) && (
           <p className="mt-6 text-xl text-slate-500 dark:text-slate-400 max-w-2xl">{rx.note ?? exercise.cue}</p>
         )}
