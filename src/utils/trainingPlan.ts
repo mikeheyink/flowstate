@@ -193,6 +193,19 @@ const EXERCISES: Exercise[] = [
     how: ['Long stride stance, back heel up.', 'Drop the back knee straight down towards the floor.', 'Drive up through the front foot.', 'Optional: hold the KB in goblet position.'],
   },
   {
+    id: 'rfe-split-squat', name: 'Rear-foot-elevated split squat',
+    cue: 'Back foot on the couch, drop straight down over 3 s',
+    how: ['Stand a long stride in front of a couch or bench, laces of the back foot on it.', 'Hands on hips. No bell while the right biceps settles.', 'Lower the back knee towards the floor over 3 s, front heel planted.', 'Drive up through the whole front foot.'],
+    avoid: ['Front heel lifting.', 'Pushing off the back foot. It’s only a kickstand.'],
+    why: 'The next step up from the split squat: much more load on the front leg with nothing in your hands.',
+  },
+  {
+    id: 'step-up', name: 'Step-up, slow step-down',
+    cue: 'Drive through the top foot, then lower over 3 s',
+    how: ['Use a knee-height step or bench.', 'Put the whole foot on the step and drive up through it without pushing off the back foot.', 'Step down slowly over 3 s, with the top leg controlling it.', 'Do all the reps on one side, then switch.'],
+    why: 'Single-leg strength for the climbs, plus slow eccentric control for the descents. Downhills are what wreck quads on Drakensberg passes.',
+  },
+  {
     id: 'single-leg-bridge', name: 'Single-leg glute bridge',
     cue: 'Hips level — don’t let one side drop',
     how: ['On your back, one foot planted, other leg straight or knee to chest.', 'Drive through the heel, lift the hips.', 'Pause, lower slowly.'],
@@ -257,9 +270,27 @@ const EXERCISES: Exercise[] = [
     why: 'Graded return to running: small, repeatable doses let the healing calf adapt without a re-strain. Progress only when the previous session left no next-morning symptoms.',
   },
   {
+    id: 'trail-run-walk', name: 'Trail run-walk',
+    cue: 'Walk every climb — run the flats and gentle descents',
+    how: ['Smooth, non-technical trail: jeep track or contour path, not rocks or roots.', 'Run only the flats and gentle descents at a talk-test pace. Walk every climb briskly.', 'Use short, quick steps on descents, and stay off sections where you’d need your hands.', 'Calf up to 2/10 is fine if it’s gone by the next morning. If it gets sharper, walk home.'],
+    why: 'Climbing loads the calf more than flat running, so walking the climbs keeps today close to Thursday’s load while the uneven ground starts training your feet and ankles for the Berg.',
+  },
+  {
+    id: 'easy-run', name: 'Easy run',
+    cue: 'Talk-test easy: full sentences, never just a few words',
+    how: ['Flat route (the promenade).', 'Run slowly enough to speak in full sentences. If you can only manage a few words, slow down or walk.', 'With the HR strap, stay roughly under 140 bpm (about 75% of an estimated max of ~181, from 208 − 0.7 × age). We’ll refine this from your real data.', 'Calf up to 2/10 is fine if it’s gone by the next morning.'],
+    why: 'Most endurance volume should be truly easy (Seiler’s ~80/20). Your easy runs drift into the grey zone, which is hard enough to add fatigue but brings neither the base-building of easy running nor the stimulus of real intervals.',
+  },
+  {
+    id: 'pogo-hops', name: 'Pogo hops',
+    cue: 'Stiff ankles, quick contacts, small bounces',
+    how: ['Both feet, hands on hips.', 'Bounce on the balls of the feet with knees nearly straight and heels barely kissing the floor.', 'Get off the floor quickly, as if it’s hot.', 'Stop if the left calf goes above 2/10.'],
+    why: 'Low-level plyometrics train the calf–Achilles spring. Strength and plyometric work improve running economy (Balsalobre-Fernández et al., meta-analysis, 2016). It’s also the bridge from calf rehab to calf performance.',
+  },
+  {
     id: 'calf-single', name: 'Single-leg calf raise',
-    cue: 'Left only — all the way up, 3 s down',
-    how: ['Fingertip on the wall for balance.', 'Rise as high as you can on the left foot.', 'Lower slowly over 3 s.'],
+    cue: 'All the way up, 3 s down. Left leg first',
+    how: ['Fingertip on the wall for balance.', 'Rise as high as you can on one foot.', 'Lower slowly over 3 s.'],
     why: 'The next step after two-up-one-down: full single-leg loading through the whole range.',
     video: { id: 'fSXnnvgKST4' },
   },
@@ -324,6 +355,10 @@ const VIDEOS: Record<string, { id: string; start?: number }> = {
   'calf-eccentric': { id: 'difh8uVDwSs' },               // E3 Rehab · 19s
   'calf-bent-knee': { id: '-9WJeQzqhBs' },               // OPEX · 11s
   'split-squat': { id: 'Py2Qeg-D5T0' },                  // OPEX · 14s
+  'rfe-split-squat': { id: '3fxmRoIE_fk' },              // OPEX · 12s
+  'step-up': { id: 'Q1XT6Va1IsU' },                      // Garrett McLaughlin · 28s
+  'elbow-iso': { id: 'p0-mFWMh0xo' },                    // Feel Good Life · 14s (press up into a table)
+  'pogo-hops': { id: 'WNf2vCLncgY' },                    // Rich Hill · 16s
   'single-leg-bridge': { id: 'U9M8dsoRYzU' },            // E3 Rehab · 14s
   'kb-floor-press': { id: 'P_ijh09h23s' },               // OPEX · 15s
   'prone-yt': { id: 'QdGTI4Lshg4' },                     // The Active Life · 31s (Y, T and W)
@@ -404,6 +439,29 @@ const NECK_2: Block = {
     { ex: 'wall-slide', reps: '10' },
   ],
 };
+
+// Week 3: calf rehab graduates into calf strength and spring, using both legs.
+const CALF_3: Block = {
+  title: 'Calf strength',
+  items: [
+    { ex: 'calf-single', sets: 3, reps: '15 / side', rest: 60, note: 'Left first. Once 15 is easy, hold the 16 kg in the LEFT hand.' },
+    { ex: 'calf-bent-knee', sets: 2, reps: '15', rest: 45 },
+    { ex: 'pogo-hops', sets: 2, reps: '20 contacts', rest: 60 },
+  ],
+};
+
+// The neck gets sore after long stretches in one position, so the fix is
+// moving often, not more stretching.
+const DESK: Block = {
+  title: 'Desk reset · every 45–60 min',
+  anytime: true,
+  items: [
+    { ex: 'seated-t-rotation', reps: '10 / side', note: 'Set a timer. Stand, do these, walk to refill your water.' },
+    { ex: 'wall-slide', reps: '10' },
+  ],
+};
+
+const ELBOW: Block = { title: 'Right elbow', items: [{ ex: 'elbow-iso', sets: 5, hold: 30, rest: 30, note: 'Only if the elbow is at 0–2/10. Otherwise skip it.' }] };
 
 const runWalk = (reps: number, run: number, walk: number, note?: string): Block => ({
   title: 'Run-walk',
@@ -617,17 +675,143 @@ export const SESSIONS: Session[] = [
     ],
   },
   {
-    id: '2026-10-17-run-walk', date: '2026-10-17', title: 'Run-walk 3', kind: 'aerobic',
-    summary: '5 × 3 min run / 1 min walk on the flat — progress only if Thursday was clean.',
-    blocks: [runWalk(5, 180, 60), { title: 'Right elbow', items: [{ ex: 'elbow-iso', sets: 5, hold: 30, rest: 30, note: 'Only once the soreness is settling — pain 0–2/10.' }] }],
+    id: '2026-10-17-trail', date: '2026-10-17', title: 'Trail run-walk', kind: 'aerobic',
+    summary: 'First trail outing (swapped in for Run-walk 3). Smooth trail, walk every climb, about 18 min of running in total. Tomorrow morning’s calf decides next week.',
+    blocks: [
+      {
+        title: 'Trail',
+        items: [
+          { ex: 'brisk-walk', hold: 5 * 60, note: 'Warm-up walk on the trail.' },
+          { ex: 'trail-run-walk', sets: 6, hold: 180, rest: 60, restLabel: 'Walk', note: 'Run up to 3 min, then walk 1 min. Walk every climb, even mid-interval.' },
+          { ex: 'brisk-walk', hold: 5 * 60, note: 'Cool-down walk.' },
+        ],
+      },
+      { title: 'Right elbow', items: [{ ex: 'elbow-iso', sets: 5, hold: 30, rest: 30, note: 'Only if the elbow is at 0–2/10. Otherwise skip it.' }] },
+    ],
   },
   {
     id: '2026-10-18-rest', date: '2026-10-18', title: 'Family walk', kind: 'aerobic',
-    summary: 'Easy walk with the girls, then a quick calf check: how did the week feel?',
+    summary: 'Easy walk with the girls. Check the left calf when you wake up: anything left over from the trail means next week starts a step back.',
     blocks: [
       { title: 'Walk', items: [{ ex: 'brisk-walk', hold: 45 * 60, note: 'Easy — with the family.' }] },
       { title: 'Calf', items: [{ ex: 'calf-iso', sets: 3, hold: 45, rest: 30, note: 'Left leg only.' }] },
       { title: 'Right elbow', items: [{ ex: 'elbow-iso', sets: 5, hold: 30, rest: 30, note: 'Only once the soreness is settling — pain 0–2/10.' }] },
+    ],
+  },
+  // ---- Week 3 · 19 Oct: continuous running, right arm off-limits ----------
+  // Runs on Tue/Thu/Sat give 48 h between each. Each one progresses only if the
+  // last left nothing the next morning; otherwise repeat it.
+  {
+    id: '2026-10-19-strength-a', date: '2026-10-19', title: 'Strength A', kind: 'strength',
+    summary: 'Legs progress and the right arm stays out of it: no bell in the right hand, no pulling with it.',
+    blocks: [
+      WARM_UP,
+      {
+        title: 'Strength A',
+        items: [
+          { ex: 'rfe-split-squat', sets: 3, reps: '8 / side · 3 s down', load: 'bodyweight', superset: 'a' },
+          { ex: 'kb-row', sets: 3, reps: '12 · left arm only', load: '16 kg', rest: 60, superset: 'a', note: 'Right arm rests on the bench. No rowing with it until it’s pain-free.' },
+          { ex: 'push-up', sets: 3, reps: 'stop 3 short', superset: 'b', note: 'Only if the right elbow stays at 0–2/10. Otherwise skip it.' },
+          { ex: 'kb-single-leg-rdl', sets: 3, reps: '10 / side', load: '16 kg', rest: 60, superset: 'b', note: 'Bell in the LEFT hand for both legs.' },
+          { ex: 'copenhagen-short', sets: 3, hold: 30, perSide: true, superset: 'c' },
+          { ex: 'dead-bug', sets: 3, reps: '10 / side', rest: 45, superset: 'c' },
+        ],
+      },
+      { ...CALF_3, title: 'Calf strength · now or evening', anytime: true },
+      DESK,
+    ],
+  },
+  {
+    id: '2026-10-20-run', date: '2026-10-20', title: 'Easy run 1', kind: 'aerobic',
+    summary: '3 × 6 min run / 1 min walk, flat. Talk-test easy: if you can’t speak in full sentences, slow down.',
+    blocks: [
+      {
+        title: 'Run',
+        items: [
+          { ex: 'brisk-walk', hold: 5 * 60, note: 'Warm-up walk.' },
+          { ex: 'easy-run', sets: 3, hold: 6 * 60, rest: 60, restLabel: 'Walk' },
+          { ex: 'brisk-walk', hold: 5 * 60, note: 'Cool-down walk.' },
+        ],
+      },
+      { ...NECK_2, title: 'Neck · now or evening', anytime: true },
+      DESK,
+    ],
+  },
+  {
+    id: '2026-10-21-strength-b', date: '2026-10-21', title: 'Strength B', kind: 'strength',
+    summary: 'Climbing and descending strength: step-ups with slow step-downs. Right arm still off-limits.',
+    blocks: [
+      WARM_UP,
+      {
+        title: 'Strength B',
+        items: [
+          { ex: 'step-up', sets: 3, reps: '10 / side', load: 'bodyweight', superset: 'a' },
+          { ex: 'prone-yt', sets: 3, reps: '8 each · no weight', rest: 45, superset: 'a' },
+          { ex: 'single-leg-bridge', sets: 3, reps: '15 / side', superset: 'b' },
+          { ex: 'side-plank', sets: 3, hold: 35, perSide: true, rest: 45, superset: 'b', note: 'Right side: stop if the elbow complains, or drop to the knees.' },
+          { ex: 'suitcase-carry', sets: 3, reps: '40 m · left hand only', load: '16 kg', superset: 'c', note: 'Walk 40 m out and back with the bell in the left hand. Stay level.' },
+          { ex: 'copenhagen-short', sets: 3, hold: 30, perSide: true, rest: 45, superset: 'c' },
+        ],
+      },
+      { ...CALF_3, title: 'Calf strength · now or evening', anytime: true },
+      DESK,
+    ],
+  },
+  {
+    id: '2026-10-22-run', date: '2026-10-22', title: 'Easy run 2', kind: 'aerobic',
+    summary: '2 × 10 min run / 1 min walk. Same easy effort; it should feel easier than Tuesday, not faster.',
+    blocks: [
+      {
+        title: 'Run',
+        items: [
+          { ex: 'brisk-walk', hold: 5 * 60, note: 'Warm-up walk.' },
+          { ex: 'easy-run', sets: 2, hold: 10 * 60, rest: 60, restLabel: 'Walk' },
+          { ex: 'brisk-walk', hold: 5 * 60, note: 'Cool-down walk.' },
+        ],
+      },
+      ELBOW,
+      DESK,
+    ],
+  },
+  {
+    id: '2026-10-23-mobility', date: '2026-10-23', title: 'Mobility', kind: 'mobility',
+    summary: 'An easy day before Saturday’s 30 minutes. No calf loading today.',
+    blocks: [
+      {
+        title: 'Mobility',
+        items: [
+          { ex: 'worlds-greatest-stretch', reps: '4 / side' },
+          { ex: 'hip-90-90', reps: '10' },
+          { ex: 'hip-flexor-stretch', hold: 45, perSide: true },
+          { ex: 'adductor-rockback', reps: '10 / side' },
+          { ex: 'open-book', reps: '8 / side' },
+        ],
+      },
+      NECK_2,
+      ELBOW,
+    ],
+  },
+  {
+    id: '2026-10-24-run-30', date: '2026-10-24', title: '30 min continuous', kind: 'test',
+    summary: 'The first milestone: 30 minutes without stopping, easy. Flat, or a smooth trail where you walk the steep climbs (walking them still counts as continuous).',
+    blocks: [
+      {
+        title: 'Run',
+        items: [
+          { ex: 'brisk-walk', hold: 5 * 60, note: 'Warm-up walk.' },
+          { ex: 'easy-run', hold: 30 * 60, note: 'If Thursday left anything the next morning, do 3 × 8 min / 1 min walk instead.' },
+          { ex: 'brisk-walk', hold: 5 * 60, note: 'Cool-down walk.' },
+        ],
+      },
+      ELBOW,
+    ],
+  },
+  {
+    id: '2026-10-25-family', date: '2026-10-25', title: 'Family walk + check-in', kind: 'mobility',
+    summary: 'Easy walk or hike with the family, then the weekly check-in with your coach: calf, elbow, neck, how the runs felt.',
+    blocks: [
+      { title: 'Walk', items: [{ ex: 'brisk-walk', hold: 45 * 60, note: 'Easy, with the family. Hills are fine.' }] },
+      { title: 'Mobility', items: [{ ex: 'hip-90-90', reps: '8' }, { ex: 'hip-flexor-stretch', hold: 45, perSide: true }, { ex: 'open-book', reps: '8 / side' }] },
     ],
   },
 ];
@@ -674,7 +858,7 @@ const W = (n: number, phase: PhaseId, title: string, focus: string, outline: str
 export const WEEKS: Week[] = [
   W(1, 'rebuild', 'Heal the calf, start lifting', 'No running. Daily calf and neck work, two light strength sessions, golf tour.', ['Strength A & B at 6/10', 'Calf rehab + neck routine daily', 'Flat walks', 'Sun: calf go/no-go test'], { km: '0' }),
   W(2, 'rebuild', 'Run-walk returns', 'If the calf passed: three flat run-walks, building the run portions. Strength twice.', ['3 × run-walk (1 min run / 1 min walk → build)', 'Strength A & B, slightly heavier', 'Calf rehab: add load in hand', 'Order equipment + HR strap'], { km: '6–8' }),
-  W(3, 'rebuild', 'Continuous running', 'Progress to 20–30 min continuous at an easy pace. Learn what easy feels like.', ['3 easy runs, 20–30 min', 'Strength A & B', 'Sun: 30 min continuous, pain-free'], { km: '10–12' }),
+  W(3, 'rebuild', 'Continuous running', 'Build to 30 min continuous at a talk-test easy pace. Calf rehab becomes calf strength. Right arm stays off-limits.', ['Easy runs Tue / Thu / Sat: 3×6 → 2×10 → 30 min', 'Strength A & B: legs progress, no right-arm load', 'Calf: both legs + pogo hops', 'Desk resets for the neck', 'Sat: 30 min continuous, pain-free'], { km: '10–12' }),
   W(4, 'foundation', 'Easy means easy', 'Conversational pace, heart rate zone 2. First week with the new kit.', ['3 easy runs incl. one short trail', 'Strength 2× — progress load', 'Yoga / mobility 1×', 'Bloods: ApoB + Lp(a)'], { km: '15–18' }),
   W(5, 'foundation', 'Build the base', 'Add a little volume, nothing faster.', ['3 easy runs', 'Long run 50 min trail', 'Strength 2×'], { km: '18–20' }),
   W(6, 'foundation', 'Strides arrive', 'Add 6 × 20 s strides after one easy run — speed without fatigue.', ['3 easy runs (one with strides)', 'Long run 60 min', 'Strength 2×'], { km: '20–24' }),
@@ -717,7 +901,7 @@ export interface Milestone {
 
 export const MILESTONES: Milestone[] = [
   { id: 'calf-go', date: '2026-10-11', kind: 'test', title: 'Calf cleared', detail: '25 slow single-leg raises + 20 hops on the left, symptom-free → run-walk starts.' },
-  { id: 'run-30', date: '2026-10-25', kind: 'run', title: '30 min continuous', detail: 'Easy pace, pain-free during and the next morning.' },
+  { id: 'run-30', date: '2026-10-24', kind: 'run', title: '30 min continuous', detail: 'Easy pace, pain-free during and the next morning.' },
   { id: 'bloods', date: '2026-10-31', kind: 'health', title: 'Bloods: ApoB + Lp(a)', detail: 'Family cardiac history — Lp(a) is a once-in-a-lifetime test.' },
   { id: 'cooper', date: '2026-11-21', kind: 'test', title: 'First fitness benchmark', detail: '12-min Cooper test (VO2max ≈ (m − 504.9) ÷ 44.73) + baseline re-tests.' },
   { id: 'long-90', date: '2026-12-19', kind: 'run', title: '90 min trail run', detail: 'Easy effort, on trail, feeling good at the end.' },
