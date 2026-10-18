@@ -26,10 +26,10 @@ function splitKeys(keys: string): string[] {
 }
 
 export const ShortcutsModal: React.FC<Props> = ({ isOpen, onClose }) => {
-  if (!isOpen) return null;
-
+  // Hooks before the early return — React needs the same hooks every render.
   const currentView = useUIStore((state) => state.currentView);
-  const groups = getHotkeyModalGroupsByView(currentView as 'tasks' | 'mail' | 'habits' | 'train');
+  if (!isOpen) return null;
+  const groups = getHotkeyModalGroupsByView(currentView);
 
   return (
     <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm animate-in fade-in" onClick={onClose}>

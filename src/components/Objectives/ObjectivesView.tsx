@@ -5,6 +5,7 @@ import { useUIStore } from '../../store/useUIStore';
 import { Objective } from '../../types';
 import { MiniMarkdown } from '../../utils/miniMarkdown';
 import { microAdventureForDate } from '../../utils/microAdventures';
+import { isGChordPending, isKeyConsumed } from '../../utils/keyChord';
 
 /**
  * The Objectives page — the "why" layer. Calm and read-mostly: a page you
@@ -45,6 +46,8 @@ export function ObjectivesView() {
         const handleKeyDown = (e: KeyboardEvent) => {
             if (softStartActive) return; // the soft-start dismiss handler owns keys
             if (isAnyOverlayOpen()) return;
+            // The second key of a g-chord (g then a / h / t …) belongs to navigation.
+            if (isKeyConsumed(e) || isGChordPending()) return;
             if (editingRef.current) return;
             if (document.activeElement?.tagName === 'INPUT' || document.activeElement?.tagName === 'TEXTAREA') return;
 

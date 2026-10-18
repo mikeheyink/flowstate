@@ -5,6 +5,8 @@ import { useMailStore, filterEmails } from '../store/useMailStore';
 import { toast } from '../components/Toaster';
 import { useHabitStore } from '../store/useHabitStore';
 import { setGChordPending, markKeyConsumed } from '../utils/keyChord';
+import { cycleSection, cycleTab, goTo, resolveChord } from '../utils/navigation';
+import { MOBILE_BREAKPOINT } from './useIsMobile';
 
 export function useHotkeys() {
     const {
@@ -127,19 +129,18 @@ export function useHotkeys() {
                 return;
             }
 
+            // [ / ] by physical key too, so a layout or a held Shift that changes
+            // e.key ('{', '}') can't silently break section/tab switching.
+            const bracket = key === '[' || key === ']' ? key
+                : e.code === 'BracketLeft' ? '[' : e.code === 'BracketRight' ? ']' : null;
+
             // Section switching (⌘[ / ⌘]) — previous / next top-level section.
             // ⌘[ / ⌘] are Back/Forward in Chrome/Safari but are interceptable;
             // preventDefault stops the browser navigating history.
-            if (isCmd && (key === '[' || key === ']')) {
+            if (isCmd && bracket) {
                 e.preventDefault();
-                const sections = ['objectives', 'tasks', 'habits', 'adventure', 'train'] as const;
-                const labels: Record<string, string> = { tasks: 'Tasks', habits: 'Habits', objectives: 'Objectives', adventure: 'Adventure', train: 'Train' };
-                const cur = Math.max(0, sections.indexOf(uiState.currentView as any));
-                const next = key === ']'
-                    ? (cur + 1) % sections.length
-                    : (cur - 1 + sections.length) % sections.length;
-                setCurrentView(sections[next]);
-                toast(labels[sections[next]]);
+                markKeyConsumed(e);
+                toast(cycleSection(bracket === ']' ? 1 : -1));
                 return;
             }
 
@@ -158,43 +159,31 @@ export function useHotkeys() {
             }
 
             // G-chord resolves: jump to any section (and a specific tab for Tasks).
-            // This is the ONE way to move between sections — always two keys, always
-            // the same verb ("go to"), so it never collides with [ / ] tab cycling.
+            // Letters live in utils/navigation.ts alongside the sections themselves.
             if (gPressed) {
                 setGPressed(false);
                 setGChordPending(false);
                 markKeyConsumed(e);
-                if (key === 'i') { setCurrentView('tasks'); setFilter('active'); toast('Tasks · Plan'); }
-                else if (key === 't') { setCurrentView('tasks'); setFilter('today'); toast('Tasks · Today'); }
-                else if (key === 'u') { setCurrentView('tasks'); setFilter('upcoming'); toast('Tasks · Upcoming'); }
-                else if (key === 'r') { setCurrentView('tasks'); setFilter('review'); toast('Tasks · Review'); }
-                else if (key === 'h') { setCurrentView('habits'); toast('Habits'); }
-                else if (key === 'o') { setCurrentView('objectives'); toast('Objectives'); }
-                else if (key === 'a') { setCurrentView('adventure'); toast('Adventure'); }
-                else if (key === 'w') { setCurrentView('train'); toast('Train'); }
+                const target = resolveChord(key);
+                if (target) toast(goTo(target.view, target.tab));
                 return;
             }
 
             // Tab cycling WITHIN the current section ([ / ] — PageUp/PageDown alias).
-            // One consistent meaning everywhere: Tasks filters, Mail folders, Habit views.
-            if (key === '[' || key === ']' || key === 'pageup' || key === 'pagedown') {
+            // One meaning everywhere: Tasks filters, Habit views, Train Session/Plan.
+            if ((bracket && !isAlt) || key === 'pageup' || key === 'pagedown') {
                 e.preventDefault();
-                const back = key === '[' || key === 'pageup';
-                if (uiState.currentView === 'tasks') {
-                    const items = ['active', 'today', 'upcoming', 'review'] as const;
-                    const idx = items.indexOf(uiState.filter as any);
-                    const next = (idx + (back ? -1 : 1) + items.length) % items.length;
-                    setFilter(items[next]);
-                } else if (uiState.currentView === 'mail') {
+                markKeyConsumed(e);
+                const back = bracket === '[' || key === 'pageup';
+                if (uiState.currentView === 'mail') {
                     const items = ['inbox', 'to_read', 'to_reply', 'other'] as const;
                     const idx = items.indexOf(mailState.activeTab);
                     const next = (idx + (back ? -1 : 1) + items.length) % items.length;
                     setActiveTab(items[next]);
-                } else if (uiState.currentView === 'habits') {
-                    uiState.cycleHabitView(back ? 'prev' : 'next');
-                } else if (uiState.currentView === 'train') {
-                    uiState.setTrainTab(uiState.trainTab === 'session' ? 'plan' : 'session');
+                    return;
                 }
+                const label = cycleTab(back ? -1 : 1, window.innerWidth < MOBILE_BREAKPOINT);
+                if (label) toast(label);
                 return;
             }
 

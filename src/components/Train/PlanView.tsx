@@ -224,7 +224,7 @@ export function PlanView() {
       </div>
 
       <div className="hidden md:flex justify-center flex-wrap gap-4 mt-10 text-sm text-slate-400">
-        {[['↑↓', 'move'], ['↵', 'open week / tick milestone'], ['X', 'tick milestone'], ['T', 'this week'], ['[ ]', 'session / plan'], ['U', 'undo']].map(([k, l]) => (
+        {[['↑↓', 'move'], ['↵', 'open week / tick milestone'], ['X', 'tick milestone'], ['T', 'this week'], ['[ ]', 'session / plan'], ['⌘Z', 'undo']].map(([k, l]) => (
           <span key={k} className="flex items-center gap-1.5">
             <kbd className="px-1.5 py-0.5 rounded bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400 text-xs font-medium">{k}</kbd>{l}
           </span>

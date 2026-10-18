@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { Search, Plus, Trash2, CheckCircle, SunMoon, Calendar, CalendarClock, Star, Zap, Edit3, Undo, Redo, ClipboardList, Flame, Compass, LayoutGrid, Mountain, Sprout, Dumbbell } from 'lucide-react';
+import { Search, Plus, Trash2, CheckCircle, SunMoon, Calendar, CalendarClock, Star, Zap, Edit3, Undo, Redo, LayoutGrid, Sprout } from 'lucide-react';
 import { useTaskStore } from '../store/useTaskStore';
 import { useHabitStore } from '../store/useHabitStore';
 import { useAdventureStore } from '../store/useAdventureStore';
@@ -8,6 +8,7 @@ import { getHotkeyById } from '../utils/hotkeys';
 import { getCreationDefaults, filterTodayQuad } from '../utils/taskSort';
 import { QUADRANTS } from '../utils/quad';
 import { toast } from './Toaster';
+import { SECTIONS, goTo, tabsFor, activeTabId, selectTab, sectionLabel } from '../utils/navigation';
 
 interface Action {
   id: string;
@@ -21,7 +22,7 @@ interface Action {
 export const CommandPalette: React.FC<{ isOpen: boolean; onClose: () => void }> = ({ isOpen, onClose }) => {
   const [query, setQuery] = useState('');
   const [selectedIndex, setSelectedIndex] = useState(0);
-  const { currentView, filter, setCurrentView, setQuickAddOpen, setEditingTaskId, setFocusMode, openNewHabit } = useUIStore();
+  const { currentView, filter, setQuickAddOpen, setEditingTaskId, setFocusMode, openNewHabit } = useUIStore();
   const { tasks, focusedId, setFocusedId, toggleTask, archiveTask, toggleUrgent, toggleImportant, undo, redo, pushTodayToTomorrow } = useTaskStore();
 
   // Build actions list - context-dependent
@@ -164,55 +165,29 @@ export const CommandPalette: React.FC<{ isOpen: boolean; onClose: () => void }> 
     });
   }
 
-  // === GO TO (all views) — section navigation, the current one omitted.
-  // ⌘[ / ⌘] cycle sections; with two sections the "other" one is one keypress away.
-  if (currentView !== 'tasks') {
+  // === GO TO (all views) — every section bar the current one, from the same
+  // registry as the navs and the g-chords, so the shortcut shown is the real one.
+  for (const sec of SECTIONS) {
+    if (sec.id === currentView) continue;
     actions.push({
-      id: 'go-tasks',
-      title: 'Go to Tasks',
-      icon: <ClipboardList className="w-4 h-4" />,
-      shortcut: '⌘[',
-      perform: () => setCurrentView('tasks'),
+      id: `go-${sec.id}`,
+      title: `Go to ${sec.label}`,
+      icon: <sec.Icon className="w-4 h-4" />,
+      shortcut: `g ${sec.chord}`,
+      perform: () => goTo(sec.id),
       section: 'Go to'
     });
   }
-  if (currentView !== 'habits') {
+  // …and the current section's other tabs.
+  const curTab = activeTabId(currentView);
+  for (const tab of tabsFor(currentView)) {
+    if (tab.id === curTab) continue;
     actions.push({
-      id: 'go-habits',
-      title: 'Go to Habits',
-      icon: <Flame className="w-4 h-4" />,
-      shortcut: 'g h',
-      perform: () => setCurrentView('habits'),
-      section: 'Go to'
-    });
-  }
-  if (currentView !== 'objectives') {
-    actions.push({
-      id: 'go-objectives',
-      title: 'Go to Objectives',
-      icon: <Compass className="w-4 h-4" />,
-      shortcut: 'g o',
-      perform: () => setCurrentView('objectives'),
-      section: 'Go to'
-    });
-  }
-  if (currentView !== 'adventure') {
-    actions.push({
-      id: 'go-adventure',
-      title: 'Go to Adventure',
-      icon: <Mountain className="w-4 h-4" />,
-      shortcut: 'g a',
-      perform: () => setCurrentView('adventure'),
-      section: 'Go to'
-    });
-  }
-  if (currentView !== 'train') {
-    actions.push({
-      id: 'go-train',
-      title: 'Go to Train',
-      icon: <Dumbbell className="w-4 h-4" />,
-      shortcut: 'g w',
-      perform: () => setCurrentView('train'),
+      id: `tab-${tab.id}`,
+      title: `${sectionLabel(currentView)} · ${tab.label}`,
+      icon: <tab.Icon className="w-4 h-4" />,
+      shortcut: '[ / ]',
+      perform: () => selectTab(tab.id),
       section: 'Go to'
     });
   }

@@ -6,6 +6,7 @@ import { useObjectiveStore } from '../../store/useObjectiveStore';
 import { ObjectiveEdge, HabitDetailButton } from './HabitDetail';
 import { Habit, Objective } from '../../types';
 import { getISOWeek, getWeekDates, shiftWeek, toLocalISO } from '../../utils/habitDates';
+import { isGChordPending, isKeyConsumed } from '../../utils/keyChord';
 
 interface HabitGridViewProps {
   onAddHabit?: () => void;
@@ -67,6 +68,8 @@ export function HabitGridView({ onAddHabit, onEditHabit, onDeleteHabit }: HabitG
         return;
       }
       if (useUIStore.getState().isAnyOverlayOpen()) return;
+      // The second key of a g-chord (g then a / h / t …) belongs to navigation.
+      if (isKeyConsumed(e) || isGChordPending()) return;
 
       const key = e.key.toLowerCase();
       const isCmd = e.metaKey || e.ctrlKey;
@@ -127,7 +130,10 @@ export function HabitGridView({ onAddHabit, onEditHabit, onDeleteHabit }: HabitG
       } else if (key === ',') {
         // Previous week.
         e.preventDefault();
-        handlePrevWeek();
+        handlePrevWeek();      } else if (key === 't') {
+        // Back to this week — T is "today / now" in every section.
+        e.preventDefault();
+        setCurrentWeek(getISOWeek(new Date()));
       }
     };
 
