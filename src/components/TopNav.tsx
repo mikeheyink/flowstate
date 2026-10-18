@@ -1,6 +1,7 @@
 import React, { useEffect, useState, useRef, useMemo } from 'react';
-import { Layers, Inbox, Calendar as CalendarIcon, CalendarClock, ClipboardList, RefreshCw, WifiOff, UserX, Keyboard, Command, BookOpen, Reply, Mail, LayoutGrid, ListChecks, BarChart3, Flame, Compass, Mountain, Dumbbell, Map as MapIcon, PlayCircle } from 'lucide-react';
-import { useUIStore, CurrentView } from '../store/useUIStore';
+import { Layers, Inbox, RefreshCw, WifiOff, UserX, Keyboard, Command, BookOpen, Reply, Mail } from 'lucide-react';
+import { useUIStore } from '../store/useUIStore';
+import { SECTIONS, tabsFor, selectTab, sectionLabel } from '../utils/navigation';
 import { useOnlineStatus } from '../store/useOnlineStatus';
 import { useMailStore } from '../store/useMailStore';
 import { useTaskStore } from '../store/useTaskStore';
@@ -13,29 +14,16 @@ interface TopNavProps {
     setGuestMode: (mode: boolean) => void;
 }
 
-// Top-level sections — the persistent anchor. Switch with ⌘[ / ⌘].
-// (Mail exists in the codebase but isn't shipped yet, so it's not offered here.)
-const SECTIONS: { id: CurrentView; label: string; Icon: React.ComponentType<any>; chord: string }[] = [
-    { id: 'objectives', label: 'Objectives', Icon: Compass, chord: '⌘[ / ⌘]' },
-    { id: 'tasks', label: 'Tasks', Icon: ClipboardList, chord: '⌘[ / ⌘]' },
-    { id: 'habits', label: 'Habits', Icon: Flame, chord: '⌘[ / ⌘]' },
-    { id: 'adventure', label: 'Adventure', Icon: Mountain, chord: '⌘[ / ⌘]' },
-    { id: 'train', label: 'Train', Icon: Dumbbell, chord: '⌘[ / ⌘]' },
-];
-
 export function TopNav({ session, isGuest, setGuestMode }: TopNavProps) {
     const {
         filter,
         currentView,
         habitView,
         trainTab,
-        setTrainTab,
-        setFilter,
         setFocusMode,
         setShortcutsOpen,
         setCmdOpen,
         setCurrentView,
-        setHabitView,
     } = useUIStore();
 
     const pendingCount = useTaskStore((state) => state.pendingOperations.length);
@@ -43,17 +31,12 @@ export function TopNav({ session, isGuest, setGuestMode }: TopNavProps) {
     const isOnline = useOnlineStatus();
     const isMobile = useIsMobile();
 
-    // Short label for the mobile top bar (the section/filter pills move to the
-    // bottom nav on mobile, so the bar shows "where am I" instead).
-    const mobileTitle = (() => {
-        if (currentView === 'habits') return 'Habits';
-        if (currentView === 'mail') return 'Mail';
-        if (currentView === 'objectives') return 'Objectives';
-        if (currentView === 'adventure') return 'Adventure';
-        if (currentView === 'train') return 'Train';
-        const map: Record<string, string> = { active: 'Plan', today: 'Today', upcoming: 'Upcoming', review: 'Review' };
-        return map[filter] || 'Tasks';
-    })();
+    // Tabs of the current section — same list on desktop (centre pills) and
+    // mobile (header segmented control), from utils/navigation.
+    const tabs = tabsFor(currentView, isMobile);
+    const activeTab_ = currentView === 'tasks' ? filter
+        : currentView === 'habits' ? (isMobile && habitView === 'grid' ? 'checklist' : habitView)
+        : currentView === 'train' ? trainTab : null;
 
     // Today's "plate": outstanding tasks due today-or-earlier, plus anything
     // completed today. Drives the daily progress ring — it fills as you clear
@@ -82,23 +65,8 @@ export function TopNav({ session, isGuest, setGuestMode }: TopNavProps) {
     const [isVisible, setIsVisible] = useState(true);
     const hideTimeoutRef = useRef<number | null>(null);
 
-    // Task view menu items
-    const taskMenuItems = ['active', 'today', 'upcoming', 'review'] as const;
-
-    // Mail view menu items
+    // Mail view menu items (Mail isn't in the section registry yet)
     const mailMenuItems = ['inbox', 'to_read', 'to_reply', 'other'] as const;
-
-    // Habit view menu items (tabs within the Habits section)
-    const trainMenuItems = [
-        { id: 'session' as const, Label: 'Session', Icon: PlayCircle },
-        { id: 'plan' as const, Label: 'Plan', Icon: MapIcon },
-    ];
-
-    const habitMenuItems = [
-        { id: 'grid' as const, Label: 'Grid', Icon: LayoutGrid },
-        { id: 'checklist' as const, Label: 'Checklist', Icon: ListChecks },
-        { id: 'analytics' as const, Label: 'Analytics', Icon: BarChart3 },
-    ];
 
     // Logic to show/hide nav
     const showNav = () => {
@@ -137,7 +105,7 @@ export function TopNav({ session, isGuest, setGuestMode }: TopNavProps) {
             className={`
                 fixed top-0 left-0 right-0 z-50 
                 flex items-center justify-between
-                px-6 py-3
+                px-4 md:px-6 py-3 gap-3
                 bg-white/80 dark:bg-slate-900/80 backdrop-blur-md
                 border-b border-slate-200 dark:border-slate-800
                 transition-opacity duration-700 ease-in-out
@@ -147,11 +115,33 @@ export function TopNav({ session, isGuest, setGuestMode }: TopNavProps) {
             onMouseLeave={handleMouseLeave}
         >
             {/* Left: Logo + persistent Section switcher (the anchor — never moves) */}
-            <div className="flex items-center gap-3">
+            <div className="flex items-center gap-3 min-w-0">
                 <Layers className="w-5 h-5 text-primary-600 dark:text-primary-500 shrink-0" />
-                {/* Mobile: the section/filter pills live in the bottom nav, so show a
-                    simple context title here instead. */}
-                <span className="md:hidden text-base font-bold text-slate-800 dark:text-slate-100">{mobileTitle}</span>
+                {/* Mobile: sections live in the bottom bar, so the header carries the
+                    current section's tabs (same list as the desktop centre pills), or
+                    just its name when it has none. */}
+                {isMobile && (tabs.length > 0 ? (
+                    <nav className="flex min-w-0 p-0.5 bg-slate-100 dark:bg-slate-800/60 rounded-lg" aria-label={`${sectionLabel(currentView)} tabs`}>
+                        {tabs.map(({ id, label }) => {
+                            const isActive = activeTab_ === id;
+                            return (
+                                <button
+                                    key={id}
+                                    onClick={() => selectTab(id)}
+                                    aria-current={isActive ? 'page' : undefined}
+                                    className={`px-2.5 py-1 rounded-md text-xs font-semibold whitespace-nowrap transition-all ${isActive
+                                        ? 'bg-white dark:bg-slate-700 shadow-sm text-primary-600 dark:text-primary-400'
+                                        : 'text-slate-500 dark:text-slate-400'
+                                        }`}
+                                >
+                                    {label}
+                                </button>
+                            );
+                        })}
+                    </nav>
+                ) : (
+                    <span className="text-base font-bold text-slate-800 dark:text-slate-100">{sectionLabel(currentView)}</span>
+                ))}
                 <nav className="hidden md:flex items-center gap-0.5 p-1 bg-slate-100 dark:bg-slate-800/50 rounded-lg">
                     {SECTIONS.map(({ id, label, Icon, chord }) => {
                         const isActive = currentView === id;
@@ -159,7 +149,7 @@ export function TopNav({ session, isGuest, setGuestMode }: TopNavProps) {
                             <button
                                 key={id}
                                 onClick={() => { setCurrentView(id); setFocusMode('main'); }}
-                                title={`${label} (${chord})`}
+                                title={`${label} (⌘[ / ⌘] · g then ${chord})`}
                                 className={`
                                     flex items-center gap-2 px-3 py-1.5 rounded-md text-sm font-semibold transition-all
                                     ${isActive
@@ -176,31 +166,22 @@ export function TopNav({ session, isGuest, setGuestMode }: TopNavProps) {
                 </nav>
             </div>
 
-            {/* Center: tabs for the CURRENT section (consistent placement for all sections).
-                Hidden on mobile — the bottom nav owns section/filter switching there. */}
-            <nav className="hidden md:flex items-center gap-1 p-1 bg-slate-100 dark:bg-slate-800/50 rounded-lg">
-                {currentView === 'tasks' && taskMenuItems.map((item) => {
-                    const isActive = filter === item;
-                    let Icon = Inbox;
-                    let Label = 'Plan';
-                    if (item === 'today') { Icon = CalendarIcon; Label = 'Today'; }
-                    if (item === 'upcoming') { Icon = CalendarClock; Label = 'Upcoming'; }
-                    if (item === 'review') { Icon = ClipboardList; Label = 'Review'; }
-
+            {/* Center: tabs for the CURRENT section — [ / ] cycles them, in every section. */}
+            <nav className={`hidden ${tabs.length || currentView === 'mail' ? 'md:flex' : ''} items-center gap-1 p-1 bg-slate-100 dark:bg-slate-800/50 rounded-lg`}>
+                {!isMobile && tabs.map(({ id, label, Icon }) => {
+                    const isActive = activeTab_ === id;
                     return (
                         <button
-                            key={item}
-                            onClick={() => { setFilter(item); setFocusMode('main'); }}
-                            className={`
-                                flex items-center gap-2 px-3 py-1.5 rounded-md text-sm font-medium transition-all
-                                ${isActive
-                                    ? 'bg-white dark:bg-slate-700 shadow-sm text-primary-600 dark:text-primary-400'
-                                    : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200 hover:bg-white/50 dark:hover:bg-slate-700/50'
-                                }
-                            `}
+                            key={id}
+                            onClick={() => selectTab(id)}
+                            title={`${label} ([ / ])`}
+                            className={`flex items-center gap-2 px-3 py-1.5 rounded-md text-sm font-medium transition-all ${isActive
+                                ? 'bg-white dark:bg-slate-700 shadow-sm text-primary-600 dark:text-primary-400'
+                                : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200 hover:bg-white/50 dark:hover:bg-slate-700/50'
+                                }`}
                         >
                             <Icon className="w-4 h-4" />
-                            <span className="hidden sm:inline">{Label}</span>
+                            <span className="hidden sm:inline">{label}</span>
                         </button>
                     );
                 })}
@@ -217,53 +198,10 @@ export function TopNav({ session, isGuest, setGuestMode }: TopNavProps) {
                         <button
                             key={item}
                             onClick={() => setActiveTab(item)}
-                            className={`
-                                flex items-center gap-2 px-3 py-1.5 rounded-md text-sm font-medium transition-all
-                                ${isActive
-                                    ? 'bg-white dark:bg-slate-700 shadow-sm text-primary-600 dark:text-primary-400'
-                                    : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200 hover:bg-white/50 dark:hover:bg-slate-700/50'
-                                }
-                            `}
-                        >
-                            <Icon className="w-4 h-4" />
-                            <span className="hidden sm:inline">{Label}</span>
-                        </button>
-                    );
-                })}
-
-                {currentView === 'train' && trainMenuItems.map(({ id, Label, Icon }) => {
-                    const isActive = trainTab === id;
-                    return (
-                        <button
-                            key={id}
-                            onClick={() => setTrainTab(id)}
-                            className={`
-                                flex items-center gap-2 px-3 py-1.5 rounded-md text-sm font-medium transition-all
-                                ${isActive
-                                    ? 'bg-white dark:bg-slate-700 shadow-sm text-primary-600 dark:text-primary-400'
-                                    : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200 hover:bg-white/50 dark:hover:bg-slate-700/50'
-                                }
-                            `}
-                        >
-                            <Icon className="w-4 h-4" />
-                            <span className="hidden sm:inline">{Label}</span>
-                        </button>
-                    );
-                })}
-
-                {currentView === 'habits' && habitMenuItems.map(({ id, Label, Icon }) => {
-                    const isActive = habitView === id;
-                    return (
-                        <button
-                            key={id}
-                            onClick={() => setHabitView(id)}
-                            className={`
-                                flex items-center gap-2 px-3 py-1.5 rounded-md text-sm font-medium transition-all
-                                ${isActive
-                                    ? 'bg-white dark:bg-slate-700 shadow-sm text-primary-600 dark:text-primary-400'
-                                    : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200 hover:bg-white/50 dark:hover:bg-slate-700/50'
-                                }
-                            `}
+                            className={`flex items-center gap-2 px-3 py-1.5 rounded-md text-sm font-medium transition-all ${isActive
+                                ? 'bg-white dark:bg-slate-700 shadow-sm text-primary-600 dark:text-primary-400'
+                                : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200 hover:bg-white/50 dark:hover:bg-slate-700/50'
+                                }`}
                         >
                             <Icon className="w-4 h-4" />
                             <span className="hidden sm:inline">{Label}</span>

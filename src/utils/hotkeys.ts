@@ -37,6 +37,7 @@ export const HOTKEYS: Hotkey[] = [
     { id: 'go-review', keys: 'g then r', description: 'Go to Review', category: 'navigation' },
     { id: 'go-habits', keys: 'g then h', description: 'Go to Habits', category: 'navigation' },
     { id: 'go-objectives', keys: 'g then o', description: 'Go to Objectives', category: 'navigation' },
+    { id: 'go-adventure', keys: 'g then a', description: 'Go to Adventure', category: 'navigation' },
     { id: 'go-train', keys: 'g then w', description: 'Go to Train', category: 'navigation' },
     { id: 'move-task-down', keys: '⌘↓', description: 'Move Task Down', category: 'navigation', context: 'task-focused' },
     { id: 'move-task-up', keys: '⌘↑', description: 'Move Task Up', category: 'navigation', context: 'task-focused' },
@@ -78,6 +79,7 @@ export const HOTKEYS: Hotkey[] = [
     { id: 'habit-nav', keys: '↑ ↓ ← →', description: 'Move between habits / days', category: 'habits', context: 'global', showInModal: false },
     { id: 'habit-reorder', keys: '⌘↑ / ⌘↓', description: 'Reorder habit up / down', category: 'habits', context: 'global', showInModal: false },
     { id: 'habit-week', keys: ', / .', description: 'Previous / next week', category: 'habits', context: 'global', showInModal: false },
+    { id: 'habit-now', keys: 'T', description: 'Back to this week', category: 'habits', context: 'global', showInModal: false },
     { id: 'habit-add', keys: 'A', description: 'Add habit', category: 'habits', context: 'global', showInModal: false },
     { id: 'habit-edit', keys: 'E', description: 'Edit habit', category: 'habits', context: 'global', showInModal: false },
     { id: 'habit-delete', keys: '⌫', description: 'Delete habit', category: 'habits', context: 'global', showInModal: false },
@@ -86,6 +88,7 @@ export const HOTKEYS: Hotkey[] = [
     { id: 'train-start', keys: '→ / ↩', description: 'Start / resume session', category: 'train', showInModal: false },
     { id: 'train-pick', keys: '↑ / ↓', description: 'Pick exercise to start from', category: 'train', showInModal: false },
     { id: 'train-day', keys: ', / .', description: 'Previous / next day', category: 'train', showInModal: false },
+    { id: 'train-today', keys: 'T', description: 'Jump to today', category: 'train', showInModal: false },
     { id: 'train-tab', keys: '[ / ]', description: 'Session / Plan', category: 'train', showInModal: false },
     { id: 'train-done', keys: 'X', description: 'Exercise done → next (stops the timer)', category: 'train', showInModal: false },
     { id: 'plan-open', keys: '↩', description: 'Open week · tick milestone', category: 'train', showInModal: false },
@@ -96,7 +99,7 @@ export const HOTKEYS: Hotkey[] = [
     { id: 'train-move', keys: '← / →', description: 'Previous / next exercise', category: 'train', showInModal: false },
     { id: 'train-howto', keys: 'V / ↩', description: 'Video and cues (V again to close)', category: 'train', showInModal: false },
     { id: 'train-video', keys: 'Space · R', description: 'In the video: pause / replay', category: 'train', showInModal: false },
-    { id: 'train-undo', keys: 'U / ⌘Z', description: 'Undo — set, mark done, save', category: 'train', showInModal: false },
+    { id: 'train-undo', keys: '⌘Z', description: 'Undo — set, mark done, save', category: 'train', showInModal: false },
     { id: 'train-exit', keys: 'Esc', description: 'Back to overview', category: 'train', showInModal: false },
 ];
 
@@ -161,38 +164,42 @@ export function getHotkeyById(id: string): Hotkey | undefined {
 /**
  * Get hotkey groups filtered by view context
  */
-export function getHotkeyModalGroupsByView(view: 'tasks' | 'mail' | 'habits' | 'train'): { title: string; items: Hotkey[] }[] {
+export function getHotkeyModalGroupsByView(view: string): { title: string; items: Hotkey[] }[] {
     // These groups are hand-curated by id, so we show whatever is listed —
     // the showInModal flag only governs the auto-generated global listing.
     const resolve = (ids: string[]) => ids
         .map(getHotkeyById)
         .filter((h): h is Hotkey => !!h);
 
+    // The same "get around" keys in every section: ⌘[ / ⌘] sections, [ / ] tabs,
+    // g-chords to jump anywhere.
+    const getAround = { title: 'Get around', items: resolve(['nav-section', 'nav-sidebar', 'go-objectives', 'go-today', 'go-habits', 'go-adventure', 'go-train', 'cmd-palette', 'shortcuts-modal']) };
+
     if (view === 'train') {
         return [
-            { title: 'Overview', items: resolve(['train-start', 'train-pick', 'train-howto', 'train-day', 'train-tab', 'train-mark', 'train-undo']) },
+            { title: 'Overview', items: resolve(['train-start', 'train-pick', 'train-howto', 'train-day', 'train-today', 'train-mark', 'train-undo']) },
             { title: 'During a workout', items: resolve(['train-advance', 'train-done', 'train-move', 'train-howto', 'train-video', 'train-undo', 'train-exit']) },
-            { title: 'Plan', items: resolve(['plan-open', 'plan-tick', 'plan-now', 'train-tab']) },
-            { title: 'Get around', items: resolve(['nav-section', 'go-train', 'cmd-palette', 'shortcuts-modal']) },
+            { title: 'Plan', items: resolve(['plan-open', 'plan-tick', 'plan-now']) },
+            getAround,
         ];
     }
 
     if (view === 'habits') {
         return [
             {
-                title: 'Get around',
-                // Two-tier model: ⌘[ / ⌘] move between sections, [ / ] between tabs.
-                items: resolve(['nav-section', 'nav-sidebar', 'cmd-palette']),
-            },
-            {
                 title: 'Track habits',
-                items: resolve(['habit-toggle', 'habit-nav', 'habit-reorder', 'habit-week']),
+                items: resolve(['habit-toggle', 'habit-nav', 'habit-reorder', 'habit-week', 'habit-now']),
             },
             {
                 title: 'Manage & history',
-                items: resolve(['habit-add', 'habit-edit', 'habit-delete', 'undo', 'redo', 'shortcuts-modal']),
+                items: resolve(['habit-add', 'habit-edit', 'habit-delete', 'undo', 'redo']),
             },
+            getAround,
         ];
+    }
+
+    if (view !== 'tasks') {
+        return [getAround, { title: 'History', items: resolve(['undo', 'redo']) }];
     }
 
     // Tasks view (default)
@@ -202,7 +209,8 @@ export function getHotkeyModalGroupsByView(view: 'tasks' | 'mail' | 'habits' | '
         // The Today board navigates as a grid, so its arrows get their own group
         // rather than being read as an exception to the list keys above.
         { title: 'Today board', items: resolve(['quad-nav-column', 'quad-nav-row', 'quad-jump']) },
-        { title: 'Get around', items: resolve(['nav-section', 'nav-sidebar', 'go-inbox', 'go-today', 'go-upcoming', 'go-review', 'go-habits', 'go-objectives', 'expand', 'collapse']) },
-        { title: 'Create & history', items: resolve(['new-subtask', 'batch-add', 'open-links', 'undo', 'redo', 'shortcuts-modal']) },
+        { title: 'Tabs & subtasks', items: resolve(['go-inbox', 'go-today', 'go-upcoming', 'go-review', 'expand', 'collapse']) },
+        { title: 'Create & history', items: resolve(['new-subtask', 'batch-add', 'open-links', 'undo', 'redo']) },
+        getAround,
     ];
 }

@@ -6,6 +6,7 @@ import { useObjectiveStore } from '../../store/useObjectiveStore';
 import { ObjectiveEdge, HabitDetailButton } from './HabitDetail';
 import { Habit, Objective } from '../../types';
 import { getISOWeek, getWeekDates, toLocalISO } from '../../utils/habitDates';
+import { isGChordPending, isKeyConsumed } from '../../utils/keyChord';
 
 interface HabitChecklistViewProps {
   onAddHabit?: () => void;
@@ -75,6 +76,8 @@ export function HabitChecklistView({ onAddHabit }: HabitChecklistViewProps) {
     const handleKeyDown = (e: KeyboardEvent) => {
       if (document.activeElement?.tagName === 'INPUT' || document.activeElement?.tagName === 'TEXTAREA') return;
       if (useUIStore.getState().isAnyOverlayOpen()) return;
+      // The second key of a g-chord (g then a / h / t …) belongs to navigation.
+      if (isKeyConsumed(e) || isGChordPending()) return;
 
       const key = e.key.toLowerCase();
       const isCmd = e.metaKey || e.ctrlKey;

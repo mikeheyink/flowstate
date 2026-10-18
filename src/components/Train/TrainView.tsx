@@ -16,7 +16,9 @@ import {
  *   · Overview — the session at a glance. , . change day, ↑↓ pick, → / ↵ start.
  *   · Plan     — [ ] flips to the weeks + milestones view (PlanView).
  *   · Player   — one exercise, big. Space ticks a set / starts the timer,
- *                X done + next, ← → move, V (or ↵) video + cues, U / ⌘Z undo, Esc out.
+ *                X done + next, ← → move, V (or ↵) video + cues, ⌘Z undo, Esc out.
+ * Keys mean what they mean elsewhere in the app: X done, ⌘Z undo, T today,
+ * , . previous / next day (Habits: week), [ ] tabs, ⌘[ ⌘] sections.
  *   · Finish   — a note for the log, ↵ to save.
  * Space alone can carry you through a whole session: set → rest → set → next.
  */
@@ -217,10 +219,10 @@ export function TrainView() {
     if (isKeyConsumed(e) || isGChordPending()) return;
     const key = e.code === 'Space' ? ' ' : e.key.toLowerCase();
 
-    // Undo — ⌘Z (the app-wide habit), U, or ⌫. Works on every screen.
+    // Undo — ⌘Z, same as everywhere else. (U and ⌫ mean urgent / delete in
+    // the other sections, so they don't double as undo here.)
     if ((e.metaKey || e.ctrlKey) && key === 'z' && !e.shiftKey) { e.preventDefault(); doUndo(); return; }
     if (e.metaKey || e.ctrlKey || e.altKey) return;
-    if (key === 'u' || key === 'backspace') { e.preventDefault(); doUndo(); return; }
     if (trainTab === 'plan') return; // PlanView owns the rest
 
     // How-to panel (from the overview or the player) owns the keys while open.
@@ -246,6 +248,9 @@ export function TrainView() {
         e.preventDefault();
         const next = Math.max(0, Math.min(SESSIONS.length - 1, sessionIdx + (key === ',' ? -1 : 1)));
         selectSession(SESSIONS[next].id);
+      } else if (key === 't') {
+        e.preventDefault();
+        selectSession(SESSIONS[defaultSessionIndex(SESSIONS)].id);
       } else if (key === 'arrowdown' || key === 'j') {
         e.preventDefault();
         setCursor(c => Math.min(c + 1, steps.length - 1));
@@ -355,7 +360,7 @@ export function TrainView() {
           <button onClick={save} className="mt-6 px-6 py-3 rounded-xl bg-success-500 hover:bg-success-600 text-white font-semibold">
             Save to log
           </button>
-          <Hints items={[['N', 'note'], ['↵', 'save'], ['⌘↵', 'save from note'], ['←', 'back'], ['U', 'undo'], ['Esc', 'overview']]} />
+          <Hints items={[['N', 'note'], ['↵', 'save'], ['⌘↵', 'save from note'], ['←', 'back'], ['⌘Z', 'undo'], ['Esc', 'overview']]} />
         </div>
       )}
 
@@ -490,7 +495,7 @@ function Overview({ session, sessionIdx, steps, cursor, logs, resumeAt, onPick, 
         ))}
       </div>
 
-      <Hints items={[['→ / ↵', resumeAt !== null ? 'resume' : 'start'], ['↑↓', 'pick exercise'], ['V', 'video'], [', .', 'day'], ['[ ]', 'plan'], ['X', log ? 'mark not done' : 'mark done'], ['U', 'undo']]} />
+      <Hints items={[['→ / ↵', resumeAt !== null ? 'resume' : 'start'], ['↑↓', 'pick exercise'], ['V', 'video'], [', .', 'day'], ['T', 'today'], ['[ ]', 'plan'], ['X', log ? 'mark not done' : 'mark done'], ['⌘Z', 'undo']]} />
     </div>
   );
 }
@@ -609,7 +614,7 @@ function Player({ step, stepIdx, steps, rounds, done, timer, remaining, onAdvanc
         >
           {rx.hold && !isResting && !allDone ? (timer?.endsAt ? <Pause className="w-4 h-4" /> : <Play className="w-4 h-4" />) : null}
           {action}
-          <kbd className="ml-2 text-xs font-medium opacity-70">Space</kbd>
+          <kbd className="hidden md:inline ml-2 text-xs font-medium opacity-70">Space</kbd>
         </button>
         <button onClick={onHowTo} className="p-3 rounded-xl bg-slate-100 dark:bg-slate-800 text-slate-500 hover:text-slate-800 dark:hover:text-slate-200" aria-label="How to">
           {exercise.video ? <Video className="w-5 h-5" /> : <BookOpen className="w-5 h-5" />}
@@ -622,7 +627,7 @@ function Player({ step, stepIdx, steps, rounds, done, timer, remaining, onAdvanc
       <div className="mt-4 flex items-center justify-between text-sm text-slate-400">
         <span className="truncate">{next ? <>Next: <span className="text-slate-600 dark:text-slate-300">{next.exercise.name}</span> · {describeRx(next.rx)}</> : 'Last one'}</span>
         <span className="hidden md:flex gap-3 shrink-0">
-          <Key k="X" label="done" /><Key k="V" label="video" /><Key k="← →" label="move" /><Key k="U" label="undo" /><Key k="Esc" label="overview" />
+          <Key k="X" label="done" /><Key k="V" label="video" /><Key k="← →" label="move" /><Key k="⌘Z" label="undo" /><Key k="Esc" label="overview" />
         </span>
       </div>
     </div>
