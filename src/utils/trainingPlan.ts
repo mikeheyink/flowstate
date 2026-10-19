@@ -258,8 +258,9 @@ const EXERCISES: Exercise[] = [
   {
     id: 'elbow-iso', name: 'Biceps isometric (right)',
     cue: 'Gentle push up into the table — 30% effort, pain 0–2/10',
-    how: ['Sit side-on to a table, right elbow bent 90°, thumb pointing up.', 'Press the back of your fist up into the underside of the table, gently (~30% effort).', 'Hold, breathe, release slowly.', 'If it’s more than 2/10, ease off; if it still hurts, skip it.'],
-    why: 'Isometrics load an irritated tendon without the movement that aggravates it and often ease pain in the short term (the evidence is mixed, but the risk is low). It keeps the tendon loaded while it settles.',
+    how: ['Sit side-on to a table, right elbow bent 90°, thumb pointing up.', 'Press the back of your fist up into the underside of the table, gently (~30% effort).', 'Hold, breathe, release slowly.', 'Pain up to 3/10 is OK if it’s settled by the next morning. Worse than that: halve the effort.', 'Once 45 s at 50% is easy and pain-free, turn the palm up (that loads the biceps more).'],
+    avoid: ['Hanging, pull-ups, curls, arm wrestling.', 'Twins on the right arm. Use the left arm or both arms, keeping them close to your body with palms down where you can.', 'Carrying bags or the bell in the right hand.'],
+    why: 'Stage 1 of the arm rehab. Isometrics load an irritated tendon without the movement that aggravates it and often ease pain in the short term (the evidence is mixed, but the risk is low). It keeps the tendon loaded while it settles.',
   },
 
   // Aerobic
@@ -461,7 +462,16 @@ const DESK: Block = {
   ],
 };
 
-const ELBOW: Block = { title: 'Right elbow', items: [{ ex: 'elbow-iso', sets: 5, hold: 30, rest: 30, note: 'Only if the elbow is at 0–2/10. Otherwise skip it.' }] };
+// Right biceps: a distal strain from arm wrestling (golf tour, 9–10 Oct),
+// re-flared by a dead-hang contest on 18 Oct. Self-checks on 19 Oct ruled out
+// a complete rupture (no pop or bruising, normal contour, hook test cord
+// present, turning strength intact). Staged rehab, criteria-based; see MILESTONES.
+const ARM: Block = {
+  title: 'Right arm rehab · any time',
+  anytime: true,
+  items: [{ ex: 'elbow-iso', sets: 5, hold: 45, rest: 30, note: 'Daily. 30–50% effort. Pain up to 3/10 is OK if it’s gone by the next morning.' }],
+};
+const ELBOW = ARM;
 
 const runWalk = (reps: number, run: number, walk: number, note?: string): Block => ({
   title: 'Run-walk',
@@ -703,18 +713,17 @@ export const SESSIONS: Session[] = [
   // last left nothing the next morning; otherwise repeat it.
   {
     id: '2026-10-19-strength-a', date: '2026-10-19', title: 'Strength A', kind: 'strength',
-    summary: 'Legs progress and the right arm stays out of it: no bell in the right hand, no pulling with it.',
+    summary: 'Legs get heavier with the bell in a backpack. The right arm stays out of it: no push-ups this week, nothing in the right hand. Arm isometrics start Wednesday, once the flare settles.',
     blocks: [
       WARM_UP,
       {
         title: 'Strength A',
         items: [
-          { ex: 'rfe-split-squat', sets: 3, reps: '8 / side · 3 s down', load: 'bodyweight', superset: 'a' },
-          { ex: 'kb-row', sets: 3, reps: '12 · left arm only', load: '16 kg', rest: 60, superset: 'a', note: 'Right arm rests on the bench. No rowing with it until it’s pain-free.' },
-          { ex: 'push-up', sets: 3, reps: 'stop 3 short', superset: 'b', note: 'Only if the right elbow stays at 0–2/10. Otherwise skip it.' },
-          { ex: 'kb-single-leg-rdl', sets: 3, reps: '10 / side', load: '16 kg', rest: 60, superset: 'b', note: 'Bell in the LEFT hand for both legs.' },
-          { ex: 'copenhagen-short', sets: 3, hold: 30, perSide: true, superset: 'c' },
-          { ex: 'dead-bug', sets: 3, reps: '10 / side', rest: 45, superset: 'c' },
+          { ex: 'rfe-split-squat', sets: 4, reps: '8 / side · 3 s down', load: 'backpack · 16 kg', superset: 'a', note: 'Set 1 bodyweight to learn it. If it’s smooth, put the bell in a backpack for sets 2–4. Put the pack on with the left arm, or sit to put it on.' },
+          { ex: 'kb-row', sets: 4, reps: '12 · left arm only', load: '16 kg', rest: 60, superset: 'a', note: 'Right arm rests on the bench. No rowing with it until it’s pain-free.' },
+          { ex: 'kb-single-leg-rdl', sets: 3, reps: '10 / side', load: '16 kg', superset: 'b', note: 'Bell in the LEFT hand for both legs.' },
+          { ex: 'dead-bug', sets: 3, reps: '10 / side', rest: 60, superset: 'b' },
+          { ex: 'copenhagen-short', sets: 3, hold: 30, perSide: true, rest: 45, note: 'Right side: drop to your knees or skip it if leaning on the forearm hurts.' },
         ],
       },
       { ...CALF_3, title: 'Calf strength · now or evening', anytime: true },
@@ -739,13 +748,13 @@ export const SESSIONS: Session[] = [
   },
   {
     id: '2026-10-21-strength-b', date: '2026-10-21', title: 'Strength B', kind: 'strength',
-    summary: 'Climbing and descending strength: step-ups with slow step-downs. Right arm still off-limits.',
+    summary: 'Climbing and descending strength: loaded step-ups with slow step-downs. Right arm rehab starts today.',
     blocks: [
       WARM_UP,
       {
         title: 'Strength B',
         items: [
-          { ex: 'step-up', sets: 3, reps: '10 / side', load: 'bodyweight', superset: 'a' },
+          { ex: 'step-up', sets: 3, reps: '10 / side', load: 'backpack · 16 kg', superset: 'a', note: 'If Monday’s split squats left you very sore, use bodyweight.' },
           { ex: 'prone-yt', sets: 3, reps: '8 each · no weight', rest: 45, superset: 'a' },
           { ex: 'single-leg-bridge', sets: 3, reps: '15 / side', superset: 'b' },
           { ex: 'side-plank', sets: 3, hold: 35, perSide: true, rest: 45, superset: 'b', note: 'Right side: stop if the elbow complains, or drop to the knees.' },
@@ -754,6 +763,7 @@ export const SESSIONS: Session[] = [
         ],
       },
       { ...CALF_3, title: 'Calf strength · now or evening', anytime: true },
+      ARM,
       DESK,
     ],
   },
@@ -858,10 +868,10 @@ const W = (n: number, phase: PhaseId, title: string, focus: string, outline: str
 export const WEEKS: Week[] = [
   W(1, 'rebuild', 'Heal the calf, start lifting', 'No running. Daily calf and neck work, two light strength sessions, golf tour.', ['Strength A & B at 6/10', 'Calf rehab + neck routine daily', 'Flat walks', 'Sun: calf go/no-go test'], { km: '0' }),
   W(2, 'rebuild', 'Run-walk returns', 'If the calf passed: three flat run-walks, building the run portions. Strength twice.', ['3 × run-walk (1 min run / 1 min walk → build)', 'Strength A & B, slightly heavier', 'Calf rehab: add load in hand', 'Order equipment + HR strap'], { km: '6–8' }),
-  W(3, 'rebuild', 'Continuous running', 'Build to 30 min continuous at a talk-test easy pace. Calf rehab becomes calf strength. Right arm stays off-limits.', ['Easy runs Tue / Thu / Sat: 3×6 → 2×10 → 30 min', 'Strength A & B: legs progress, no right-arm load', 'Calf: both legs + pogo hops', 'Desk resets for the neck', 'Sat: 30 min continuous, pain-free'], { km: '10–12' }),
-  W(4, 'foundation', 'Easy means easy', 'Conversational pace, heart rate zone 2. First week with the new kit.', ['3 easy runs incl. one short trail', 'Strength 2× — progress load', 'Yoga / mobility 1×', 'Bloods: ApoB + Lp(a)'], { km: '15–18' }),
+  W(3, 'rebuild', 'Continuous running', 'Build to 30 min continuous at a talk-test easy pace. Calf rehab becomes calf strength. Right arm stays off-limits.', ['Easy runs Tue / Thu / Sat: 3×6 → 2×10 → 30 min', 'Strength: backpack-loaded legs, no push-ups, nothing in the right hand', 'Right arm: daily isometrics from Wed, physio this week', 'Calf: both legs + pogo hops', 'Desk resets for the neck', 'Sat: 30 min continuous, pain-free'], { km: '10–12' }),
+  W(4, 'foundation', 'Easy means easy', 'Conversational pace, heart rate zone 2. First week with the new kit.', ['3 easy runs incl. one short trail', 'Strides 6 × 20 s after one easy run (if Sat’s 30 min was clean)', 'Hill power-hike intervals', 'Strength 2×: heavier backpack legs', 'Arm rehab: isometrics → light curls if criteria met', 'Bloods: ApoB + Lp(a)'], { km: '15–18' }),
   W(5, 'foundation', 'Build the base', 'Add a little volume, nothing faster.', ['3 easy runs', 'Long run 50 min trail', 'Strength 2×'], { km: '18–20' }),
-  W(6, 'foundation', 'Strides arrive', 'Add 6 × 20 s strides after one easy run — speed without fatigue.', ['3 easy runs (one with strides)', 'Long run 60 min', 'Strength 2×'], { km: '20–24' }),
+  W(6, 'foundation', 'Hill strides', 'Strides move to a gentle hill: 8 × 15 s, walk back down. Power and calf spring without the fatigue.', ['3 easy runs (one with hill strides)', 'Long run 60 min', 'Strength 2×'], { km: '20–24' }),
   W(7, 'foundation', 'First benchmark', 'Re-test the baseline and run the 12-minute Cooper test for a VO2max estimate.', ['3 easy runs', 'Sat: Cooper test + re-tests', 'Strength 2×'], { km: '22–25' }),
   W(8, 'foundation', 'Deload', 'Cut ~30% volume. Absorb the first block.', ['3 short easy runs', 'Strength 1–2× (lighter)', 'Extra sleep'], { km: '15–18', deload: true }),
   W(9, 'foundation', 'Fourth run', 'Add a short fourth easy run. Long run moves to the trails.', ['4 easy runs', 'Long run 75 min trail', 'Strength 2×'], { km: '26–28' }),
@@ -902,6 +912,9 @@ export interface Milestone {
 export const MILESTONES: Milestone[] = [
   { id: 'calf-go', date: '2026-10-11', kind: 'test', title: 'Calf cleared', detail: '25 slow single-leg raises + 20 hops on the left, symptom-free → run-walk starts.' },
   { id: 'run-30', date: '2026-10-24', kind: 'run', title: '30 min continuous', detail: 'Easy pace, pain-free during and the next morning.' },
+  { id: 'physio', date: '2026-10-23', kind: 'health', title: 'Physio: right biceps + neck', detail: 'Confirm the strain is partial (self-checks on 19 Oct: no pop, cord present, strength intact). Ultrasound if it isn’t clearly improving by early November.' },
+  { id: 'arm-curls', date: '2026-11-02', kind: 'health', title: 'Arm: light curls begin', detail: 'Only when there’s no pain at rest, isometrics are pain-free and lifting the twins is ≤2/10. Slow hammer curls at 2–4 kg, then palm-up curls and slow lowering.' },
+  { id: 'arm-full', date: '2026-12-14', kind: 'health', title: 'Arm: hanging + pull-ups return', detail: 'Only after heavy slow curls and two-arm rows are pain-free with strength matching the left. No dead-hang contests before then.' },
   { id: 'bloods', date: '2026-10-31', kind: 'health', title: 'Bloods: ApoB + Lp(a)', detail: 'Family cardiac history — Lp(a) is a once-in-a-lifetime test.' },
   { id: 'cooper', date: '2026-11-21', kind: 'test', title: 'First fitness benchmark', detail: '12-min Cooper test (VO2max ≈ (m − 504.9) ÷ 44.73) + baseline re-tests.' },
   { id: 'long-90', date: '2026-12-19', kind: 'run', title: '90 min trail run', detail: 'Easy effort, on trail, feeling good at the end.' },
