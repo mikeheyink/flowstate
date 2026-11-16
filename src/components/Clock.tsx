@@ -24,7 +24,7 @@ export function Clock({ className = '' }: { className?: string }) {
         <time
             dateTime={now.toISOString()}
             title={now.toLocaleDateString(undefined, { weekday: 'long', day: 'numeric', month: 'long' })}
-            className={`font-mono tabular-nums text-sm font-semibold text-slate-700 dark:text-slate-200 ${className}`}
+            className={`font-mono tabular-nums text-lg md:text-xl font-semibold text-slate-700 dark:text-slate-200 ${className}`}
         >
             {hhmm(now)}
         </time>

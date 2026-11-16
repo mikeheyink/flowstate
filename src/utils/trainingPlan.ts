@@ -559,21 +559,38 @@ const WARM_UP_HIPS: Block = {
   ],
 };
 
+// From 18 Nov, sessions are built to fit 45 min by the honest estimate below,
+// with the most valuable work first. Calf strength moves INTO the session as
+// the superset partner, because 'anytime' blocks were getting skipped.
+// Priorities: single-leg legs > hinge / power > calves > adductors + side plank.
+// Dropped: dead bugs, adductor squeezes, the separate calf block. Prone Y & T
+// moves to the bedtime neck routine.
+const WARM_UP_8: Block = {
+  title: 'Warm-up',
+  items: [
+    { ex: 'cat-cow', reps: '6 slow' },
+    { ex: 'worlds-greatest-stretch', reps: '3 / side' },
+    { ex: 'hip-90-90', reps: '6' },
+    { ex: 'glute-bridge', reps: '10' },
+  ],
+};
+
+const NECK_8: Block = {
+  title: 'Neck · before bed',
+  anytime: true,
+  items: [
+    { ex: 'thoracic-extension', reps: '5 × 3 levels' },
+    { ex: 'open-book', reps: '8 / side' },
+    { ex: 'prone-yt', sets: 2, reps: '8 each · no weight', rest: 30 },
+  ],
+};
+
 const CALF_7: Block = {
   title: 'Calf strength · now or evening',
   anytime: true,
   items: [
     { ex: 'calf-single', sets: 3, reps: '12 / side', rest: 60, note: 'Right calf: slow and full range. Tightness is fine, pain isn’t.' },
     { ex: 'calf-bent-knee', sets: 3, reps: '15', rest: 45, note: 'The soleus takes the biggest load when you run. It’s usually the tight one.' },
-  ],
-};
-
-const CALF_8: Block = {
-  ...CALF_7,
-  items: [
-    { ex: 'calf-single', sets: 3, reps: '15 / side', rest: 60, note: 'Once 15 is easy on both legs, hold the 16 kg in the LEFT hand.' },
-    { ex: 'calf-bent-knee', sets: 3, reps: '15 · single leg', rest: 45 },
-    { ex: 'pogo-hops', sets: 2, reps: '20 contacts', rest: 60, note: 'Only if the right calf isn’t tight in the mornings any more.' },
   ],
 };
 
@@ -1129,27 +1146,26 @@ export const SESSIONS: Session[] = [
   {
     id: '2026-11-17-run', date: '2026-11-17', title: 'Easy run 1', kind: 'aerobic',
     summary: '35 min easy, flat. School drop is at 7:30, so head out by 6:30. After daily running the calf needs easy days to settle, so keep it truly conversational.',
-    blocks: [run(35, 'If the right calf is tighter than yesterday, cut it to 25 min.'), CALF_7, ARM_7, NECK_7],
+    blocks: [run(35, 'If the right calf is tighter than yesterday, cut it to 25 min.'), ARM_7, NECK_7],
   },
   {
     id: '2026-11-18-strength-b', date: '2026-11-18', title: 'Strength B', kind: 'strength',
-    summary: 'Climbing legs and the back of the body. Step-ups with slow step-downs, single-leg RDLs, adductors without a bench.',
+    summary: 'Climbing legs, hinge and calves, in that order. If time runs out, it’s the last superset that goes. Calf work is in the session now, not left for later.',
     blocks: [
-      WARM_UP_HIPS,
+      WARM_UP_8,
       {
         title: 'Strength B',
         items: [
-          { ex: 'step-up', sets: 4, reps: '10 / side', load: 'backpack · 16 kg', superset: 'a', note: 'Use the couch, a step or a low wall at knee height. 3 s down.' },
-          { ex: 'prone-yt', sets: 4, reps: '8 each · no weight', rest: 45, superset: 'a' },
-          { ex: 'kb-single-leg-rdl', sets: 3, reps: '10 / side', load: '16 kg', superset: 'b', note: 'Bell in the LEFT hand for both legs.' },
-          { ex: 'side-plank', sets: 3, hold: 40, perSide: true, rest: 45, superset: 'b', note: 'Right side on your knees if the elbow complains.' },
-          ...ADDUCTORS,
-          { ex: 'suitcase-carry', sets: 2, reps: '40 m · left hand only', load: '16 kg', rest: 45 },
+          { ex: 'step-up', sets: 3, reps: '10 / side', load: 'backpack · 16 kg', superset: 'a', note: 'The main event. Couch, step or low wall at knee height, 3 s down.' },
+          { ex: 'calf-single', sets: 3, reps: '12 / side', rest: 60, superset: 'a', note: 'Slow, full range. Right calf: tightness is fine, pain isn’t.' },
+          { ex: 'kb-single-leg-rdl', sets: 3, reps: '8 / side', load: '16 kg', superset: 'b', note: 'Bell in the LEFT hand for both legs.' },
+          { ex: 'side-plank', sets: 3, hold: 30, perSide: true, rest: 45, superset: 'b', note: 'Right side on your knees if the elbow complains.' },
+          { ex: 'side-lying-adduction', sets: 2, reps: '12 / side', superset: 'c' },
+          { ex: 'calf-bent-knee', sets: 2, reps: '15', rest: 30, superset: 'c', note: 'The soleus: usually the tight one in runners.' },
         ],
       },
-      CALF_7,
       ARM_7,
-      NECK_7,
+      NECK_8,
     ],
   },
   {
@@ -1202,22 +1218,22 @@ export const SESSIONS: Session[] = [
   // ---- Week 8 · 23 Nov: first benchmark, three strength sessions ------------
   {
     id: '2026-11-23-strength-a', date: '2026-11-23', title: 'Strength A', kind: 'strength',
-    summary: 'Progression week: more reps on the split squats, a fifth set of swings. Endeavor dinner tonight, so get this done in the morning.',
+    summary: 'Three hard sets beat four tired ones. Split squats go to 10 reps, swings get paired with calves. Endeavor dinner tonight, so get this done in the morning.',
     blocks: [
-      WARM_UP_HIPS,
+      WARM_UP_8,
       {
         title: 'Strength A',
         items: [
-          { ex: 'rfe-split-squat', sets: 4, reps: '10 / side · 3 s down', load: 'backpack · 16 kg', superset: 'a' },
-          { ex: 'kb-row', sets: 4, reps: '12 · left arm only · pause at top', load: '16 kg', rest: 60, superset: 'a' },
-          { ex: 'kb-swing', sets: 5, reps: '15 · left hand', load: '16 kg', superset: 'b' },
-          { ex: 'dead-bug', sets: 5, reps: '10 / side', rest: 60, superset: 'b' },
-          ...ADDUCTORS.map(rx => ({ ...rx, sets: 3 })),
+          { ex: 'rfe-split-squat', sets: 3, reps: '10 / side · 3 s down', load: 'backpack · 16 kg', superset: 'a', note: 'The main event. The last 2 reps should be hard.' },
+          { ex: 'kb-row', sets: 3, reps: '12 · left arm only', load: '16 kg', rest: 60, superset: 'a', note: 'Upper-back strength for the neck. Right arm rests.' },
+          { ex: 'kb-swing', sets: 3, reps: '15 · left hand', load: '16 kg', superset: 'b' },
+          { ex: 'calf-single', sets: 3, reps: '12 / side', rest: 45, superset: 'b', note: 'Once 12 is easy, hold the 16 kg in the LEFT hand.' },
+          { ex: 'side-plank', sets: 2, hold: 40, perSide: true, superset: 'c' },
+          { ex: 'pogo-hops', sets: 2, reps: '20 contacts', rest: 45, superset: 'c', note: 'Only if the right calf has been loose in the mornings. Otherwise skip.' },
         ],
       },
-      CALF_8,
       ARM_7,
-      NECK_7,
+      NECK_8,
     ],
   },
   {
@@ -1226,27 +1242,27 @@ export const SESSIONS: Session[] = [
     blocks: [
       run(30),
       { title: 'Strides · only if the calf is loose', items: [{ ex: 'strides', sets: 6, hold: 20, rest: 60, restLabel: 'Walk back' }] },
-      CALF_8,
       ARM_7,
     ],
   },
   {
     id: '2026-11-25-strength-b', date: '2026-11-25', title: 'Strength B', kind: 'strength',
-    summary: 'Step-ups go to 12, RDLs to 4 sets. Keep the legs honest: tomorrow is the Cooper test, so stop each set with 2 reps in the tank.',
+    summary: 'Step-ups go to 12, calves get the bell. The Cooper test is tomorrow, so stop every set with 2 reps in the tank.',
     blocks: [
-      WARM_UP_HIPS,
+      WARM_UP_8,
       {
         title: 'Strength B',
         items: [
-          { ex: 'step-up', sets: 4, reps: '12 / side', load: 'backpack · 16 kg', superset: 'a' },
-          { ex: 'prone-yt', sets: 4, reps: '10 each · no weight', rest: 45, superset: 'a' },
-          { ex: 'kb-single-leg-rdl', sets: 4, reps: '10 / side', load: '16 kg', superset: 'b', note: 'Bell in the LEFT hand for both legs.' },
-          { ex: 'side-plank', sets: 3, hold: 45, perSide: true, rest: 45, superset: 'b' },
-          ...ADDUCTORS.map(rx => ({ ...rx, sets: 3 })),
+          { ex: 'step-up', sets: 3, reps: '12 / side', load: 'backpack · 16 kg', superset: 'a' },
+          { ex: 'calf-single', sets: 3, reps: '10 / side', load: '16 kg · left hand', rest: 60, superset: 'a', note: 'Bodyweight if the right calf is still tight.' },
+          { ex: 'kb-single-leg-rdl', sets: 3, reps: '8 / side', load: '16 kg', superset: 'b', note: 'Bell in the LEFT hand for both legs.' },
+          { ex: 'side-plank', sets: 3, hold: 35, perSide: true, rest: 45, superset: 'b' },
+          { ex: 'side-lying-adduction', sets: 2, reps: '12 / side', superset: 'c' },
+          { ex: 'calf-bent-knee', sets: 2, reps: '15', rest: 30, superset: 'c' },
         ],
       },
       ARM_7,
-      NECK_7,
+      NECK_8,
     ],
   },
   {
@@ -1269,7 +1285,7 @@ export const SESSIONS: Session[] = [
     id: '2026-11-27-strength-c', date: '2026-11-27', title: 'Strength C', kind: 'strength',
     summary: 'A lighter third session: trunk, hips and the left arm. Legs stay fresh for tomorrow’s long run.',
     blocks: [
-      WARM_UP_HIPS,
+      WARM_UP_8,
       {
         title: 'Strength C',
         items: [
@@ -1288,7 +1304,6 @@ export const SESSIONS: Session[] = [
           { ex: 'open-book', reps: '8 / side' },
         ],
       },
-      CALF_8,
       ARM_7,
     ],
   },
@@ -1480,11 +1495,35 @@ export function supersetPartner(steps: Step[], idx: number): number | null {
 }
 
 // --- Time estimates -------------------------------------------------------
-// Rough but honest: rep sets ≈ 40 s (75 s when it's "/ side"), holds are
-// their length, plus rests between sets and ~15 s to set up each exercise.
+// Calibrated against a real session (16 Nov: the old estimate said ~40 min, and
+// the last three exercises didn't fit in 45). Counts the actual reps, slow
+// tempos, both sides and the ~20 s it takes to get set up for every set: pack
+// on, bell in hand, glance at the app.
 
-const workSecs = (rx: Prescription) =>
-  rx.hold ? rx.hold * (rx.perSide ? 2 : 1) : rx.reps && /\/ side|each/.test(rx.reps) ? 75 : 40;
+const SETUP = 20;       // per set
+const SIDE_SWITCH = 10; // per set, when it's done on both sides
+const MOVE_ON = 30;     // between exercises / supersets
+
+function repSecs(rx: Prescription): number {
+  const reps = rx.reps ?? '';
+  const iso = reps.match(/× (\d+) s\b/);          // "10 × 5 s" squeezes
+  if (iso) return Number(iso[1]) + 2;
+  if (/3 s down|slow/.test(reps) || rx.ex === 'step-up') return 6;
+  if (rx.ex === 'kb-swing' || rx.ex === 'pogo-hops') return 2.5;
+  return 4;
+}
+
+function workSecs(rx: Prescription): number {
+  const sides = rx.perSide || /\/ side|\/ leg|each/.test(rx.reps ?? '') ? 2 : 1;
+  const switchCost = sides === 2 ? SIDE_SWITCH : 0;
+  if (rx.hold) return rx.hold * (rx.perSide ? 2 : 1) + switchCost + SETUP;
+  const reps = rx.reps ?? '';
+  const metres = reps.match(/(\d+) m\b/);
+  if (metres) return Number(metres[1]) * 1.5 + SETUP;  // carries
+  const n = Number(reps.match(/\d+/)?.[0] ?? NaN);
+  if (!Number.isFinite(n) || /max|score|record/.test(reps)) return 60 + SETUP;
+  return n * repSecs(rx) * sides + switchCost + SETUP;
+}
 
 export function blockSeconds(b: Block): number {
   let total = 0;
@@ -1494,7 +1533,8 @@ export function blockSeconds(b: Block): number {
     if (rx.superset && group[0] !== rx) continue; // counted with its group
     const sets = Math.max(...group.map(x => x.sets ?? 1));
     const rest = group[group.length - 1].rest ?? 0;
-    total += sets * group.reduce((t, x) => t + workSecs(x), 0) + (sets - 1) * rest + 15 * group.length;
+    const round = group.reduce((t, x) => t + workSecs(x), 0);
+    total += sets * round + (sets - 1) * rest + (total ? MOVE_ON : 0);
   }
   return total;
 }

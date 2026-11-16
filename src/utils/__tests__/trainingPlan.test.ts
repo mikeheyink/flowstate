@@ -72,15 +72,30 @@ describe('supersets and time estimates', () => {
       { ex: 'a', sets: 3, reps: '10', superset: 'a' },
       { ex: 'b', sets: 3, reps: '10', rest: 60, superset: 'a' },
     ] });
-    // 3 rounds × (40 + 40) + 2 rests × 60 + 2 × 15 setup
-    expect(paired).toBe(240 + 120 + 30);
+    // 3 rounds × 2 × (10 reps × 4 s + 20 s setup) + 2 rests × 60
+    expect(paired).toBe(360 + 120);
+  });
+
+  it('counts real reps, slow tempo and both sides', async () => {
+    const { blockSeconds } = await import('../trainingPlan');
+    const one = (reps: string) => blockSeconds({ title: 'x', items: [{ ex: 'rfe-split-squat', reps }] });
+    expect(one('8')).toBe(8 * 4 + 20);
+    expect(one('8 / side')).toBe(8 * 4 * 2 + 10 + 20);
+    expect(one('8 / side · 3 s down')).toBe(8 * 6 * 2 + 10 + 20);
+  });
+
+  it('keeps every strength day from 18 Nov inside the 45 min budget', async () => {
+    const { sessionMinutes } = await import('../trainingPlan');
+    for (const s of SESSIONS.filter(s => s.kind === 'strength' && s.date >= '2026-11-18')) {
+      expect(sessionMinutes(s), s.id).toBeLessThanOrEqual(45);
+    }
   });
 
   it('estimates a believable length for the week 2 strength day', async () => {
     const { sessionMinutes } = await import('../trainingPlan');
     const m = sessionMinutes(SESSIONS.find(s => s.id === '2026-10-12-strength-a')!);
-    // Core (warm-up + supersets) fits a ~30 min morning; calf + neck are "anytime".
-    expect(m).toBeGreaterThanOrEqual(25);
-    expect(m).toBeLessThanOrEqual(35);
+    // Core (warm-up + supersets) fits the 45 min morning; calf + neck are "anytime".
+    expect(m).toBeGreaterThanOrEqual(35);
+    expect(m).toBeLessThanOrEqual(45);
   });
 });
