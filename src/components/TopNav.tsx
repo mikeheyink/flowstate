@@ -7,6 +7,7 @@ import { useMailStore } from '../store/useMailStore';
 import { useTaskStore } from '../store/useTaskStore';
 import { useIsMobile } from '../hooks/useIsMobile';
 import { supabase } from '../utils/supabase';
+import { Clock } from './Clock';
 
 interface TopNavProps {
     session: any;
@@ -288,6 +289,9 @@ export function TopNav({ session, isGuest, setGuestMode }: TopNavProps) {
                         </button>
                     </div>
                 </div>
+
+                {/* Clock — the actual time, always in the top-right corner */}
+                <Clock className="border-l border-slate-200 dark:border-slate-800 pl-4" />
             </div>
         </div>
     );
