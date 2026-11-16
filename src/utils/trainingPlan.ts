@@ -425,6 +425,13 @@ const VIDEOS: Record<string, { id: string; start?: number }> = {
   'kb-swing': { id: '5ESeF0kmo0k' },                     // "Single Arm Russian Kettlebell Swing" · short
   'adductor-squeeze': { id: 'VvdBX1cD_to' },             // "Isometric Adduction Squeezes with Ball"
   'side-lying-adduction': { id: 'RYNirxq46Tw' },         // "Sidelying Hip Adductor Isotonics for Early Groin Rehab" · short
+  'single-leg-balance': { id: '6X24BKKQep0' },           // "Single-Leg Balance with Eyes Closed" · short
+  'strides': { id: '6-Liai7MqzM' },                      // "How To Run Strides"
+  'trail-long-run': { id: 'LRNxa9tgGsg' },               // "Power Hike - Técnicas de Subida" · short (plays muted, so language doesn't matter)
+  'trail-run-walk': { id: 'LRNxa9tgGsg' },
+  'half-swings': { id: 'AGsIKKZRrD4' },                  // "Half Swing Drill" · short
+  // No demo on purpose: easy-run, run-walk, brisk-walk, cooper-test. There's
+  // no movement to show, and the cue and how-to cover them.
 };
 
 const LIBRARY = new Map(EXERCISES.map(e => [e.id, { ...e, video: VIDEOS[e.id] ?? e.video }]));
