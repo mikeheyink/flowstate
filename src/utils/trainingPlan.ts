@@ -419,6 +419,12 @@ const VIDEOS: Record<string, { id: string; start?: number }> = {
   'knee-to-wall': { id: 'KmiPXKmoUbs' },                 // E3 Rehab · 14s
   'single-leg-calf-raise-test': { id: 'fSXnnvgKST4' },   // 16s
   'single-leg-hop': { id: '6yOw02lrmu8' },               // Theory of Motion · 8s
+  // Picked from search results on 16 Nov: YouTube was unreachable from the
+  // session, so these are NOT oEmbed-verified. Swap any that don't play.
+  'arm-circles': { id: 'RN40wyH6x9o' },                  // "How To Do Arm Circles Properly for Beginners" · short
+  'kb-swing': { id: '5ESeF0kmo0k' },                     // "Single Arm Russian Kettlebell Swing" · short
+  'adductor-squeeze': { id: 'VvdBX1cD_to' },             // "Isometric Adduction Squeezes with Ball"
+  'side-lying-adduction': { id: 'RYNirxq46Tw' },         // "Sidelying Hip Adductor Isotonics for Early Groin Rehab" · short
 };
 
 const LIBRARY = new Map(EXERCISES.map(e => [e.id, { ...e, video: VIDEOS[e.id] ?? e.video }]));
